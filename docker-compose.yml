@@ -41,7 +41,13 @@ services:
       - no-new-privileges:true
     environment:
       TZ: ${TZ:-Europe/Berlin}
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-karaoke}:${POSTGRES_PASSWORD}@karaoke-db:5432/${POSTGRES_DB:-karaoke}
+      # Connection parts are passed separately; the app URL-encodes the password,
+      # so special characters (@ : / # % ...) in POSTGRES_PASSWORD are fine.
+      POSTGRES_HOST: karaoke-db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-karaoke}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-karaoke}
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       APP_TITLE: ${APP_TITLE:-Karaoke Dashboard}

@@ -77,6 +77,31 @@ docker compose pull && docker compose up -d
 The database schema is created automatically; there are no manual migration
 steps for now.
 
+### Troubleshooting
+
+The app prints what it's doing on startup:
+
+```
+[startup] connecting to database at karaoke-db:5432/karaoke
+[startup] database connection OK
+```
+
+**`database unreachable ... after 30 attempts` / `Name or service not known`**
+— the app can't resolve the DB host. Check, in order:
+
+1. Both containers were started from the **same** compose project (so they share
+   one network). Deploying the two containers separately will not work.
+2. `POSTGRES_PASSWORD` in `.env` has no `$`, no `#`, no surrounding quotes and no
+   stray spaces — compose mangles those and the value the DB gets won't match.
+   Regenerate with `openssl rand -hex 24` if unsure.
+3. If you changed `POSTGRES_PASSWORD` after the first start, the database volume
+   still has the **old** password baked in. Wipe it and redeploy:
+   remove the stack, delete the contents of
+   `/volume1/docker/karaoke-dashboard/db`, start again.
+
+**`password authentication failed for user "karaoke"`** — same as (3): the volume
+was initialised with a different password. Wipe `…/db` and redeploy.
+
 ---
 
 ## Configuration
@@ -85,7 +110,9 @@ All settings are environment variables (see `.env.example` and `app/config.py`).
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `DATABASE_URL` | `postgresql+psycopg://karaoke:karaoke@db:5432/karaoke` | SQLAlchemy URL. `sqlite:///./x.db` also works for a quick trial. |
+| `POSTGRES_HOST` / `POSTGRES_PORT` | `db` / `5432` | Database host/port. The compose file sets the host to `karaoke-db`. |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `karaoke` / `karaoke` / `karaoke` | The app URL-encodes the password, so `@ : / % #` in it are safe. |
+| `DATABASE_URL` | *(empty)* | Optional. A full SQLAlchemy URL that overrides the `POSTGRES_*` parts (e.g. `sqlite:///./dev.db` or a managed-DB URL). |
 | `SECRET_KEY` | *(insecure dev value)* | **Required in production.** Signs the session cookie. |
 | `SESSION_COOKIE_SECURE` | `true` | Send the session cookie only over HTTPS. |
 | `SONGS_DIR` | `/songs` | Directory scanned for song sub-folders. Mount read-only. |

@@ -29,7 +29,10 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg://karaoke:karaoke@db:5432/karaoke
+      POSTGRES_HOST: db
+      POSTGRES_USER: karaoke
+      POSTGRES_PASSWORD: karaoke
+      POSTGRES_DB: karaoke
       SECRET_KEY: dev-only-not-secret
       SESSION_COOKIE_SECURE: "false"
       SONGS_DIR: /songs

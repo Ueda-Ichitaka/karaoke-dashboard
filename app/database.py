@@ -11,7 +11,7 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from .config import settings
 
-engine = create_engine(settings.database_url, pool_pre_ping=True, future=True)
+engine = create_engine(settings.sqlalchemy_url, pool_pre_ping=True, future=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False, future=True)
 
 
@@ -31,16 +31,20 @@ def get_db() -> Iterator[Session]:
 def wait_for_db(retries: int = 30, delay: float = 2.0) -> None:
     """Block until the database accepts connections (compose starts containers in parallel)."""
     last_err: Exception | None = None
+    print(f"[startup] connecting to database at {settings.db_target}")
     for attempt in range(1, retries + 1):
         try:
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
+            print("[startup] database connection OK")
             return
         except OperationalError as err:  # pragma: no cover - timing dependent
             last_err = err
-            print(f"[startup] database not ready (attempt {attempt}/{retries}); retrying in {delay}s")
+            print(f"[startup] database not ready (attempt {attempt}/{retries}): {err.orig}")
             time.sleep(delay)
-    raise RuntimeError(f"database unreachable after {retries} attempts") from last_err
+    raise RuntimeError(
+        f"database unreachable at {settings.db_target} after {retries} attempts"
+    ) from last_err
 
 
 def init_db() -> None:

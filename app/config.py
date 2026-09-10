@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from urllib.parse import quote
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,8 +15,18 @@ class Settings(BaseSettings):
     # Branding
     app_title: str = "Karaoke Dashboard"
 
-    # Database — SQLAlchemy URL. Default matches the bundled docker-compose "db" service.
-    database_url: str = "postgresql+psycopg://karaoke:karaoke@db:5432/karaoke"
+    # --- Database -------------------------------------------------------------
+    # Preferred: give the connection as discrete parts. The password is URL-encoded
+    # by the app, so it may contain @ : / # % and other special characters.
+    postgres_host: str = "db"
+    postgres_port: int = 5432
+    postgres_db: str = "karaoke"
+    postgres_user: str = "karaoke"
+    postgres_password: str = "karaoke"
+
+    # Optional escape hatch: a full SQLAlchemy URL. When set, it wins over the
+    # POSTGRES_* parts above (e.g. "sqlite:///./dev.db" or a managed-DB URL).
+    database_url: str = ""
 
     # Session signing key. MUST be set to a long random value in production.
     secret_key: str = Field(default="dev-insecure-change-me", min_length=1)
@@ -41,6 +52,24 @@ class Settings(BaseSettings):
 
     # Include a header row in the requested-songs CSV export.
     csv_include_header: bool = True
+
+    @property
+    def sqlalchemy_url(self) -> str:
+        if self.database_url:
+            return self.database_url
+        user = quote(self.postgres_user, safe="")
+        password = quote(self.postgres_password, safe="")
+        return (
+            f"postgresql+psycopg://{user}:{password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        )
+
+    @property
+    def db_target(self) -> str:
+        """Human-readable host:port/db for logs (no credentials)."""
+        if self.database_url:
+            return self.database_url.split("@")[-1] or self.database_url
+        return f"{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
 
     @property
     def is_dev_secret(self) -> bool:

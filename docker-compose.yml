@@ -1,0 +1,65 @@
+####################################################################
+#  Karaoke Dashboard — Synology / docker-compose stack
+#  Style: mariushosting Synology tutorials
+#
+#  1. Create the folders on your NAS:
+#       /volume1/docker/karaoke-dashboard/db
+#  2. Copy .env.example to .env (next to this file) and fill it in.
+#  3. Adjust the songs bind-mount below to your real library path.
+#  4. Container Manager → Project → create from this file.
+####################################################################
+
+services:
+
+  karaoke-db:
+    image: postgres:16-alpine
+    container_name: Karaoke-DB
+    hostname: karaoke-db
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-karaoke}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-karaoke}
+    volumes:
+      - /volume1/docker/karaoke-dashboard/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-karaoke} -d ${POSTGRES_DB:-karaoke}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: on-failure:5
+
+  karaoke-dashboard:
+    image: ghcr.io/ueda-ichitaka/karaoke-dashboard:latest
+    container_name: Karaoke-Dashboard
+    hostname: karaoke-dashboard
+    depends_on:
+      karaoke-db:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-karaoke}:${POSTGRES_PASSWORD}@karaoke-db:5432/${POSTGRES_DB:-karaoke}
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      APP_TITLE: ${APP_TITLE:-Karaoke Dashboard}
+      SONGS_DIR: /songs
+      # Folder names are split on " - " into Artist / Title by default.
+      # To change it, uncomment and keep the quotes so spaces survive:
+      # SONG_SEPARATOR: " - "
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env for first run}
+    ports:
+      - ${WEB_PORT:-9713}:8000
+    volumes:
+      # LEFT side = path to your existing karaoke library on the NAS (read-only).
+      - /volume1/music/karaoke:/songs:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: on-failure:5

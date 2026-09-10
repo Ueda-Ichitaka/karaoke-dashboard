@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Requested songs · {{ app_title }}{% endblock %}
+{% block content %}
+<section class="page">
+  <div class="page-head">
+    <h1>Requested songs</h1>
+    <p class="subtle">{{ open_count }} open</p>
+  </div>
+
+  <div class="toolbar">
+    <div class="segmented">
+      <a href="/admin/requests?show=open" class="{{ 'active' if show == 'open' }}">Open</a>
+      <a href="/admin/requests?show=all" class="{{ 'active' if show == 'all' }}">All</a>
+    </div>
+    <div class="toolbar-right">
+      <a class="btn btn-small" href="/admin/requests.csv?scope=open">Export open CSV</a>
+      <a class="btn btn-small btn-ghost" href="/admin/requests.csv?scope=all">Export all CSV</a>
+    </div>
+  </div>
+
+  {% if not requests %}
+    <p class="empty">Nothing here.</p>
+  {% else %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>When</th><th>Band</th><th>Song</th><th>YouTube</th><th>By</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for r in requests %}
+            <tr class="{{ 'row-done' if r.status == 'done' }}">
+              <td class="nowrap">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td>{{ r.band_name }}</td>
+              <td>{{ r.song_name }}</td>
+              <td class="wrap">
+                {% if r.youtube_url %}<a href="{{ r.youtube_url }}" target="_blank" rel="noopener">link</a>{% else %}—{% endif %}
+              </td>
+              <td class="nowrap">{{ r.requester_username }}</td>
+              <td>{{ r.status }}</td>
+              <td class="nowrap">
+                <form method="post" action="/admin/requests/{{ r.id }}/status">
+                  <input type="hidden" name="show" value="{{ show }}">
+                  {% if r.status == 'open' %}
+                    <button class="btn btn-small" name="status" value="done">Mark done</button>
+                  {% else %}
+                    <button class="btn btn-small btn-ghost" name="status" value="open">Reopen</button>
+                  {% endif %}
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

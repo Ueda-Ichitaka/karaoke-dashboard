@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Songs · {{ app_title }}{% endblock %}
+{% block content %}
+<section class="page">
+  <div class="page-head">
+    <h1>Song library</h1>
+    <p class="subtle">{{ total }} song{{ '' if total == 1 else 's' }} available</p>
+  </div>
+
+  <form class="search" method="get" action="/songs" role="search">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search for a band or a song…"
+           autocomplete="off" autofocus aria-label="Search songs"
+           data-live-search data-target="#song-results" data-endpoint="/songs/partial">
+    <button type="submit" class="btn">Search</button>
+    {% if q %}<a class="btn btn-ghost" href="/songs">Clear</a>{% endif %}
+  </form>
+
+  <div id="song-results">
+    {% include "_song_list.html" %}
+  </div>
+</section>
+<script src="/static/app.js" defer></script>
+{% endblock %}

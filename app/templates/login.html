@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Log in · {{ app_title }}{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <h1>Log in</h1>
+  <p class="subtle">You need an account to report or request songs.</p>
+
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+  <form class="stack-form" method="post" action="/login">
+    <input type="hidden" name="next" value="{{ next }}">
+    <label>
+      <span>Username</span>
+      <input type="text" name="username" required autofocus autocomplete="username">
+    </label>
+    <label>
+      <span>Password</span>
+      <input type="password" name="password" required autocomplete="current-password">
+    </label>
+    <button type="submit" class="btn btn-primary">Log in</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Report a broken song · {{ app_title }}{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <h1>Report a broken song</h1>
+  <p class="subtle">Tell the admin which song is broken and what's wrong with it.</p>
+
+  {% if submitted %}
+    <div class="alert alert-ok">
+      Thanks — your report for <strong>{{ submitted_song }}</strong> was submitted.
+    </div>
+    <p><a class="btn" href="/report">Report another</a> <a class="btn btn-ghost" href="/songs">Back to songs</a></p>
+  {% else %}
+    {% if errors %}
+      <div class="alert alert-error">
+        <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      </div>
+    {% endif %}
+
+    <form class="stack-form" method="post" action="/report">
+      <div class="field">
+        <span class="field-label">Broken song</span>
+        <div class="picker" data-picker
+             data-endpoint="/report/songs/partial"
+             data-input="#song_folder">
+          <input type="hidden" name="song_folder" id="song_folder" value="{{ form.song_folder or '' }}">
+          <div class="picker-chosen{{ '' if form.song_folder else ' empty' }}" data-chosen>
+            {{ form.song_folder or 'No song selected' }}
+          </div>
+          <input type="search" class="picker-search" placeholder="Search the library…" autocomplete="off"
+                 data-picker-search aria-label="Search for the broken song">
+          <div class="picker-results" data-picker-results hidden></div>
+        </div>
+      </div>
+
+      <label class="field">
+        <span class="field-label">What's broken? <em>(required)</em></span>
+        <textarea name="description" rows="4" required
+                  placeholder="e.g. lyrics are out of sync, audio cuts out after the first chorus, wrong key…">{{ form.description or '' }}</textarea>
+      </label>
+
+      <button type="submit" class="btn btn-primary">Submit report</button>
+    </form>
+  {% endif %}
+</section>
+<script src="/static/app.js" defer></script>
+{% endblock %}

@@ -1,0 +1,58 @@
+# --- Secrets / local config ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.installed.cfg
+*.egg
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Tooling caches ---
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+
+# --- Local song libraries / data ---
+# Point SONGS_DIR (or the dev compose bind-mount) at a real library locally;
+# never commit media into the repo.
+songs/
+songs-sample/
+*.sqlite
+*.sqlite3
+*.db
+pgdata/
+
+# --- Media ---
+*.mp3
+*.mp4
+*.mkv
+*.avi
+*.webm
+*.cdg
+*.usdb
+
+# --- Editors / OS ---
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db

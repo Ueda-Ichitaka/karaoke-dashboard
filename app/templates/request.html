@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Request a new song · {{ app_title }}{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <h1>Request a new song</h1>
+  <p class="subtle">Ask the admin to add a song to the karaoke library.</p>
+
+  {% if submitted %}
+    <div class="alert alert-ok">
+      Thanks — your request for <strong>{{ submitted_song }}</strong> was submitted.
+    </div>
+    <p><a class="btn" href="/request">Request another</a> <a class="btn btn-ghost" href="/songs">Back to songs</a></p>
+  {% else %}
+    {% if errors %}
+      <div class="alert alert-error">
+        <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      </div>
+    {% endif %}
+
+    <form class="stack-form" method="post" action="/request">
+      <label class="field">
+        <span class="field-label">Band / artist <em>(required)</em></span>
+        <input type="text" name="band_name" required value="{{ form.band_name or '' }}" placeholder="e.g. Queen">
+      </label>
+      <label class="field">
+        <span class="field-label">Song title <em>(required)</em></span>
+        <input type="text" name="song_name" required value="{{ form.song_name or '' }}" placeholder="e.g. Bohemian Rhapsody">
+      </label>
+      <label class="field">
+        <span class="field-label">YouTube link <em>(optional)</em></span>
+        <input type="url" name="youtube_url" value="{{ form.youtube_url or '' }}" placeholder="https://www.youtube.com/watch?v=…">
+      </label>
+      <button type="submit" class="btn btn-primary">Submit request</button>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

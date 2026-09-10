@@ -1,0 +1,44 @@
+####################################################################
+#  Local development / testing stack — builds the image from source.
+#     docker compose -f docker-compose.dev.yml up --build
+#  Then open http://localhost:8000  (admin / adminadmin)
+#
+#  Put a few folders in ./songs-sample first (it is git-ignored), or
+#  change the bind-mount below to point at a real karaoke library.
+####################################################################
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: karaoke
+      POSTGRES_PASSWORD: karaoke
+      POSTGRES_DB: karaoke
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U karaoke -d karaoke"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  web:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://karaoke:karaoke@db:5432/karaoke
+      SECRET_KEY: dev-only-not-secret
+      SESSION_COOKIE_SECURE: "false"
+      SONGS_DIR: /songs
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: adminadmin
+      SCAN_CACHE_SECONDS: "2"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./songs-sample:/songs:ro
+      - ./app:/app/app:ro

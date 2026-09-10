@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} · {{ app_title }}{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <h1>{{ code }}</h1>
+  <p class="subtle">{{ message }}</p>
+  <p><a class="btn" href="/songs">Back to songs</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% if result.total == 0 %}
+  <p class="empty">
+    {% if q %}No songs match “{{ q }}”.{% else %}No songs found in the library yet.{% endif %}
+  </p>
+{% else %}
+  <p class="result-count">
+    {{ result.total }} song{{ '' if result.total == 1 else 's' }}{% if q %} matching “{{ q }}”{% endif %}
+  </p>
+  <ul class="song-list">
+    {% for song in result.items %}
+      <li class="song-row">
+        <span class="song-index">{{ loop.index + (result.page - 1) * result.page_size }}</span>
+        <span class="song-main">
+          {% if song.artist %}
+            <span class="song-artist">{{ song.artist }}</span>
+            <span class="song-title">{{ song.title }}</span>
+          {% else %}
+            <span class="song-title">{{ song.title }}</span>
+          {% endif %}
+        </span>
+      </li>
+    {% endfor %}
+  </ul>
+  {% if result.pages > 1 %}
+    <nav class="pager">
+      {% if result.has_prev %}
+        <a href="/songs?q={{ q|urlencode }}&page={{ result.page - 1 }}">&larr; Prev</a>
+      {% else %}<span class="disabled">&larr; Prev</span>{% endif %}
+      <span class="pager-pos">Page {{ result.page }} of {{ result.pages }}</span>
+      {% if result.has_next %}
+        <a href="/songs?q={{ q|urlencode }}&page={{ result.page + 1 }}">Next &rarr;</a>
+      {% else %}<span class="disabled">Next &rarr;</span>{% endif %}
+    </nav>
+  {% endif %}
+{% endif %}

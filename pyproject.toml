@@ -1,0 +1,18 @@
+[project]
+name = "karaoke-dashboard"
+version = "1.0.0"
+description = "Browse the karaoke library, report broken songs and request new ones."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: FastAPI's Depends()/Form() in argument defaults is the intended idiom.
+ignore = ["B008"]

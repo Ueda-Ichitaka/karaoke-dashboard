@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}{{ app_title }}{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🎤</text></svg>">
+</head>
+{% set path = request.url.path %}
+<body>
+<header class="topbar">
+  <a class="brand" href="/songs"><span class="brand-icon">🎤</span> {{ app_title }}</a>
+  <nav class="tabs">
+    <a href="/songs" class="{{ 'active' if path.startswith('/songs') or path == '/' }}">Songs</a>
+    <a href="/report" class="{{ 'active' if path.startswith('/report') }}">Report broken</a>
+    <a href="/request" class="{{ 'active' if path.startswith('/request') }}">Request song</a>
+    {% if current_user and current_user.is_admin %}
+      <span class="tab-sep"></span>
+      <a href="/admin/reports" class="{{ 'active' if path.startswith('/admin/reports') }}">Reported</a>
+      <a href="/admin/requests" class="{{ 'active' if path.startswith('/admin/requests') }}">Requested</a>
+      <a href="/admin/users" class="{{ 'active' if path.startswith('/admin/users') }}">Users</a>
+    {% endif %}
+  </nav>
+  <div class="account">
+    {% if current_user %}
+      <span class="who">{{ current_user.username }}{% if current_user.is_admin %} <span class="pill">admin</span>{% endif %}</span>
+      <form method="post" action="/logout"><button class="link-btn" type="submit">Log out</button></form>
+    {% else %}
+      <a class="btn btn-small" href="/login">Log in</a>
+    {% endif %}
+  </div>
+</header>
+
+<main class="content">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <span>{{ app_title }}</span>
+</footer>
+</body>
+</html>

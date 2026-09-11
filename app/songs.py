@@ -128,6 +128,10 @@ def search(query: str = "", page: int = 1, page_size: int | None = None) -> Page
     )
 
 
+def all_songs() -> list[Song]:
+    return _index.all()
+
+
 def get_by_folder(folder: str) -> Song | None:
     for song in _index.all():
         if song.folder == folder:

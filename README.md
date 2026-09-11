@@ -9,6 +9,7 @@ A small web app for a home karaoke system:
 | **Request song** | logged-in users | Ask for a new song: band + title (required), YouTube link (optional). |
 | **Reported** | admins | Review / resolve broken-song reports. |
 | **Requested** | admins | Review / close song requests, **export as CSV**. |
+| **Duplicates** | admins | Review songs that appear more than once, compare their metadata, dismiss false positives. |
 | **Users** | admins | Create users, reset passwords, grant/revoke admin, disable, delete. |
 
 Built with **FastAPI + Jinja2 + SQLAlchemy**, server-rendered, no JS framework.
@@ -23,6 +24,16 @@ duet, genre, year, language. Length comes from the actual audio/video file the
 song plays back (`#AUDIO`/`#MP3`/`#VIDEO`), not the rarely-present UltraStar
 `#START`/`#END` tags. No JavaScript is involved; it's a native `<details>`
 disclosure per row.
+
+**Duplicates** (`app/duplicates.py`) groups every UltraStar entry in the
+library by normalized artist + title, across folders *and* within a single
+folder (e.g. two differently-named `.txt` charts for the same song sitting
+next to each other). A group of two or more is a duplicate; its detail page
+shows each copy's folder/filename and a field-by-field diff (genre, year,
+language, length, cover, ...). A duet arrangement is never grouped with a
+solo one - that's an intentional variant, not a duplicate. Reviewing a group
+and clicking **Dismiss** records it (by its normalized key) so it's skipped
+on future scans, even after the underlying files change.
 
 ---
 
@@ -196,9 +207,11 @@ app/
   main.py            FastAPI app, middleware, error handlers
   config.py          env-based settings
   database.py        engine, session, wait-for-db, create tables
-  models.py          User, BrokenReport, SongRequest
+  models.py          User, BrokenReport, SongRequest, DismissedDuplicate
   security.py        password hashing, admin seed
   songs.py           filesystem scan + cached search index
+  ultrastar.py       UltraStar .txt metadata parsing (cover, length, duet, ...)
+  duplicates.py      cross-folder duplicate-song detection + dismissal
   deps.py            current-user / auth guards / template helper
   routes/            songs, auth, reports, requests, admin
   templates/         Jinja2 templates

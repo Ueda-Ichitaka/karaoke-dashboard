@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -60,3 +60,22 @@ class SongRequest(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
 
     requester: Mapped[User | None] = relationship(back_populates="song_requests")
+
+
+class DismissedDuplicate(Base):
+    """An admin-reviewed duplicate-song group that should stop being reported.
+
+    Duplicate groups are computed live from the filesystem (see
+    app/duplicates.py), not stored - a row here just remembers the group's
+    normalized (artist, title, duet) key so a future rescan skips it.
+    """
+
+    __tablename__ = "dismissed_duplicates"
+    __table_args__ = (UniqueConstraint("artist_key", "title_key", "is_duet", name="uq_dismissed_duplicate_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    artist_key: Mapped[str] = mapped_column(String(512))
+    title_key: Mapped[str] = mapped_column(String(512))
+    is_duet: Mapped[bool] = mapped_column(Boolean)
+    dismissed_by_username: Mapped[str] = mapped_column(String(64))
+    dismissed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

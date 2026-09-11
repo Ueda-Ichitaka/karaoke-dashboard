@@ -10,6 +10,7 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .. import duplicates
 from ..config import settings
 from ..database import get_db
 from ..deps import render, require_admin
@@ -125,6 +126,48 @@ def requests_csv(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# --------------------------------------------------------------------------- duplicates
+@router.get("/duplicates")
+def duplicates_view(
+    request: Request,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    groups = duplicates.find_duplicate_groups(db)
+    return render(request, "admin/duplicates.html", user, groups=groups)
+
+
+@router.get("/duplicates/{group_id}")
+def duplicate_detail(
+    group_id: str,
+    request: Request,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    group = duplicates.get_duplicate_group(db, group_id)
+    if group is None:
+        raise HTTPException(status_code=404)
+    return render(
+        request, "admin/duplicate_detail.html", user,
+        group=group,
+        rows=duplicates.field_diff(group),
+        dismissed=duplicates.is_dismissed(db, group),
+    )
+
+
+@router.post("/duplicates/{group_id}/dismiss")
+def duplicate_dismiss(
+    group_id: str,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    group = duplicates.get_duplicate_group(db, group_id)
+    if group is None:
+        raise HTTPException(status_code=404)
+    duplicates.dismiss_group(db, group, dismissed_by=user.username)
+    return RedirectResponse("/admin/duplicates", status_code=303)
 
 
 # --------------------------------------------------------------------------- users

@@ -90,6 +90,32 @@ _JUNK_DIR = _SONGS_DIR / "Testband - Junk Text"
 _JUNK_DIR.mkdir(exist_ok=True)
 (_JUNK_DIR / "readme.txt").write_text("just some notes, not a song file\n", encoding="utf-8")
 
+# Two folders holding the same song (same artist/title, different folders) -
+# a genuine accidental duplicate, with a differing genre tag to exercise the
+# per-field diff.
+_DUP_A_DIR = _SONGS_DIR / "Coverband - Copycat Song"
+_DUP_A_DIR.mkdir(exist_ok=True)
+(_DUP_A_DIR / "Copycat Song.txt").write_text(
+    "#TITLE:Copycat Song\n#ARTIST:Coverband\n#GENRE:Rock\n#BPM:130\n#GAP:0\nE\n",
+    encoding="utf-8",
+)
+_DUP_B_DIR = _SONGS_DIR / "Coverband - Copycat Song (Reupload)"
+_DUP_B_DIR.mkdir(exist_ok=True)
+(_DUP_B_DIR / "Copycat Song.txt").write_text(
+    "#TITLE:  copycat song  \n#ARTIST:Coverband\n#GENRE:Pop\n#BPM:130\n#GAP:0\nE\n",
+    encoding="utf-8",
+)
+
+# A duet arrangement of that same song. It must NOT be grouped with the two
+# solo copies above - duet vs. solo is an intentional variant, not a dupe.
+_DUP_DUET_DIR = _SONGS_DIR / "Coverband - Copycat Song (Duet)"
+_DUP_DUET_DIR.mkdir(exist_ok=True)
+(_DUP_DUET_DIR / "Copycat Song.txt").write_text(
+    "#TITLE:Copycat Song\n#ARTIST:Coverband\n#DUETSINGERP1:Alice\n#DUETSINGERP2:Bob\n"
+    "#BPM:130\n#GAP:0\nE\n",
+    encoding="utf-8",
+)
+
 os.environ.update(
     DATABASE_URL=f"sqlite:///{_TMP / 'test.db'}",
     SECRET_KEY="test-secret",

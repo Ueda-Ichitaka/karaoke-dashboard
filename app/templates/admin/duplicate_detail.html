@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Duplicate · {{ group.display_title }} · {{ app_title }}{% endblock %}
+{% block content %}
+<section class="page">
+  <div class="page-head">
+    <h1>{% if group.display_artist %}{{ group.display_artist }} - {% endif %}{{ group.display_title }}</h1>
+    <p class="subtle">
+      {{ group.entries|length }} copies{% if group.is_duet %} · duet{% endif %}{% if dismissed %} · dismissed{% endif %}
+    </p>
+  </div>
+
+  <div class="table-wrap">
+    <table class="data-table dup-diff">
+      <thead>
+        <tr>
+          <th>Field</th>
+          {% for e in group.entries %}<th>Copy {{ loop.index }}</th>{% endfor %}
+        </tr>
+        <tr>
+          <th>Path</th>
+          {% for e in group.entries %}<th class="mono wrap">{{ e.folder }}/{{ e.meta.source_file }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr class="{{ 'row-diff' if row.differs else '' }}">
+            <td>{{ row.label }}</td>
+            {% for v in row.values %}<td>{{ v }}</td>{% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="toolbar">
+    <a class="btn btn-small btn-ghost" href="/admin/duplicates">Back to list</a>
+    {% if not dismissed %}
+      <form method="post" action="/admin/duplicates/{{ group.group_id }}/dismiss">
+        <button class="btn btn-small" type="submit">Dismiss - not a duplicate</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

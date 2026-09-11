@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Duplicate songs · {{ app_title }}{% endblock %}
+{% block content %}
+<section class="page">
+  <div class="page-head">
+    <h1>Duplicate songs</h1>
+    <p class="subtle">{{ groups|length }} group{{ 's' if groups|length != 1 else '' }} awaiting review</p>
+  </div>
+
+  {% if not groups %}
+    <p class="empty">No duplicates found.</p>
+  {% else %}
+    <ul class="dup-list">
+      {% for g in groups %}
+        <li class="dup-row">
+          <div class="dup-info">
+            <a class="dup-title" href="/admin/duplicates/{{ g.group_id }}">
+              {% if g.display_artist %}{{ g.display_artist }} - {% endif %}{{ g.display_title }}
+            </a>
+            {% if g.is_duet %}<span class="pill">duet</span>{% endif %}
+            <span class="pill pill-count">{{ g.entries|length }} copies</span>
+          </div>
+          <ul class="dup-paths">
+            {% for e in g.entries %}
+              <li class="mono">{{ e.folder }}/{{ e.meta.source_file }}</li>
+            {% endfor %}
+          </ul>
+          <div class="actions">
+            <a class="btn btn-small" href="/admin/duplicates/{{ g.group_id }}">Review</a>
+            <form class="inline" method="post" action="/admin/duplicates/{{ g.group_id }}/dismiss">
+              <button class="btn btn-small btn-ghost" type="submit">Dismiss</button>
+            </form>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</section>
+{% endblock %}

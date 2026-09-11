@@ -54,7 +54,7 @@ def require_admin(
     if user is None:
         raise AuthRedirect(next_url=_relative_url(request))
     if not user.is_admin:
-        # Logged in but not allowed — surface a real 403 rather than a login loop.
+        # Logged in but not allowed - surface a real 403 rather than a login loop.
         from fastapi import HTTPException
 
         raise HTTPException(status_code=403, detail="Admin access required")

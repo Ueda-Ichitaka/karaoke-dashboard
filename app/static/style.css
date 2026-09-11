@@ -1,3 +1,6 @@
+/* About me: shared styles for every page - theme tokens, layout, forms,
+   tables, and the song list/detail cards. Plain CSS, no build step. */
+
 :root {
   --bg: #0f1115;
   --surface: #171a21;
@@ -133,20 +136,51 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .empty { color: var(--text-dim); padding: 32px 0; text-align: center; }
 
 /* ---------------------------------------------------------------- song list */
-.song-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.song-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+.song-list > li { border-bottom: 1px solid var(--border); }
+.song-list > li:last-child { border-bottom: none; }
+.song-list > li:nth-child(even) { background: var(--surface-2); }
+
+.song-item { }
 .song-row {
   display: flex; align-items: baseline; gap: 14px;
   padding: 11px 16px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
 }
-.song-row:last-child { border-bottom: none; }
-.song-row:nth-child(even) { background: var(--surface-2); }
+.song-row::-webkit-details-marker { display: none; }
+.song-row::before {
+  content: "\25B8";
+  color: var(--text-dim);
+  font-size: 11px;
+  flex: none;
+  transition: transform .15s ease;
+}
+.song-item[open] > .song-row::before { transform: rotate(90deg); }
+.song-row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .song-index { color: var(--text-dim); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
 .song-main { display: flex; flex-direction: column; }
 .song-artist { font-weight: 600; }
 .song-title { color: var(--text-dim); }
 .song-row .song-artist + .song-title { font-size: 14px; }
+
+/* -- song detail (expanded UltraStar metadata) -- */
+.song-detail { padding: 2px 16px 16px 44px; display: flex; flex-direction: column; gap: 14px; }
+.song-detail .empty.small { padding: 4px 0; text-align: left; font-size: 13px; }
+.song-meta-card { display: flex; gap: 14px; }
+.song-cover {
+  width: 64px; height: 64px; border-radius: 8px; object-fit: cover;
+  background: var(--surface-2); border: 1px solid var(--border); flex: none;
+}
+.song-cover-placeholder { display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.song-meta-info { min-width: 0; }
+.song-meta-info h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.song-meta-facts { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; font-size: 13px; }
+.song-meta-facts > div { display: flex; gap: 5px; }
+.song-meta-facts dt { color: var(--text-dim); margin: 0; }
+.song-meta-facts dd { margin: 0; font-weight: 500; }
+.song-source { margin: 6px 0 0; font-size: 11px; }
 
 .pager { display: flex; gap: 16px; align-items: center; justify-content: center; margin-top: 16px; color: var(--text-dim); font-size: 14px; }
 .pager .disabled { opacity: .4; }

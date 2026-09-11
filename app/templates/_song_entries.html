@@ -1,0 +1,45 @@
+{# About me: renders one song folder's UltraStar metadata card(s). A folder
+   can contain several distinct songs (a batch-import folder) - each gets its
+   own card, distinguished by its title and source .txt filename. #}
+{% set entries = entries_by_folder.get(song.folder, []) if entries_by_folder else [] %}
+{% if not entries %}
+  <p class="empty small">No additional metadata available for this song yet.</p>
+{% else %}
+  {% for meta in entries %}
+    <article class="song-meta-card">
+      {% if meta.cover_file %}
+        <img class="song-cover" loading="lazy" alt=""
+             src="/songs/{{ song.folder|urlencode }}/cover/{{ meta.cover_file|urlencode }}">
+      {% else %}
+        <div class="song-cover song-cover-placeholder" aria-hidden="true">🎤</div>
+      {% endif %}
+      <div class="song-meta-info">
+        <h3>
+          {{ meta.title }}
+          {% if meta.artist %}<span class="subtle">- {{ meta.artist }}</span>{% endif %}
+        </h3>
+        <dl class="song-meta-facts">
+          {% if meta.length_display %}
+            <div><dt>Length</dt><dd>{{ meta.length_display }}</dd></div>
+          {% endif %}
+          <div>
+            <dt>Duet</dt>
+            <dd>
+              {% if meta.is_duet %}
+                Yes{% if meta.duet_singers %} ({{ meta.duet_singers[0] }} and {{ meta.duet_singers[1] }}){% endif %}
+              {% else %}
+                No
+              {% endif %}
+            </dd>
+          </div>
+          {% if meta.genre %}<div><dt>Genre</dt><dd>{{ meta.genre }}</dd></div>{% endif %}
+          {% if meta.year %}<div><dt>Year</dt><dd>{{ meta.year }}</dd></div>{% endif %}
+          {% if meta.language %}<div><dt>Language</dt><dd>{{ meta.language }}</dd></div>{% endif %}
+        </dl>
+        {% if entries|length > 1 %}
+          <p class="song-source mono">{{ meta.source_file }}</p>
+        {% endif %}
+      </div>
+    </article>
+  {% endfor %}
+{% endif %}

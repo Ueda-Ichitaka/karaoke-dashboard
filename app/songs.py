@@ -19,7 +19,7 @@ class Song:
     @property
     def display(self) -> str:
         if self.artist:
-            return f"{self.artist} – {self.title}"
+            return f"{self.artist} - {self.title}"
         return self.title
 
     @property

@@ -20,7 +20,7 @@ from .security import seed_admin
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if settings.is_dev_secret:
-        print("[startup] WARNING: SECRET_KEY is the built-in default — set a strong value in production")
+        print("[startup] WARNING: SECRET_KEY is the built-in default - set a strong value in production")
     wait_for_db()
     init_db()
     with SessionLocal() as db:

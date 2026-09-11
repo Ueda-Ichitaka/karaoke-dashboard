@@ -1,5 +1,5 @@
 ####################################################################
-#  Karaoke Dashboard — Synology / docker-compose stack
+#  Karaoke Dashboard - Synology / docker-compose stack
 #  Style: mariushosting Synology tutorials
 #
 #  1. Create the folders on your NAS:
@@ -55,13 +55,14 @@ services:
       # Folder names are split on " - " into Artist / Title by default.
       # To change it, uncomment and keep the quotes so spaces survive:
       # SONG_SEPARATOR: " - "
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:?set ADMIN_USERNAME in .env for first run}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env for first run}
     ports:
       - ${WEB_PORT:-9713}:8000
     volumes:
       # LEFT side = path to your existing karaoke library on the NAS (read-only).
       - /volume1/music/karaoke:/songs:ro
+    user: 1026:100  
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz').status==200 else 1)"]
       interval: 30s

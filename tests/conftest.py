@@ -8,13 +8,25 @@ from __future__ import annotations
 
 import os
 import tempfile
+import wave
 from pathlib import Path
 
 import pytest
 
+
+def _write_silent_wav(path: Path, seconds: float, framerate: int = 100) -> None:
+    """A minimal, valid audio file of an exact known duration, for fixtures."""
+    n_frames = round(seconds * framerate)
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(1)
+        w.setframerate(framerate)
+        w.writeframes(b"\x00" * n_frames)
+
 # --- configure environment before importing the app -------------------------
 _TMP = Path(tempfile.mkdtemp(prefix="karaoke-test-"))
 _SONGS_DIR = _TMP / "songs"
+SONGS_DIR = _SONGS_DIR  # public alias for tests that need real fixture files
 _SONGS_DIR.mkdir(parents=True, exist_ok=True)
 for _name in [
     "Queen - Bohemian Rhapsody",
@@ -26,6 +38,57 @@ for _name in [
     (_SONGS_DIR / _name).mkdir(exist_ok=True)
 (_SONGS_DIR / "@eaDir").mkdir(exist_ok=True)
 (_SONGS_DIR / ".hidden").mkdir(exist_ok=True)
+
+# A folder with one valid UltraStar song, complete with a cover image and a
+# playable audio file (its duration is the song's displayed length).
+_SOLO_DIR = _SONGS_DIR / "Testband - Solo Song"
+_SOLO_DIR.mkdir(exist_ok=True)
+(_SOLO_DIR / "Solo Song.txt").write_text(
+    "#TITLE:Solo Song\n"
+    "#ARTIST:Testband\n"
+    "#GENRE:Rock\n"
+    "#YEAR:1999\n"
+    "#LANGUAGE:English\n"
+    "#COVER:cover.jpg\n"
+    "#MP3:song.wav\n"
+    "#BPM:200\n"
+    "#GAP:1000\n"
+    ": 0 4 0 La\n"
+    "E\n",
+    encoding="utf-8",
+)
+(_SOLO_DIR / "cover.jpg").write_bytes(b"\xff\xd8\xff\xe0fakejpegbytes")
+_write_silent_wav(_SOLO_DIR / "song.wav", seconds=180)
+
+# A folder with two distinct UltraStar songs (a batch-import folder).
+_MULTI_DIR = _SONGS_DIR / "Testband - Multi Song"
+_MULTI_DIR.mkdir(exist_ok=True)
+(_MULTI_DIR / "SongA.txt").write_text(
+    "#TITLE:Song A\n#ARTIST:Testband\n#BPM:120\n#GAP:0\nE\n", encoding="utf-8"
+)
+(_MULTI_DIR / "SongB.txt").write_text(
+    "#TITLE:Song B\n#ARTIST:Testband\n#BPM:140\n#GAP:0\nE\n", encoding="utf-8"
+)
+
+# A folder with a duet, tagged the UltraStar way.
+_DUET_DIR = _SONGS_DIR / "Testband - Duet Song"
+_DUET_DIR.mkdir(exist_ok=True)
+(_DUET_DIR / "Duet Song.txt").write_text(
+    "#TITLE:Duet Song\n"
+    "#ARTIST:Testband\n"
+    "#DUETSINGERP1:Alice\n"
+    "#DUETSINGERP2:Bob\n"
+    "#BPM:100\n"
+    "#GAP:0\n"
+    "E\n",
+    encoding="utf-8",
+)
+
+# A stray, non-UltraStar .txt file (e.g. a readme) that must not be mistaken
+# for a song version: it lacks the mandatory BPM/GAP tags.
+_JUNK_DIR = _SONGS_DIR / "Testband - Junk Text"
+_JUNK_DIR.mkdir(exist_ok=True)
+(_JUNK_DIR / "readme.txt").write_text("just some notes, not a song file\n", encoding="utf-8")
 
 os.environ.update(
     DATABASE_URL=f"sqlite:///{_TMP / 'test.db'}",

@@ -45,7 +45,7 @@ def report_submit(
     if not song_folder:
         errors.append("Please pick the song that is broken.")
     elif song is None:
-        errors.append("That song is no longer in the library — pick another.")
+        errors.append("That song is no longer in the library - pick another.")
     if not description:
         errors.append("Please describe what is broken.")
 

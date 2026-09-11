@@ -1,23 +1,32 @@
+{# About me: renders the song list (or "no results"), each row expandable via
+   native <details> to show its UltraStar metadata - no JS required. #}
 {% if result.total == 0 %}
   <p class="empty">
-    {% if q %}No songs match “{{ q }}”.{% else %}No songs found in the library yet.{% endif %}
+    {% if q %}No songs match "{{ q }}".{% else %}No songs found in the library yet.{% endif %}
   </p>
 {% else %}
   <p class="result-count">
-    {{ result.total }} song{{ '' if result.total == 1 else 's' }}{% if q %} matching “{{ q }}”{% endif %}
+    {{ result.total }} song{{ '' if result.total == 1 else 's' }}{% if q %} matching "{{ q }}"{% endif %}
   </p>
   <ul class="song-list">
     {% for song in result.items %}
-      <li class="song-row">
-        <span class="song-index">{{ loop.index + (result.page - 1) * result.page_size }}</span>
-        <span class="song-main">
-          {% if song.artist %}
-            <span class="song-artist">{{ song.artist }}</span>
-            <span class="song-title">{{ song.title }}</span>
-          {% else %}
-            <span class="song-title">{{ song.title }}</span>
-          {% endif %}
-        </span>
+      <li>
+        <details class="song-item">
+          <summary class="song-row">
+            <span class="song-index">{{ loop.index + (result.page - 1) * result.page_size }}</span>
+            <span class="song-main">
+              {% if song.artist %}
+                <span class="song-artist">{{ song.artist }}</span>
+                <span class="song-title">{{ song.title }}</span>
+              {% else %}
+                <span class="song-title">{{ song.title }}</span>
+              {% endif %}
+            </span>
+          </summary>
+          <div class="song-detail">
+            {% include "_song_entries.html" with context %}
+          </div>
+        </details>
       </li>
     {% endfor %}
   </ul>

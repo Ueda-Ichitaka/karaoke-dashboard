@@ -31,7 +31,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 def seed_admin(db: Session) -> None:
     """Create the admin account on first run if ADMIN_PASSWORD is set."""
     if not settings.admin_password:
-        print("[startup] ADMIN_PASSWORD not set — skipping admin seed")
+        print("[startup] ADMIN_PASSWORD not set - skipping admin seed")
         return
 
     existing = db.scalar(select(User).where(User.username == settings.admin_username))

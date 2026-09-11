@@ -1,5 +1,5 @@
 ####################################################################
-#  Local development / testing stack — builds the image from source.
+#  Local development / testing stack - builds the image from source.
 #     docker compose -f docker-compose.dev.yml up --build
 #  Then open http://localhost:8000  (admin / adminadmin)
 #

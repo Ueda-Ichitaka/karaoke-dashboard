@@ -7,3 +7,4 @@ pydantic-settings==2.7.1
 python-multipart==0.0.20
 bcrypt==4.2.1
 itsdangerous==2.2.0
+mutagen==1.48.1

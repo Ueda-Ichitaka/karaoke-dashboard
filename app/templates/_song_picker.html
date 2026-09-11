@@ -1,7 +1,7 @@
 {% if result.total == 0 %}
   <p class="empty">{% if q %}No songs match “{{ q }}”.{% else %}Type to search the library.{% endif %}</p>
 {% else %}
-  <p class="result-count">{{ result.total }} match{{ '' if result.total == 1 else 'es' }}{% if result.total > result.items|length %} — showing first {{ result.items|length }}{% endif %}</p>
+  <p class="result-count">{{ result.total }} match{{ '' if result.total == 1 else 'es' }}{% if result.total > result.items|length %} - showing first {{ result.items|length }}{% endif %}</p>
   <ul class="picker-list">
     {% for song in result.items %}
       <li>

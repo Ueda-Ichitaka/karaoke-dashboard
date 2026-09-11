@@ -16,6 +16,14 @@ The song list is the set of sub-folders of a directory you mount into the
 container (e.g. your existing karaoke library on the NAS). Reports, requests and
 user accounts live in **PostgreSQL**.
 
+Click a song row to expand it: every [UltraStar Deluxe](https://usdx.eu/) `.txt`
+file in that folder (there can be more than one - batch-imported folders often
+hold several distinct songs) is parsed into a metadata card - cover, length,
+duet, genre, year, language. Length comes from the actual audio/video file the
+song plays back (`#AUDIO`/`#MP3`/`#VIDEO`), not the rarely-present UltraStar
+`#START`/`#END` tags. No JavaScript is involved; it's a native `<details>`
+disclosure per row.
+
 ---
 
 ## Deploy on a Synology NAS (Container Manager / docker-compose)
@@ -41,7 +49,7 @@ openssl rand -hex 32   # SECRET_KEY
 openssl rand -hex 24   # POSTGRES_PASSWORD
 ```
 
-Set `ADMIN_PASSWORD` — the `admin` account is created automatically on first
+Set `ADMIN_PASSWORD` - the `admin` account is created automatically on first
 start. `SESSION_COOKIE_SECURE=true` unless you reach the app over plain `http://`.
 
 ### 3. Compose file
@@ -87,19 +95,19 @@ The app prints what it's doing on startup:
 ```
 
 **`database unreachable ... after 30 attempts` / `Name or service not known`**
-— the app can't resolve the DB host. Check, in order:
+- the app can't resolve the DB host. Check, in order:
 
 1. Both containers were started from the **same** compose project (so they share
    one network). Deploying the two containers separately will not work.
 2. `POSTGRES_PASSWORD` in `.env` has no `$`, no `#`, no surrounding quotes and no
-   stray spaces — compose mangles those and the value the DB gets won't match.
+   stray spaces - compose mangles those and the value the DB gets won't match.
    Regenerate with `openssl rand -hex 24` if unsure.
 3. If you changed `POSTGRES_PASSWORD` after the first start, the database volume
    still has the **old** password baked in. Wipe it and redeploy:
    remove the stack, delete the contents of
    `/volume1/docker/karaoke-dashboard/db`, start again.
 
-**`password authentication failed for user "karaoke"`** — same as (3): the volume
+**`password authentication failed for user "karaoke"`** - same as (3): the volume
 was initialised with a different password. Wipe `…/db` and redeploy.
 
 ---
@@ -140,11 +148,11 @@ UTF-8. Header row unless `CSV_INCLUDE_HEADER=false`.
 # Put a few folders in ./songs-sample so the list has content (git-ignored):
 mkdir -p "songs-sample/Queen - Bohemian Rhapsody" "songs-sample/a-ha - Take On Me"
 
-# Option A — full stack in Docker (Postgres + app, hot reload)
+# Option A - full stack in Docker (Postgres + app, hot reload)
 docker compose -f docker-compose.dev.yml up --build
 # -> http://localhost:8000   login: admin / adminadmin
 
-# Option B — app only, on your machine
+# Option B - app only, on your machine
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 export SECRET_KEY=dev SESSION_COOKIE_SECURE=false \
@@ -161,7 +169,7 @@ pytest
 ruff check .
 ```
 
-`songs-sample/` is git-ignored — create it locally with a few folders (or point
+`songs-sample/` is git-ignored - create it locally with a few folders (or point
 `SONGS_DIR` at your real library). The test suite builds its own throwaway
 song directory, so it needs nothing there.
 
@@ -173,8 +181,8 @@ song directory, so it needs nothing there.
 
 1. lint + tests,
 2. build a multi-arch image (`linux/amd64`, `linux/arm64`),
-3. push to `ghcr.io/<owner>/<repo>` tagged `latest`, `sha-<short>`, and — on a
-   `v*.*.*` git tag — the semver.
+3. push to `ghcr.io/<owner>/<repo>` tagged `latest`, `sha-<short>`, and - on a
+   `v*.*.*` git tag - the semver.
 
 No secrets to configure; it uses the repo's built-in `GITHUB_TOKEN`. Make the
 GHCR package public (or log the NAS in with a PAT) so Container Manager can pull.

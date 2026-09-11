@@ -63,5 +63,5 @@ def request_submit(
     return render(
         request, "request.html", user,
         errors=[], form={}, submitted=True,
-        submitted_song=f"{band_name} – {song_name}",
+        submitted_song=f"{band_name} - {song_name}",
     )

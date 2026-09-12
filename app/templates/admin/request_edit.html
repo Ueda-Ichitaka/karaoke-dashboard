@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Edit request · {{ app_title }}{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <h1>Edit request</h1>
+  <p class="subtle">Requested by {{ item.requester_username }} on {{ item.created_at.strftime('%Y-%m-%d %H:%M') }}.</p>
+
+  {% if errors %}
+    <div class="alert alert-error">
+      <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  <form class="stack-form" method="post" action="/admin/requests/{{ item.id }}/edit">
+    <label class="field">
+      <span class="field-label">Band / artist <em>(required)</em></span>
+      <input type="text" name="band_name" required value="{{ form.band_name }}">
+    </label>
+    <label class="field">
+      <span class="field-label">Song title <em>(required)</em></span>
+      <input type="text" name="song_name" required value="{{ form.song_name }}">
+    </label>
+    <label class="field">
+      <span class="field-label">YouTube link <em>(optional)</em></span>
+      <input type="url" name="youtube_url" value="{{ form.youtube_url }}">
+    </label>
+    <label class="field">
+      <span class="field-label">Language <em>(optional)</em></span>
+      <select name="language">
+        {% for code, label in language_choices %}
+          <option value="{{ code }}" {{ 'selected' if form.language == code }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">
+        MusicBrainz ID <em>(optional)</em>
+        <span class="field-hint" tabindex="0" aria-label="A MusicBrainz recording or release ID - either works, it's auto-detected." data-tip="A MusicBrainz recording or release ID - either works, it's auto-detected.">?</span>
+      </span>
+      <input type="text" name="musicbrainz_id" value="{{ form.musicbrainz_id }}">
+    </label>
+    <label class="field">
+      <span class="field-label">
+        Lyrics link <em>(optional)</em>
+        <span class="field-hint" tabindex="0" aria-label="A genius.com song page, a direct link to a .txt/.lrc file, or a filesystem path to a lyrics file you've prepared yourself." data-tip="A genius.com song page, a direct link to a .txt/.lrc file, or a filesystem path to a lyrics file you've prepared yourself.">?</span>
+      </span>
+      <input type="text" name="lyrics_url" value="{{ form.lyrics_url }}" placeholder="URL or a filesystem path">
+    </label>
+    <div class="inline-form">
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a class="btn btn-ghost" href="/admin/requests">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

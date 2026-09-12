@@ -1,9 +1,13 @@
 name: GHCR cleanup
 
-# Deletes stale package versions the publish workflow leaves behind - old
-# sha-tagged builds and (before provenance/sbom were disabled in
-# docker-publish.yml) untagged attestation manifests. Runs weekly and can
-# also be triggered by hand to clear an existing backlog.
+# Deletes stale package versions the publish workflow leaves behind: old
+# sha-tagged builds beyond keep-n-tagged, and (once a tag is old enough to
+# be pruned) the per-platform manifests that only that tag referenced. A
+# tag's own platform manifests are never deleted while the tag is kept -
+# doing so would break that still-live multi-arch image - so keep-n-tagged
+# must be lower than the current number of tagged builds before any
+# untagged cleanup can happen at all. Runs weekly and can also be triggered
+# by hand.
 on:
   schedule:
     - cron: "0 3 * * 0"
@@ -22,4 +26,4 @@ jobs:
           owner: ${{ github.repository_owner }}
           package: ${{ github.event.repository.name }}
           delete-untagged: true
-          keep-n-tagged: 10
+          keep-n-tagged: 3

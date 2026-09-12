@@ -143,5 +143,20 @@ def total_count() -> int:
     return len(_index.all())
 
 
+def folder_exists(band_name: str, song_name: str) -> str | None:
+    """Naive check: does a "<band><separator><song>" folder already exist?
+
+    Case-insensitive, exact match against the raw folder name - folders that
+    don't follow the "Artist - Title" convention are handled by the library
+    structure check instead (see app/routes/admin.py: the integrity view),
+    not here.
+    """
+    target = f"{band_name.strip()}{settings.song_separator}{song_name.strip()}".casefold()
+    for song in _index.all():
+        if song.folder.casefold() == target:
+            return song.folder
+    return None
+
+
 def refresh() -> None:
     _index.refresh()

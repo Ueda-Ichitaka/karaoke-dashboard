@@ -1,11 +1,16 @@
-"""Database engine, session factory and startup helpers."""
+"""Database engine, session factory and startup helpers.
+
+init_db() creates any missing tables and, since there's no Alembic yet, also
+adds any model columns missing from tables that already existed (see
+_sync_schema and BACKLOG.md).
+"""
 
 from __future__ import annotations
 
 import time
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import Engine, create_engine, inspect, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -47,8 +52,34 @@ def wait_for_db(retries: int = 30, delay: float = 2.0) -> None:
     ) from last_err
 
 
+def _sync_schema(target_engine: Engine) -> None:
+    """Add model columns missing from already-existing tables.
+
+    create_all() only creates tables that don't exist yet - it never alters
+    one that's already there, so a nullable column added to a model here
+    would otherwise never reach a table created by an earlier app version.
+    Only additive, nullable columns are supported (see BACKLOG.md for
+    adopting Alembic once real migrations - renames, backfills, drops - are
+    needed).
+    """
+    inspector = inspect(target_engine)
+    existing_tables = set(inspector.get_table_names())
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue  # create_all() will create it fresh, with every column
+        existing_columns = {c["name"] for c in inspector.get_columns(table.name)}
+        for column in table.columns:
+            if column.name in existing_columns:
+                continue
+            assert column.nullable, f"{table.name}.{column.name}: only nullable columns can be auto-added"
+            ddl_type = column.type.compile(dialect=target_engine.dialect)
+            with target_engine.begin() as conn:
+                conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {ddl_type}'))
+
+
 def init_db() -> None:
-    """Create tables. For real migrations, swap this for Alembic."""
+    """Create tables and add any columns missing from existing ones."""
     from . import models  # noqa: F401  (register models on Base.metadata)
 
     Base.metadata.create_all(bind=engine)
+    _sync_schema(engine)

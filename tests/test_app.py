@@ -119,8 +119,8 @@ def test_request_flow_validation_and_csv(admin_client):
     assert r.headers["content-type"].startswith("text/csv")
     body = r.text
     assert body.endswith("\n")
-    assert "band name,song name,youtube link\n" in body
-    assert "Journey,Faithfully,https://youtu.be/abc" in body
+    assert "band name,song name,youtube link,language,musicbrainz_id,lyrics_url\n" in body
+    assert "Journey,Faithfully,https://youtu.be/abc,,,\n" in body
 
 
 def test_non_admin_blocked_from_admin(admin_client):

@@ -11,6 +11,9 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 120
 target-version = "py311"
+# third_party/ is a vendored git submodule (see .gitmodules) kept for
+# reference only - not this project's code to lint or fix.
+extend-exclude = ["third_party"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

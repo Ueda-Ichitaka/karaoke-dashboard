@@ -54,7 +54,8 @@ class SongMeta:
         return f"{minutes}:{seconds:02d}"
 
 
-def _parse_tags(text: str) -> dict[str, str]:
+def parse_header_tags(text: str) -> dict[str, str]:
+    """Parse the "# KEY : VALUE" header lines at the top of a song file."""
     tags: dict[str, str] = {}
     for line in text.splitlines():
         if not line.startswith("#"):
@@ -66,7 +67,7 @@ def _parse_tags(text: str) -> dict[str, str]:
     return tags
 
 
-def _read_text(path: Path) -> str:
+def read_song_text(path: Path) -> str:
     raw = path.read_bytes()[:2_000_000]  # small metadata files; cap defensively
     try:
         return raw.decode("utf-8")
@@ -118,7 +119,7 @@ def _cover_file(tags: dict[str, str], folder: Path) -> str | None:
 
 def parse_song_file(path: Path) -> SongMeta | None:
     """Parse one UltraStar .txt file, or return None if it isn't one."""
-    tags = _parse_tags(_read_text(path))
+    tags = parse_header_tags(read_song_text(path))
     if not all(tag in tags for tag in _MANDATORY_TAGS):
         return None
 

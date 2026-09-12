@@ -55,6 +55,14 @@ class SongRequest(Base):
     youtube_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="open", nullable=False)  # open | done
 
+    # Optional fields consumed by the UltraSinger CSV import (see
+    # UPSTREAM_REQUESTS.md); all three are best-effort and never validated
+    # beyond form-level checks - an unresolvable value is silently ignored
+    # downstream, not an error.
+    language: Mapped[str | None] = mapped_column(String(8), nullable=True)  # ISO 639-1, e.g. "de"
+    musicbrainz_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    lyrics_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)  # URL or admin-set filesystem path
+
     requester_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     requester_username: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)

@@ -6,10 +6,11 @@ A small web app for a home karaoke system:
 | --- | --- | --- |
 | **Songs** | everyone | Browse & search the library (one entry per folder in your songs directory). |
 | **Report broken** | logged-in users | Pick a song, describe what's broken, submit. |
-| **Request song** | logged-in users | Ask for a new song: band + title (required), YouTube link (optional). |
+| **Request song** | logged-in users | Ask for a new song: band + title (required); YouTube link, language, MusicBrainz ID, lyrics link (all optional). |
 | **Reported** | admins | Review / resolve broken-song reports. |
 | **Requested** | admins | Review / close song requests, **export as CSV**. |
 | **Duplicates** | admins | Review songs that appear more than once, compare their metadata, dismiss false positives. |
+| **Integrity** | admins | Song files checked against the UltraStar format spec, the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder) - each exportable as an UltraStar Manager playlist. |
 | **Users** | admins | Create users, reset passwords, grant/revoke admin, disable, delete. |
 
 Built with **FastAPI + Jinja2 + SQLAlchemy**, server-rendered, no JS framework.
@@ -34,6 +35,35 @@ language, length, cover, ...). A duet arrangement is never grouped with a
 solo one - that's an intentional variant, not a duplicate. Reviewing a group
 and clicking **Dismiss** records it (by its normalized key) so it's skipped
 on future scans, even after the underlying files change.
+
+**Integrity** (`app/format_check.py`, `app/structure_check.py`) runs two
+independent checks, both computed live on every view: every `.txt` file is
+checked against the [UltraStar format spec](https://github.com/UltraStar-Deluxe/format)
+(missing mandatory tags, broken media references, malformed numeric fields,
+unparsable body lines - severities are **error** for things that break
+playback and **warning** for spec deviations that don't); and every song
+folder is checked against the library's flat `Artist - Title` convention -
+a folder may hold several songs, but a nested subfolder or a name without
+the separator is flagged, with a file tree to show why. Both kinds of
+non-conformance are typically introduced by other library-management tools.
+A third check flags **misplaced songs**: a song whose own `#ARTIST`/`#TITLE`
+tags don't match the "Artist - Title" folder it's sitting in - e.g. a
+batch-import bug that dumped an unrelated song's files into an otherwise
+correctly-named folder - so it's clear which of several `.txt`s in a folder
+actually belongs there. The comparison ignores `()`/`[]` asides (e.g. a
+yt-dlp video ID or "(Official Audio)"), a known "Napalm Records"-style label
+suffix, and treats filename-unsafe characters like `:` and `/` - and the `-`
+or `|` that commonly replace them once they're part of a folder/file name -
+as interchangeable, so those don't read as a mismatch. A non-conforming
+folder or a misplaced song can each be exported as an
+[UltraStar Deluxe playlist](https://usdx.eu/) (`.upl`, matched by Artist +
+Title) scoped to just those songs - open it in
+[UltraStar Manager](https://github.com/UltraStar-Deluxe/UltraStar-Manager)
+to jump straight to them instead of browsing the whole library. That
+project is vendored read-only at `third_party/ultrastar-manager` (a git
+submodule, not built or run by this app) purely as a reference for its
+`.upl` format (`src/playlist/QUPlaylistFile.cpp`); run
+`git submodule update --init` after cloning if you want it locally.
 
 ---
 
@@ -148,8 +178,16 @@ when scanning.
 ### CSV export
 
 `Requested` tab → **Export open CSV** / **Export all CSV**. Columns:
-`band name, song name, youtube link`, comma-separated, `\n` row terminator,
-UTF-8. Header row unless `CSV_INCLUDE_HEADER=false`.
+`band name, song name, youtube link, language, musicbrainz_id, lyrics_url`,
+comma-separated, `\n` row terminator, UTF-8. Header row unless
+`CSV_INCLUDE_HEADER=false`. The last three columns are optional/blank unless
+the requester filled them in on the request form; they're consumed by the
+UltraSinger batch pipeline (see `UPSTREAM_REQUESTS.md`) - `language` pins
+whisper's language detection, `musicbrainz_id` enables a direct metadata
+lookup instead of a fuzzy search, and `lyrics_url` is tried before an online
+lyrics search (only a genius.com song page or a direct `.txt`/`.lrc` link
+actually work; anything else - including a filesystem path an admin may set -
+falls back silently, it's never an error).
 
 ---
 
@@ -202,8 +240,11 @@ No secrets to configure; it uses the repo's built-in `GITHUB_TOKEN`. Make the
 GHCR package public (or log the NAS in with a PAT) so Container Manager can pull.
 
 `.github/workflows/ghcr-cleanup.yml` runs weekly (and on manual dispatch) to
-delete untagged package versions and keep only the 10 newest tagged ones, so
-the package page doesn't accumulate clutter from old builds.
+keep only the 3 newest tagged builds and delete their now-unreferenced
+per-platform manifests, so the package page doesn't accumulate clutter from
+old builds. A tagged build's own manifests are only eligible for deletion
+once that tag itself falls out of the kept set - a still-kept tag's manifests
+are never touched, since deleting them would break that image.
 
 ---
 
@@ -219,6 +260,13 @@ app/
   songs.py           filesystem scan + cached search index
   ultrastar.py       UltraStar .txt metadata parsing (cover, length, duet, ...)
   duplicates.py      cross-folder duplicate-song detection + dismissal
+  format_check.py    UltraStar format-spec conformity checks
+  structure_check.py flat "Artist - Title" library structure checks
+  misplaced_check.py wrong-song-in-folder checks
+  upl_export.py      UltraStar Manager (.upl) playlist export for both checks above
+  request_matching.py  does a song request already exist in the library?
+  languages.py       ISO 639-1 choices for the request form's language field
+  validation.py      shared request-form field validation
   deps.py            current-user / auth guards / template helper
   routes/            songs, auth, reports, requests, admin
   templates/         Jinja2 templates

@@ -17,20 +17,43 @@
       </div>
     {% endif %}
 
-    <form class="stack-form" method="post" action="/request">
+    <form class="stack-form" method="post" action="/request" data-duplicate-check data-endpoint="/request/check">
       <label class="field">
         <span class="field-label">Band / artist <em>(required)</em></span>
-        <input type="text" name="band_name" required value="{{ form.band_name or '' }}" placeholder="e.g. Queen">
+        <input type="text" name="band_name" required value="{{ form.band_name or '' }}" placeholder="e.g. Queen" data-dup-field="band">
       </label>
       <label class="field">
         <span class="field-label">Song title <em>(required)</em></span>
-        <input type="text" name="song_name" required value="{{ form.song_name or '' }}" placeholder="e.g. Bohemian Rhapsody">
+        <input type="text" name="song_name" required value="{{ form.song_name or '' }}" placeholder="e.g. Bohemian Rhapsody" data-dup-field="song">
       </label>
+      <div class="alert alert-error" data-dup-warning hidden></div>
       <label class="field">
         <span class="field-label">YouTube link <em>(optional)</em></span>
         <input type="url" name="youtube_url" value="{{ form.youtube_url or '' }}" placeholder="https://www.youtube.com/watch?v=…">
       </label>
-      <button type="submit" class="btn btn-primary">Submit request</button>
+      <label class="field">
+        <span class="field-label">Language <em>(optional)</em></span>
+        <select name="language">
+          {% for code, label in language_choices %}
+            <option value="{{ code }}" {{ 'selected' if (form.language or '') == code }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">
+          MusicBrainz ID <em>(optional)</em>
+          <span class="field-hint" tabindex="0" aria-label="A MusicBrainz recording or release ID - either works, it's auto-detected. Gives more reliable cover art/year/genre lookup than a fuzzy title/artist search. Leave blank if unknown; an invalid ID is simply ignored." data-tip="A MusicBrainz recording or release ID - either works, it's auto-detected. Gives more reliable cover art/year/genre lookup than a fuzzy title/artist search. Leave blank if unknown; an invalid ID is simply ignored.">?</span>
+        </span>
+        <input type="text" name="musicbrainz_id" value="{{ form.musicbrainz_id or '' }}" placeholder="e.g. a MusicBrainz recording or release ID">
+      </label>
+      <label class="field">
+        <span class="field-label">
+          Lyrics link <em>(optional)</em>
+          <span class="field-hint" tabindex="0" aria-label="Only a genius.com song page, or a direct link to a .txt/.lrc file, actually gets used - anything else (AZLyrics, Musixmatch, a lyrics wiki, ...) is ignored, not an error, and falls back to an online search instead." data-tip="Only a genius.com song page, or a direct link to a .txt/.lrc file, actually gets used - anything else (AZLyrics, Musixmatch, a lyrics wiki, ...) is ignored, not an error, and falls back to an online search instead.">?</span>
+        </span>
+        <input type="text" name="lyrics_url" value="{{ form.lyrics_url or '' }}" placeholder="https://genius.com/… or a direct .txt/.lrc link">
+      </label>
+      <button type="submit" class="btn btn-primary" data-dup-submit>Submit request</button>
     </form>
   {% endif %}
 </section>

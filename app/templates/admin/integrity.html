@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Integrity · {{ app_title }}{% endblock %}
+{% block content %}
+<section class="page">
+  <div class="page-head">
+    <h1>Integrity &amp; structure</h1>
+    <p class="subtle">
+      Song files checked against the
+      <a href="https://github.com/UltraStar-Deluxe/format" target="_blank" rel="noopener">UltraStar format spec</a>,
+      and the library checked for the flat "Artist - Title" folder convention.
+    </p>
+  </div>
+
+  <h2>Song file format</h2>
+  {% if not format_reports %}
+    <p class="empty">No format issues found.</p>
+  {% else %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Folder</th><th>File</th><th>Issues</th></tr>
+        </thead>
+        <tbody>
+          {% for r in format_reports %}
+            <tr class="{{ 'row-diff' if r.has_errors }}">
+              <td class="mono">{{ r.folder }}</td>
+              <td class="mono">{{ r.filename }}</td>
+              <td>
+                <ul class="issue-list">
+                  {% for issue in r.issues %}
+                    <li class="issue-{{ issue.severity }}">{{ issue.message }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  <div class="page-head">
+    <h2>Library structure</h2>
+    {% if structure_issues %}
+      <a class="btn btn-small" href="/admin/integrity/non-conforming.upl">Export as UltraStar Manager playlist (.upl)</a>
+    {% endif %}
+  </div>
+  {% if not structure_issues %}
+    <p class="empty">Every folder follows the "Artist - Title" convention.</p>
+  {% else %}
+    <ul class="dup-list">
+      {% for issue in structure_issues %}
+        <li class="dup-row">
+          <div class="dup-info">
+            <span class="dup-title">{{ issue.folder }}</span>
+          </div>
+          <ul class="issue-list">
+            {% for reason in issue.reasons %}
+              <li class="issue-warning">{{ reason }}</li>
+            {% endfor %}
+          </ul>
+          <details>
+            <summary>File tree</summary>
+            <pre class="tree mono">{{ issue.folder }}/
+{% for line in trees[issue.folder] %}  {{ line }}
+{% endfor %}</pre>
+          </details>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <div class="page-head">
+    <h2>Misplaced songs</h2>
+    {% if misplaced_songs %}
+      <a class="btn btn-small" href="/admin/integrity/misplaced.upl">Export as UltraStar Manager playlist (.upl)</a>
+    {% endif %}
+  </div>
+  <p class="subtle">
+    A folder named "Artist - Title" is expected to hold that song - a song
+    inside it whose own tags say otherwise (e.g. an unrelated track left
+    behind by a batch import) is flagged here, not treated as part of the
+    folder.
+  </p>
+  {% if not misplaced_songs %}
+    <p class="empty">No misplaced songs found.</p>
+  {% else %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Currently in</th><th>File</th><th>Artist</th><th>Title</th><th>Belongs in</th></tr>
+        </thead>
+        <tbody>
+          {% for s in misplaced_songs %}
+            <tr>
+              <td class="mono">{{ s.folder }}</td>
+              <td class="mono">{{ s.source_file }}</td>
+              <td>{{ s.artist }}</td>
+              <td>{{ s.title }}</td>
+              <td class="mono">{{ s.expected_folder }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

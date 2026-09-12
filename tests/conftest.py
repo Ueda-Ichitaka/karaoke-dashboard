@@ -84,6 +84,28 @@ _DUET_DIR.mkdir(exist_ok=True)
     encoding="utf-8",
 )
 
+# A folder produced by another library-management tool: nested subfolders
+# instead of the flat "Artist - Title" convention - the integrity view's
+# structure check must flag this.
+_NESTED_DIR = _SONGS_DIR / "Coverband - Import Batch"
+_NESTED_DIR.mkdir(exist_ok=True)
+(_NESTED_DIR / "CD1").mkdir(exist_ok=True)
+(_NESTED_DIR / "CD1" / "Track.txt").write_text(
+    "#TITLE:Track\n#ARTIST:Coverband\n#BPM:120\n#GAP:0\nE\n", encoding="utf-8"
+)
+
+# A folder whose name matches one of its songs, but which also holds an
+# unrelated song's files (e.g. from a batch-import bug) - the integrity
+# view's misplaced-songs check must flag only the unrelated one.
+_MISPLACED_DIR = _SONGS_DIR / "30 Seconds to Mars - Attack"
+_MISPLACED_DIR.mkdir(exist_ok=True)
+(_MISPLACED_DIR / "Attack.txt").write_text(
+    "#TITLE:Attack\n#ARTIST:30 Seconds to Mars\n#BPM:140\n#GAP:0\nE\n", encoding="utf-8"
+)
+(_MISPLACED_DIR / "TheKill.txt").write_text(
+    "#TITLE:The Kill\n#ARTIST:30 Seconds to Mars\n#BPM:150\n#GAP:0\nE\n", encoding="utf-8"
+)
+
 # A stray, non-UltraStar .txt file (e.g. a readme) that must not be mistaken
 # for a song version: it lacks the mandatory BPM/GAP tags.
 _JUNK_DIR = _SONGS_DIR / "Testband - Junk Text"

@@ -24,7 +24,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Band</th><th>Song</th><th>YouTube</th><th>By</th><th>Status</th><th></th></tr>
+          <tr><th>When</th><th>Band</th><th>Song</th><th>YouTube</th><th>By</th><th>Library</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in requests %}
@@ -36,15 +36,29 @@
                 {% if r.youtube_url %}<a href="{{ r.youtube_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
               <td class="nowrap">{{ r.requester_username }}</td>
-              <td>{{ r.status }}</td>
               <td class="nowrap">
-                <form method="post" action="/admin/requests/{{ r.id }}/status">
+                {% if r.library_match and r.library_match.exact_folder %}
+                  <span class="pill pill-ok" title="Folder: {{ r.library_match.folder }}">In library</span>
+                {% elif r.library_match %}
+                  <span class="pill pill-count" title="Folder: {{ r.library_match.folder }}">Possibly added</span>
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>{{ r.status }}</td>
+              <td class="nowrap actions">
+                <form method="post" action="/admin/requests/{{ r.id }}/status" class="inline">
                   <input type="hidden" name="show" value="{{ show }}">
                   {% if r.status == 'open' %}
                     <button class="btn btn-small" name="status" value="done">Mark done</button>
                   {% else %}
                     <button class="btn btn-small btn-ghost" name="status" value="open">Reopen</button>
                   {% endif %}
+                </form>
+                <a class="btn btn-small btn-ghost" href="/admin/requests/{{ r.id }}/edit">Edit</a>
+                <form method="post" action="/admin/requests/{{ r.id }}/delete" class="inline"
+                      onsubmit="return confirm('Delete the request for {{ r.band_name }} - {{ r.song_name }}?')">
+                  <button class="btn btn-small btn-danger">Delete</button>
                 </form>
               </td>
             </tr>

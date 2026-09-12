@@ -195,6 +195,7 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .stack-form input[type=url],
 .stack-form input[type=password],
 .stack-form input[type=search],
+.stack-form select,
 .stack-form textarea {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -205,7 +206,53 @@ h1 { font-size: 22px; margin: 0 0 4px; }
   width: 100%;
 }
 .stack-form textarea { resize: vertical; }
-.stack-form input:focus, .stack-form textarea:focus { outline: 2px solid var(--accent); }
+.stack-form input:focus, .stack-form select:focus, .stack-form textarea:focus { outline: 2px solid var(--accent); }
+
+/* Own tooltip, not the native title="" attribute - browsers render that
+   inconsistently (some show it late, some not at all, none on touch). */
+.field-hint {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: help;
+  vertical-align: middle;
+}
+.field-hint:hover, .field-hint:focus { color: var(--text); border-color: var(--accent); outline: none; }
+.field-hint::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(260px, 70vw);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .3);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .12s ease;
+  pointer-events: none;
+  z-index: 20;
+}
+.field-hint:hover::after, .field-hint:focus::after {
+  opacity: 1;
+  visibility: visible;
+}
 
 /* ---------------------------------------------------------------- alerts */
 .alert { border-radius: 8px; padding: 12px 14px; margin: 16px 0; font-size: 14px; }
@@ -264,9 +311,24 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .dup-title { font-weight: 600; color: var(--text); }
 .dup-title:hover { color: var(--accent); }
 .pill-count { background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border); }
+.pill-ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); border: 1px solid var(--ok); }
 .dup-paths { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .dup-paths .mono { color: var(--text-dim); font-size: 12px; }
 .row-diff td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+/* ---------------------------------------------------------------- integrity */
+.issue-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.issue-error { color: var(--err); }
+.issue-warning { color: var(--text-dim); }
+.tree {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  overflow-x: auto;
+  white-space: pre;
+}
 
 /* ---------------------------------------------------------------- panel */
 .panel { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 18px; background: var(--surface); }

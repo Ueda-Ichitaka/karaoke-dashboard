@@ -17,6 +17,12 @@
     return res.text();
   }
 
+  async function fetchJSON(url) {
+    const res = await fetch(url, { headers: { "X-Requested-With": "fetch" } });
+    if (!res.ok) throw new Error("request failed: " + res.status);
+    return res.json();
+  }
+
   // ---- live search on the songs page -----------------------------------
   document.querySelectorAll("input[data-live-search]").forEach((input) => {
     const target = document.querySelector(input.dataset.target);
@@ -80,5 +86,44 @@
     document.addEventListener("click", (ev) => {
       if (!picker.contains(ev.target)) results.hidden = true;
     });
+  });
+
+  // ---- request form: warn if the song already exists in the library ----
+  document.querySelectorAll("[data-duplicate-check]").forEach((form) => {
+    const endpoint = form.dataset.endpoint;
+    const band = form.querySelector('[data-dup-field="band"]');
+    const song = form.querySelector('[data-dup-field="song"]');
+    const warning = form.querySelector("[data-dup-warning]");
+    const submit = form.querySelector("[data-dup-submit]");
+    if (!endpoint || !band || !song || !warning || !submit) return;
+
+    const run = debounce(async () => {
+      const b = band.value.trim();
+      const s = song.value.trim();
+      if (!b || !s) {
+        warning.hidden = true;
+        submit.disabled = false;
+        return;
+      }
+      try {
+        const url = endpoint + "?band_name=" + encodeURIComponent(b) + "&song_name=" + encodeURIComponent(s);
+        const data = await fetchJSON(url);
+        if (data.exists) {
+          warning.textContent = '"' + b + " - " + s + '" already appears to be in the library (folder: "' + data.folder + '").';
+          warning.hidden = false;
+          submit.disabled = true;
+        } else {
+          warning.hidden = true;
+          submit.disabled = false;
+        }
+      } catch (e) {
+        // fail open - the server still rejects a real duplicate on submit
+        warning.hidden = true;
+        submit.disabled = false;
+      }
+    }, 300);
+
+    band.addEventListener("input", run);
+    song.addEventListener("input", run);
   });
 })();

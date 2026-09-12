@@ -10,12 +10,14 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .. import duplicates
+from .. import duplicates, format_check, misplaced_check, request_matching, structure_check, upl_export
 from ..config import settings
 from ..database import get_db
 from ..deps import render, require_admin
+from ..languages import LANGUAGE_CHOICES
 from ..models import BrokenReport, SongRequest, User
 from ..security import hash_password
+from ..validation import request_field_errors
 
 router = APIRouter(prefix="/admin")
 
@@ -77,6 +79,9 @@ def requests_view(
     if show == "open":
         stmt = stmt.where(SongRequest.status == "open")
     items = db.scalars(stmt).all()
+    for item in items:
+        # Not persisted - computed live on every view, like duplicates.py.
+        item.library_match = request_matching.find_library_match(item.band_name, item.song_name)
     open_count = db.scalar(select(func.count()).select_from(SongRequest).where(SongRequest.status == "open"))
     return render(
         request, "admin/requests.html", user,
@@ -102,6 +107,86 @@ def request_set_status(
     return RedirectResponse(f"/admin/requests?show={show}", status_code=303)
 
 
+@router.post("/requests/{request_id}/delete")
+def request_delete(
+    request_id: int,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(SongRequest, request_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+    db.delete(item)
+    db.commit()
+    return RedirectResponse("/admin/requests", status_code=303)
+
+
+@router.get("/requests/{request_id}/edit")
+def request_edit_form(
+    request_id: int,
+    request: Request,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(SongRequest, request_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+    return render(
+        request, "admin/request_edit.html", user,
+        errors=[], item=item, language_choices=LANGUAGE_CHOICES,
+        form={
+            "band_name": item.band_name, "song_name": item.song_name,
+            "youtube_url": item.youtube_url or "", "language": item.language or "",
+            "musicbrainz_id": item.musicbrainz_id or "", "lyrics_url": item.lyrics_url or "",
+        },
+    )
+
+
+@router.post("/requests/{request_id}/edit")
+def request_edit_submit(
+    request_id: int,
+    request: Request,
+    band_name: str = Form(""),
+    song_name: str = Form(""),
+    youtube_url: str = Form(""),
+    language: str = Form(""),
+    musicbrainz_id: str = Form(""),
+    lyrics_url: str = Form(""),
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(SongRequest, request_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+
+    band_name = band_name.strip()
+    song_name = song_name.strip()
+    youtube_url = youtube_url.strip()
+    language = language.strip().lower()
+    musicbrainz_id = musicbrainz_id.strip()
+    lyrics_url = lyrics_url.strip()
+
+    errors = request_field_errors(band_name, song_name, youtube_url, language)
+    if errors:
+        return render(
+            request, "admin/request_edit.html", user, status_code=422,
+            errors=errors, item=item, language_choices=LANGUAGE_CHOICES,
+            form={
+                "band_name": band_name, "song_name": song_name, "youtube_url": youtube_url,
+                "language": language, "musicbrainz_id": musicbrainz_id, "lyrics_url": lyrics_url,
+            },
+        )
+
+    item.band_name = band_name
+    item.song_name = song_name
+    item.youtube_url = youtube_url or None
+    item.language = language or None
+    item.musicbrainz_id = musicbrainz_id or None
+    item.lyrics_url = lyrics_url or None
+    db.commit()
+    return RedirectResponse("/admin/requests", status_code=303)
+
+
 @router.get("/requests.csv")
 def requests_csv(
     scope: str = "open",
@@ -116,9 +201,16 @@ def requests_csv(
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
     if settings.csv_include_header:
-        writer.writerow(["band name", "song name", "youtube link"])
+        writer.writerow(
+            ["band name", "song name", "youtube link", "language", "musicbrainz_id", "lyrics_url"]
+        )
     for r in rows:
-        writer.writerow([r.band_name, r.song_name, r.youtube_url or ""])
+        writer.writerow(
+            [
+                r.band_name, r.song_name, r.youtube_url or "",
+                r.language or "", r.musicbrainz_id or "", r.lyrics_url or "",
+            ]
+        )
 
     filename = "song-requests.csv"
     return StreamingResponse(
@@ -273,3 +365,40 @@ def users_delete(
     db.delete(target)
     db.commit()
     return RedirectResponse("/admin/users", status_code=303)
+
+
+# ------------------------------------------------------------------ integrity
+@router.get("/integrity")
+def integrity_view(
+    request: Request,
+    user: User = Depends(require_admin),
+):
+    structure_issues = structure_check.check_structure()
+    trees = {issue.folder: structure_check.folder_tree(issue.folder) for issue in structure_issues}
+    return render(
+        request, "admin/integrity.html", user,
+        format_reports=format_check.check_library(),
+        structure_issues=structure_issues,
+        trees=trees,
+        misplaced_songs=misplaced_check.find_misplaced_songs(),
+    )
+
+
+@router.get("/integrity/non-conforming.upl")
+def integrity_upl_export(user: User = Depends(require_admin)):
+    content = upl_export.build_upl(structure_check.check_structure())
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="non-conforming.upl"'},
+    )
+
+
+@router.get("/integrity/misplaced.upl")
+def integrity_misplaced_upl_export(user: User = Depends(require_admin)):
+    content = upl_export.build_misplaced_upl(misplaced_check.find_misplaced_songs())
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="misplaced.upl"'},
+    )

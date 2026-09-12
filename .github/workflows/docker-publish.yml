@@ -1,3 +1,7 @@
+# About me: lints, tests, and publishes the app's multi-arch container image
+# to GHCR on every push to main and on v*.*.* tags. See also
+# ghcr-cleanup.yml, which removes the old/untagged package versions this
+# workflow leaves behind.
 name: Publish container image
 
 on:
@@ -66,5 +70,13 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
+          # Provenance/SBOM attestations add extra manifest entries per platform
+          # to the multi-arch index. Portainer/older Docker clients don't filter
+          # those out and pull them alongside the real images, so a single
+          # `:latest` pull ends up fetching 4 "images" (2 platforms x image +
+          # attestation) instead of 1. Disabling both keeps the index to just
+          # the real platform images.
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max

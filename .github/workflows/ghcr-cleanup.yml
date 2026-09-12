@@ -1,0 +1,25 @@
+name: GHCR cleanup
+
+# Deletes stale package versions the publish workflow leaves behind - old
+# sha-tagged builds and (before provenance/sbom were disabled in
+# docker-publish.yml) untagged attestation manifests. Runs weekly and can
+# also be triggered by hand to clear an existing backlog.
+on:
+  schedule:
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Delete untagged and old package versions
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          owner: ${{ github.repository_owner }}
+          package: ${{ github.event.repository.name }}
+          delete-untagged: true
+          keep-n-tagged: 10

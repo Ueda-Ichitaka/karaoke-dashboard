@@ -191,12 +191,19 @@ song directory, so it needs nothing there.
 `.github/workflows/docker-publish.yml` runs on every push to `main`:
 
 1. lint + tests,
-2. build a multi-arch image (`linux/amd64`, `linux/arm64`),
+2. build a multi-arch image (`linux/amd64`, `linux/arm64`) with provenance/SBOM
+   attestations turned off (they add extra manifest entries per platform that
+   Portainer and older Docker clients don't filter out, so a single `:latest`
+   pull would fetch 4 "images" instead of 2),
 3. push to `ghcr.io/<owner>/<repo>` tagged `latest`, `sha-<short>`, and - on a
    `v*.*.*` git tag - the semver.
 
 No secrets to configure; it uses the repo's built-in `GITHUB_TOKEN`. Make the
 GHCR package public (or log the NAS in with a PAT) so Container Manager can pull.
+
+`.github/workflows/ghcr-cleanup.yml` runs weekly (and on manual dispatch) to
+delete untagged package versions and keep only the 10 newest tagged ones, so
+the package page doesn't accumulate clutter from old builds.
 
 ---
 

@@ -123,3 +123,30 @@ def test_check_library_only_reports_files_with_issues(tmp_path):
     reports = format_check.check_library(root=tmp_path)
     folders = {r.folder for r in reports}
     assert folders == {"Bad - Song"}
+
+
+def test_check_library_hides_a_file_whose_only_issue_is_missing_version(tmp_path):
+    # Missing #VERSION is real but non-breaking - a report listing hundreds
+    # of these (common on an older library) drowns out actual problems.
+    folder = tmp_path / "Solo - Song"
+    folder.mkdir()
+    (folder / "song.mp3").write_bytes(b"fake-mp3")
+    (folder / "Song.txt").write_text(
+        "#TITLE:X\n#ARTIST:Y\n#MP3:song.mp3\n#BPM:200\n#GAP:0\n: 0 4 0 La\nE\n",
+        encoding="utf-8",
+    )
+    reports = format_check.check_library(root=tmp_path)
+    assert reports == []
+
+
+def test_check_library_still_shows_version_warning_alongside_a_real_issue(tmp_path):
+    # Missing #VERSION plus a genuine error: the file must still be reported,
+    # and the VERSION warning still shown for context.
+    folder = tmp_path / "Solo - Song"
+    folder.mkdir()
+    (folder / "Song.txt").write_text("#TITLE:X\n#ARTIST:Y\n#BPM:200\n#GAP:0\n: 0 4 0 La\nE\n", encoding="utf-8")
+    reports = format_check.check_library(root=tmp_path)
+    assert len(reports) == 1
+    messages = [i.message for i in reports[0].issues]
+    assert any("VERSION" in m for m in messages)
+    assert any("audio" in m.lower() for m in messages)

@@ -118,8 +118,17 @@ def check_file(path: Path) -> FileReport:
     return FileReport(folder=path.parent.name, filename=path.name, issues=issues)
 
 
+def _only_missing_version_warning(issues: list[FormatIssue]) -> bool:
+    return len(issues) == 1 and issues[0].severity == "warning" and "VERSION" in issues[0].message
+
+
 def check_library(root: str | Path | None = None) -> list[FileReport]:
-    """Every .txt file in the library that has format issues."""
+    """Every .txt file in the library that has format issues.
+
+    A file whose only issue is the missing-#VERSION warning is left out -
+    it's real but non-breaking, and on an older library it would otherwise
+    drown out genuine problems.
+    """
     base = Path(root if root is not None else settings.songs_dir)
     ignore = set(settings.song_ignore_names)
     reports = []
@@ -132,7 +141,7 @@ def check_library(root: str | Path | None = None) -> list[FileReport]:
             continue
         for txt_file in sorted(folder.rglob("*.txt")):
             report = check_file(txt_file)
-            if report.issues:
+            if report.issues and not _only_missing_version_warning(report.issues):
                 # Use the path relative to the top-level song folder (not just
                 # the immediate parent) so a nested file still points back at
                 # the folder shown in the structure report.

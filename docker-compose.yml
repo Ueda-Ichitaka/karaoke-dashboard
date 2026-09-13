@@ -57,6 +57,11 @@ services:
       # SONG_SEPARATOR: " - "
       ADMIN_USERNAME: ${ADMIN_USERNAME:?set ADMIN_USERNAME in .env for first run}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env for first run}
+      # Automatic rescan of the admin duplicates report (also triggerable by
+      # hand from that page): day of month (1-28) + 24h time, in TZ above.
+      DUPLICATES_RESCAN_DAY: ${DUPLICATES_RESCAN_DAY:-1}
+      DUPLICATES_RESCAN_HOUR: ${DUPLICATES_RESCAN_HOUR:-3}
+      DUPLICATES_RESCAN_MINUTE: ${DUPLICATES_RESCAN_MINUTE:-0}
     ports:
       - ${WEB_PORT:-9713}:8000
     volumes:

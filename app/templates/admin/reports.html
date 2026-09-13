@@ -12,6 +12,10 @@
       <a href="/admin/reports?show=open" class="{{ 'active' if show == 'open' }}">Open</a>
       <a href="/admin/reports?show=all" class="{{ 'active' if show == 'all' }}">All</a>
     </div>
+    <div class="toolbar-right">
+      <a class="btn btn-small" href="/admin/reports.csv?scope=open">Export open CSV</a>
+      <a class="btn btn-small btn-ghost" href="/admin/reports.csv?scope=all">Export all CSV</a>
+    </div>
   </div>
 
   {% if not reports %}
@@ -20,7 +24,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Song</th><th>Description</th><th>By</th><th>Status</th><th></th></tr>
+          <tr><th>When</th><th>Song</th><th>Category</th><th>Description</th><th>By</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in reports %}
@@ -31,6 +35,7 @@
                 {% if r.song_artist %}<br><span class="subtle">{{ r.song_title }}</span>{% endif %}
                 <br><span class="mono">{{ r.song_folder }}</span>
               </td>
+              <td>{{ category_labels.get(r.category, r.category or '-') }}</td>
               <td class="wrap">{{ r.description }}</td>
               <td class="nowrap">{{ r.reporter_username }}</td>
               <td>{{ r.status }}</td>

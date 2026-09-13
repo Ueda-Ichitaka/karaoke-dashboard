@@ -23,8 +23,15 @@ class StructureIssue:
 
 
 def _nested_subfolders(folder: Path) -> list[str]:
+    # Synology creates a "@eaDir" thumbnail-cache folder inside nearly every
+    # folder it indexes - and the other ignore-listed names are just as
+    # irrelevant here as at the top level - so exclude them, same as
+    # settings.song_ignore_names does for top-level folders.
+    ignore = set(settings.song_ignore_names)
     try:
-        return sorted(child.name for child in folder.iterdir() if child.is_dir())
+        return sorted(
+            child.name for child in folder.iterdir() if child.is_dir() and child.name not in ignore
+        )
     except OSError:
         return []
 

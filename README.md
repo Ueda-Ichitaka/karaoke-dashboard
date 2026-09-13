@@ -5,12 +5,12 @@ A small web app for a home karaoke system:
 | Tab | Who | What |
 | --- | --- | --- |
 | **Songs** | everyone | Browse & search the library (one entry per folder in your songs directory). |
-| **Report broken** | logged-in users | Pick a song, describe what's broken, submit. |
-| **Request song** | logged-in users | Ask for a new song: band + title (required); YouTube link, language, MusicBrainz ID, lyrics link (all optional). |
-| **Reported** | admins | Review / resolve broken-song reports. |
-| **Requested** | admins | Review / close song requests, **export as CSV**. |
-| **Duplicates** | admins | Review songs that appear more than once, compare their metadata, dismiss false positives. |
-| **Integrity** | admins | Song files checked against the UltraStar format spec, the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder) - each exportable as an UltraStar Manager playlist. |
+| **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, other), describe what's broken (required only for "other"), submit. |
+| **Request song** | logged-in users | Ask for a new song: band + title (required); YouTube link, language, MusicBrainz ID, lyrics link (all optional). Rejected if the song already exists in the library *or* already has an open request. |
+| **Reported** | admins | Review / resolve broken-song reports, **export as CSV** (`broken.csv`). |
+| **Requested** | admins | Review / close / delete song requests, see whether one already matches the library, **export as CSV**. |
+| **Duplicates** | admins | Review songs that appear more than once, compare their metadata, dismiss false positives. Results are cached (scanning is expensive) - rescan on demand or wait for the scheduled monthly rescan. |
+| **Integrity** | admins | Song files checked against the UltraStar format spec, the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder) - each exportable as an UltraStar Manager playlist. Rescan on demand with the button at the top. |
 | **Users** | admins | Create users, reset passwords, grant/revoke admin, disable, delete. |
 
 Built with **FastAPI + Jinja2 + SQLAlchemy**, server-rendered, no JS framework.
@@ -34,18 +34,28 @@ shows each copy's folder/filename and a field-by-field diff (genre, year,
 language, length, cover, ...). A duet arrangement is never grouped with a
 solo one - that's an intentional variant, not a duplicate. Reviewing a group
 and clicking **Dismiss** records it (by its normalized key) so it's skipped
-on future scans, even after the underlying files change.
+on future scans, even after the underlying files change. Scanning every
+folder's UltraStar tags is expensive, so the group list is cached in memory
+rather than recomputed on every page view - the **Rescan** button forces a
+fresh scan, and it also happens automatically once a month (`DUPLICATES_RESCAN_DAY`
+/ `_HOUR` / `_MINUTE`, see Configuration below).
 
 **Integrity** (`app/format_check.py`, `app/structure_check.py`) runs two
-independent checks, both computed live on every view: every `.txt` file is
-checked against the [UltraStar format spec](https://github.com/UltraStar-Deluxe/format)
+independent checks, both computed live on every view (use the **Rescan**
+button at the top to force a fresh look): every `.txt` file is checked
+against the [UltraStar format spec](https://github.com/UltraStar-Deluxe/format)
 (missing mandatory tags, broken media references, malformed numeric fields,
 unparsable body lines - severities are **error** for things that break
-playback and **warning** for spec deviations that don't); and every song
-folder is checked against the library's flat `Artist - Title` convention -
-a folder may hold several songs, but a nested subfolder or a name without
-the separator is flagged, with a file tree to show why. Both kinds of
-non-conformance are typically introduced by other library-management tools.
+playback and **warning** for spec deviations that don't; a file whose only
+issue is a missing `#VERSION` tag is left out entirely - real but
+non-breaking, and it would otherwise drown out genuine problems on an older
+library); and every song folder is checked against the library's flat
+`Artist - Title` convention - a folder may hold several songs, but a nested
+subfolder or a name without the separator is flagged, with a file tree to
+show why. A `@eaDir` subfolder (Synology's per-folder thumbnail cache) is
+never treated as a nested subfolder for this check - it's NAS bookkeeping,
+not a structure problem. Both kinds of non-conformance are typically
+introduced by other library-management tools.
 A third check flags **misplaced songs**: a song whose own `#ARTIST`/`#TITLE`
 tags don't match the "Artist - Title" folder it's sitting in - e.g. a
 batch-import bug that dumped an unrelated song's files into an otherwise
@@ -169,7 +179,9 @@ All settings are environment variables (see `.env.example` and `app/config.py`).
 | `SCAN_CACHE_SECONDS` | `30` | How long the directory listing is cached before re-scanning. |
 | `PAGE_SIZE` | `60` | Songs per page. |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / *(empty)* | First-run admin seed. If the password is empty, no admin is created. |
-| `CSV_INCLUDE_HEADER` | `true` | Header row in the requested-songs CSV export. |
+| `CSV_INCLUDE_HEADER` | `true` | Header row in the requested-songs/broken-songs CSV exports. |
+| `DUPLICATES_RESCAN_DAY` | `1` | Day of month (1-28) the duplicates report auto-rescans. |
+| `DUPLICATES_RESCAN_HOUR` / `_MINUTE` | `3` / `0` | 24h time (in `TZ`) for that auto-rescan. |
 | `APP_TITLE` | `Karaoke Dashboard` | Shown in the header and page titles. |
 
 Synology system folders (`@eaDir`, `#recycle`, …) and dot-folders are ignored
@@ -188,6 +200,11 @@ lookup instead of a fuzzy search, and `lyrics_url` is tried before an online
 lyrics search (only a genius.com song page or a direct `.txt`/`.lrc` link
 actually work; anything else - including a filesystem path an admin may set -
 falls back silently, it's never an error).
+
+`Reported` tab → **Export open CSV** / **Export all CSV** (`broken.csv`).
+Columns: `band, song name, category, description`, same format as above.
+`category` is one of the fixed codes in `app/broken_categories.py`
+(`gap`, `async`, `lyrics`, `video`, `audio`, `other`).
 
 ---
 
@@ -259,14 +276,16 @@ app/
   security.py        password hashing, admin seed
   songs.py           filesystem scan + cached search index
   ultrastar.py       UltraStar .txt metadata parsing (cover, length, duet, ...)
-  duplicates.py      cross-folder duplicate-song detection + dismissal
+  duplicates.py      cross-folder duplicate-song detection, caching + dismissal
+  scheduler.py        monthly auto-rescan of the duplicates cache
   format_check.py    UltraStar format-spec conformity checks
   structure_check.py flat "Artist - Title" library structure checks
   misplaced_check.py wrong-song-in-folder checks
   upl_export.py      UltraStar Manager (.upl) playlist export for both checks above
-  request_matching.py  does a song request already exist in the library?
+  request_matching.py  does a song request already exist in the library or the request queue?
   languages.py       ISO 639-1 choices for the request form's language field
-  validation.py      shared request-form field validation
+  broken_categories.py  fixed category list for the broken-report form
+  validation.py      shared request-form / broken-report field validation
   deps.py            current-user / auth guards / template helper
   routes/            songs, auth, reports, requests, admin
   templates/         Jinja2 templates

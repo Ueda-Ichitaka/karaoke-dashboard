@@ -1,4 +1,7 @@
-// Progressive enhancement: live search + song picker. Works without JS too.
+// Progressive enhancement, loaded on every page from base.html: live song
+// search/picker, the request-form duplicate check, the broken-report
+// category/description toggle, and the go-to-top button. Every page works
+// without JS too - this only adds convenience on top.
 (function () {
   "use strict";
 
@@ -112,6 +115,10 @@
           warning.textContent = '"' + b + " - " + s + '" already appears to be in the library (folder: "' + data.folder + '").';
           warning.hidden = false;
           submit.disabled = true;
+        } else if (data.requested) {
+          warning.textContent = '"' + b + " - " + s + '" has already been requested and is awaiting review.';
+          warning.hidden = false;
+          submit.disabled = true;
         } else {
           warning.hidden = true;
           submit.disabled = false;
@@ -126,4 +133,32 @@
     band.addEventListener("input", run);
     song.addEventListener("input", run);
   });
+
+  // ---- broken-report form: description is only mandatory for "Other" -----
+  document.querySelectorAll("[data-broken-category]").forEach((select) => {
+    const description = select.closest("form").querySelector("[data-broken-description]");
+    const hint = select.closest("form").querySelector("[data-broken-description-hint]");
+    if (!description) return;
+
+    const update = () => {
+      const isOther = select.value === "other";
+      description.required = isOther;
+      if (hint) hint.textContent = isOther ? "(required)" : "(required only for \"Other\")";
+    };
+    select.addEventListener("change", update);
+    update();
+  });
+
+  // ---- go to top button: only shown once the page is actually scrollable
+  const toTop = document.getElementById("to-top");
+  if (toTop) {
+    const isScrollable = () => document.documentElement.scrollHeight > window.innerHeight + 40;
+    const update = () => {
+      toTop.hidden = !(isScrollable() && window.scrollY > 300);
+    };
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    toTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+    update();
+  }
 })();

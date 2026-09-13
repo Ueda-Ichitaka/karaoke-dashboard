@@ -51,6 +51,28 @@ def test_ignored_and_hidden_folders_are_skipped(tmp_path):
     assert issues == []
 
 
+def test_nested_eadir_inside_a_conforming_folder_is_not_flagged(tmp_path):
+    # Synology creates a "@eaDir" thumbnail-cache folder inside every folder
+    # it indexes - present in nearly all song folders, not a real structure
+    # problem, and must not drown out genuine nested-subfolder issues.
+    folder = tmp_path / "Queen - Bohemian Rhapsody"
+    folder.mkdir()
+    (folder / "@eaDir").mkdir()
+    issues = structure_check.check_structure(root=tmp_path)
+    assert issues == []
+
+
+def test_nested_eadir_does_not_hide_a_real_nested_subfolder(tmp_path):
+    top = tmp_path / "Coverband - Import Batch"
+    top.mkdir()
+    (top / "@eaDir").mkdir()
+    (top / "CD1").mkdir()
+    issues = structure_check.check_structure(root=tmp_path)
+    assert len(issues) == 1
+    assert any("CD1" in r for r in issues[0].reasons)
+    assert not any("@eaDir" in r for r in issues[0].reasons)
+
+
 def test_folder_tree_lists_nested_contents(tmp_path):
     top = tmp_path / "Coverband - Import Batch"
     top.mkdir()

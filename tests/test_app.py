@@ -72,20 +72,20 @@ def test_admin_can_login_and_see_admin_tabs(admin_client):
 
 def test_report_flow_and_admin_view(admin_client):
     # missing fields -> 422 with errors
-    r = admin_client.post("/report", data={"song_folder": "", "description": ""})
+    r = admin_client.post("/report", data={"song_folder": "", "category": "", "description": ""})
     assert r.status_code == 422
     assert "pick the song" in r.text.lower()
 
     # valid submission
     r = admin_client.post(
         "/report",
-        data={"song_folder": "Queen - Bohemian Rhapsody", "description": "audio cuts out"},
+        data={"song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": "audio cuts out"},
     )
     assert r.status_code == 200
     assert "was submitted" in r.text
 
     # unknown song rejected
-    r = admin_client.post("/report", data={"song_folder": "Nope - Nope", "description": "x"})
+    r = admin_client.post("/report", data={"song_folder": "Nope - Nope", "category": "audio", "description": "x"})
     assert r.status_code == 422
 
     # shows up in admin
@@ -121,6 +121,19 @@ def test_request_flow_validation_and_csv(admin_client):
     assert body.endswith("\n")
     assert "band name,song name,youtube link,language,musicbrainz_id,lyrics_url\n" in body
     assert "Journey,Faithfully,https://youtu.be/abc,,,\n" in body
+
+
+def test_app_js_loads_on_every_page(admin_client):
+    # app.js used to be included per-template and was missing from /request,
+    # silently disabling its progressive-enhancement JS (the live duplicate
+    # check). It now loads site-wide from base.html.
+    for path in ("/songs", "/report", "/request"):
+        assert "/static/app.js" in admin_client.get(path).text
+
+
+def test_pages_include_a_go_to_top_button(admin_client):
+    r = admin_client.get("/songs")
+    assert 'id="to-top"' in r.text
 
 
 def test_non_admin_blocked_from_admin(admin_client):

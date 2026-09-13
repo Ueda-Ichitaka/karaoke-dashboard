@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import duplicates, format_check, misplaced_check, request_matching, structure_check, upl_export
+from ..broken_categories import CATEGORY_LABELS
 from ..config import settings
 from ..database import get_db
 from ..deps import render, require_admin
@@ -45,7 +46,7 @@ def reports_view(
     open_count = db.scalar(select(func.count()).select_from(BrokenReport).where(BrokenReport.status == "open"))
     return render(
         request, "admin/reports.html", user,
-        reports=reports, show=show, open_count=open_count or 0,
+        reports=reports, show=show, open_count=open_count or 0, category_labels=CATEGORY_LABELS,
     )
 
 
@@ -65,6 +66,31 @@ def report_set_status(
     report.status = status
     db.commit()
     return RedirectResponse(f"/admin/reports?show={show}", status_code=303)
+
+
+@router.get("/reports.csv")
+def reports_csv(
+    scope: str = "open",
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    stmt = select(BrokenReport).order_by(BrokenReport.created_at.asc())
+    if scope == "open":
+        stmt = stmt.where(BrokenReport.status == "open")
+    rows = db.scalars(stmt).all()
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    if settings.csv_include_header:
+        writer.writerow(["band", "song name", "category", "description"])
+    for r in rows:
+        writer.writerow([r.song_artist or "", r.song_title or "", r.category or "", r.description])
+
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="broken.csv"'},
+    )
 
 
 # --------------------------------------------------------------------------- requests
@@ -228,7 +254,16 @@ def duplicates_view(
     db: Session = Depends(get_db),
 ):
     groups = duplicates.find_duplicate_groups(db)
-    return render(request, "admin/duplicates.html", user, groups=groups)
+    return render(
+        request, "admin/duplicates.html", user,
+        groups=groups, last_scanned_at=duplicates.last_scanned_at(),
+    )
+
+
+@router.post("/duplicates/rescan")
+def duplicates_rescan(user: User = Depends(require_admin)):
+    duplicates.refresh_cache()
+    return RedirectResponse("/admin/duplicates", status_code=303)
 
 
 @router.get("/duplicates/{group_id}")

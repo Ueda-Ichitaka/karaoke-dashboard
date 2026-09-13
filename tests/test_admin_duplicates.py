@@ -51,6 +51,25 @@ def test_dismiss_removes_group_from_list_and_persists(admin_client):
     assert "dismiss" in detail.text.lower()
 
 
+def test_duplicates_view_shows_rescan_button(admin_client):
+    r = admin_client.get("/admin/duplicates")
+    assert 'action="/admin/duplicates/rescan"' in r.text
+    assert "Rescan" in r.text
+
+
+def test_duplicates_rescan_redirects_back(admin_client):
+    r = admin_client.post("/admin/duplicates/rescan", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/admin/duplicates"
+
+
+def test_duplicates_rescan_requires_admin(admin_client):
+    admin_client.post("/admin/users", data={"username": "hank", "password": "hankhankhank"})
+    admin_client.post("/logout")
+    admin_client.post("/login", data={"username": "hank", "password": "hankhankhank"}, follow_redirects=False)
+    assert admin_client.post("/admin/duplicates/rescan").status_code == 403
+
+
 def test_non_admin_blocked_from_duplicates(admin_client):
     admin_client.post("/admin/users", data={"username": "carol", "password": "carolcarol"})
     admin_client.post("/logout")

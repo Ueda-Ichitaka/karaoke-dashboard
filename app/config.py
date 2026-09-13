@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     # Include a header row in the requested-songs CSV export.
     csv_include_header: bool = True
 
+    # Automatic monthly rescan of the (expensive) duplicates report: day of
+    # month (1-28, so it always exists) and 24h time. Configure via
+    # docker-compose.yml.
+    duplicates_rescan_day: int = 1
+    duplicates_rescan_hour: int = 3
+    duplicates_rescan_minute: int = 0
+
     @property
     def sqlalchemy_url(self) -> str:
         if self.database_url:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app import duplicates
+from app import duplicates, songs
 
 
 def test_normalize_key_folds_case_and_whitespace():
@@ -82,3 +82,39 @@ def test_dismiss_is_idempotent(fresh_db):
         group = next(g for g in duplicates.find_duplicate_groups(db) if g.title_key == "copycat song")
         duplicates.dismiss_group(db, group, dismissed_by="admin")
         duplicates.dismiss_group(db, group, dismissed_by="admin")  # must not raise/duplicate-insert
+
+
+# ----------------------------------------------------------------------- cache
+# Scanning every folder's UltraStar tags is expensive, so results are cached
+# in memory (see app/duplicates.py) until explicitly refreshed - by an admin's
+# "Rescan" button or the scheduled monthly job (see app/scheduler.py).
+def test_find_duplicate_groups_does_not_rescan_when_cache_is_warm(fresh_db, monkeypatch):
+    from app.database import SessionLocal
+
+    duplicates.refresh_cache()  # prime a known-fresh cache
+
+    calls = []
+    monkeypatch.setattr(songs, "all_songs", lambda: calls.append(1) or [])
+
+    with SessionLocal() as db:
+        duplicates.find_duplicate_groups(db)
+        duplicates.find_duplicate_groups(db)
+    assert calls == []
+
+
+def test_refresh_cache_forces_a_rescan(fresh_db, monkeypatch):
+    calls = []
+    real_all_songs = songs.all_songs
+    monkeypatch.setattr(songs, "all_songs", lambda: (calls.append(1), real_all_songs())[1])
+
+    duplicates.refresh_cache()
+    assert len(calls) == 1
+
+
+def test_last_scanned_at_updates_after_refresh(fresh_db):
+    duplicates.refresh_cache()
+    first = duplicates.last_scanned_at()
+    assert first is not None
+    duplicates.refresh_cache()
+    second = duplicates.last_scanned_at()
+    assert second >= first

@@ -14,6 +14,7 @@ from .config import settings
 from .database import SessionLocal, init_db, wait_for_db
 from .deps import AuthRedirect, render
 from .routes import admin, auth, reports, requests, songs
+from .scheduler import create_scheduler
 from .security import seed_admin
 
 
@@ -25,7 +26,10 @@ async def lifespan(app: FastAPI):
     init_db()
     with SessionLocal() as db:
         seed_admin(db)
+    scheduler = create_scheduler()
+    scheduler.start()
     yield
+    scheduler.shutdown(wait=False)
 
 
 app = FastAPI(title=settings.app_title, version=__version__, lifespan=lifespan)

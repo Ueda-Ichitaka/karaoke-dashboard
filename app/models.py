@@ -36,6 +36,10 @@ class BrokenReport(Base):
     song_folder: Mapped[str] = mapped_column(String(512), index=True)
     song_artist: Mapped[str | None] = mapped_column(String(512), nullable=True)
     song_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # See app/broken_categories.py for the fixed choice list. Nullable here so
+    # reports created before this field existed still load - the app itself
+    # always requires it on a new submission.
+    category: Mapped[str | None] = mapped_column(String(16), nullable=True)
     description: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(16), default="open", nullable=False)  # open | resolved
 

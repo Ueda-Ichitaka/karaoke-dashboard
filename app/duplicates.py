@@ -4,17 +4,25 @@ Two UltraStar entries (each parsed from a .txt file, possibly in different
 folders) are the same song if their artist and title match after
 normalization and they agree on duet status - a duet arrangement and a solo
 arrangement of the same song are an intentional variant, not a duplicate.
-Groups of two or more matching entries are duplicates. Groups are computed
-live from the filesystem on every call; an admin "dismisses" one by
-recording its normalized key in the dismissed_duplicates table (see
-app/models.py), which future lookups then skip.
+Groups of two or more matching entries are duplicates.
+
+Scanning every folder's UltraStar tags to build these groups is expensive,
+so the result is cached in memory (see _CACHE below) rather than recomputed
+on every page view - refresh_cache() replaces it, called by an admin's
+"Rescan" button (see app/routes/admin.py) and by the scheduled monthly job
+(see app/scheduler.py). An admin "dismisses" a group by recording its
+normalized key in the dismissed_duplicates table (see app/models.py), which
+future lookups then skip - dismissal is looked up fresh from the database on
+every call, independent of the group cache.
 """
 
 from __future__ import annotations
 
 import hashlib
 import re
+import threading
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -95,8 +103,11 @@ def field_diff(group: DuplicateGroup) -> list[FieldRow]:
     return rows
 
 
-def _all_groups() -> list[DuplicateGroup]:
-    """Every duplicate group in the library right now, dismissed or not."""
+def _scan_all_groups() -> list[DuplicateGroup]:
+    """Every duplicate group in the library right now, dismissed or not.
+
+    The expensive part: scans every folder's UltraStar tags from disk.
+    """
     buckets: dict[tuple[str, str, bool], list[DuplicateEntry]] = {}
     for song in songs.all_songs():
         for meta in ultrastar.scan_folder_songs(song.folder):
@@ -116,6 +127,34 @@ def _all_groups() -> list[DuplicateGroup]:
     ]
     groups.sort(key=lambda g: ((g.display_artist or "").lower(), g.display_title.lower()))
     return groups
+
+
+_cache_lock = threading.Lock()
+_cache: list[DuplicateGroup] | None = None
+_cache_scanned_at: datetime | None = None
+
+
+def _all_groups() -> list[DuplicateGroup]:
+    """The cached duplicate-group list, scanning the filesystem only once."""
+    with _cache_lock:
+        if _cache is not None:
+            return _cache
+    return refresh_cache()
+
+
+def refresh_cache() -> list[DuplicateGroup]:
+    """Rescan the filesystem now and replace the cache."""
+    global _cache, _cache_scanned_at
+    groups = _scan_all_groups()
+    with _cache_lock:
+        _cache = groups
+        _cache_scanned_at = datetime.now(UTC)
+    return groups
+
+
+def last_scanned_at() -> datetime | None:
+    with _cache_lock:
+        return _cache_scanned_at
 
 
 def _dismissed_keys(db: Session) -> set[tuple[str, str, bool]]:

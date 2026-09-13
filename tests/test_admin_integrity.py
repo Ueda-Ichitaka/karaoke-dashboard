@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 
+def test_integrity_view_has_a_rescan_button(admin_client):
+    r = admin_client.get("/admin/integrity")
+    assert r.status_code == 200
+    assert 'href="/admin/integrity"' in r.text
+    assert "Rescan" in r.text
+
+
 def test_integrity_view_shows_structure_issues(admin_client):
     r = admin_client.get("/admin/integrity")
     assert r.status_code == 200

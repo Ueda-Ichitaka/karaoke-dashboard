@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from .. import songs
+from .. import request_matching, songs
 from ..database import get_db
 from ..deps import render, require_user
 from ..languages import LANGUAGE_CHOICES
@@ -29,12 +29,14 @@ def request_check(
     band_name: str = "",
     song_name: str = "",
     user: User = Depends(require_user),
+    db: Session = Depends(get_db),
 ):
     """Live "does this already exist?" lookup for the request form's JS."""
     band_name = band_name.strip()
     song_name = song_name.strip()
     folder = songs.folder_exists(band_name, song_name) if band_name and song_name else None
-    return JSONResponse({"exists": folder is not None, "folder": folder})
+    existing = request_matching.find_existing_request(db, band_name, song_name)
+    return JSONResponse({"exists": folder is not None, "folder": folder, "requested": existing is not None})
 
 
 @router.post("/request")
@@ -57,7 +59,6 @@ def request_submit(
     lyrics_url = lyrics_url.strip()
     errors = request_field_errors(band_name, song_name, youtube_url, language)
 
-    existing_folder = None
     if band_name and song_name:
         existing_folder = songs.folder_exists(band_name, song_name)
         if existing_folder:
@@ -65,6 +66,8 @@ def request_submit(
                 f'"{band_name} - {song_name}" already appears to be in the library '
                 f'(folder: "{existing_folder}").'
             )
+        elif request_matching.find_existing_request(db, band_name, song_name):
+            errors.append(f'"{band_name} - {song_name}" has already been requested and is awaiting review.')
 
     if errors:
         return render(

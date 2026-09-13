@@ -4,7 +4,13 @@
 <section class="page">
   <div class="page-head">
     <h1>Duplicate songs</h1>
-    <p class="subtle">{{ groups|length }} group{{ 's' if groups|length != 1 else '' }} awaiting review</p>
+    <p class="subtle">
+      {{ groups|length }} group{{ 's' if groups|length != 1 else '' }} awaiting review
+      {% if last_scanned_at %}&middot; last scanned {{ last_scanned_at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %}
+    </p>
+    <form method="post" action="/admin/duplicates/rescan">
+      <button class="btn btn-small" type="submit">Rescan</button>
+    </form>
   </div>
 
   {% if not groups %}

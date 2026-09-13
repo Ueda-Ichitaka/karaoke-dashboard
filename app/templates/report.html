@@ -34,8 +34,18 @@
       </div>
 
       <label class="field">
-        <span class="field-label">What's broken? <em>(required)</em></span>
-        <textarea name="description" rows="4" required
+        <span class="field-label">Category <em>(required)</em></span>
+        <select name="category" required data-broken-category>
+          <option value="" {{ 'selected' if not form.category else '' }} disabled>Choose a category…</option>
+          {% for code, label in category_choices %}
+            <option value="{{ code }}" {{ 'selected' if form.category == code else '' }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field-label">What's broken? <em data-broken-description-hint>(required only for "Other")</em></span>
+        <textarea name="description" rows="4" data-broken-description
                   placeholder="e.g. lyrics are out of sync, audio cuts out after the first chorus, wrong key…">{{ form.description or '' }}</textarea>
       </label>
 
@@ -43,5 +53,4 @@
     </form>
   {% endif %}
 </section>
-<script src="/static/app.js" defer></script>
 {% endblock %}

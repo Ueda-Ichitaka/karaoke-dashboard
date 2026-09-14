@@ -7,11 +7,14 @@ module-level settings/engine pick it up. The database is recreated per test.
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 import wave
 from pathlib import Path
 
 import pytest
+
+_CSRF_TOKEN_RE = re.compile(r'name="csrf_token" value="([^"]+)"')
 
 
 def _write_silent_wav(path: Path, seconds: float, framerate: int = 100) -> None:
@@ -148,6 +151,7 @@ os.environ.update(
     ADMIN_PASSWORD="adminadmin",
 )
 
+from app import rate_limit  # noqa: E402
 from app.database import Base, SessionLocal, engine, init_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.security import seed_admin  # noqa: E402
@@ -159,8 +163,40 @@ def fresh_db():
     init_db()
     with SessionLocal() as db:
         seed_admin(db)
+    # Every TestClient request reports the same fake client IP - reset the
+    # login rate limiter (app/rate_limit.py) so failed-login tests don't
+    # bleed lockout state into unrelated tests that happen to run after them.
+    rate_limit.reset()
     yield
     Base.metadata.drop_all(bind=engine)
+
+
+class _CsrfAwareClient:
+    """Wraps TestClient so ordinary tests don't need to know a CSRF token
+    exists - every .post() auto-attaches a valid one (scraped from a page
+    the current session can see) unless the caller passes
+    include_csrf=False, or its own "csrf_token" key, to test the real
+    rejection path instead.
+    """
+
+    def __init__(self, client) -> None:
+        self._client = client
+
+    def __getattr__(self, name):
+        return getattr(self._client, name)
+
+    def _fetch_token(self) -> str:
+        r = self._client.get("/report", follow_redirects=False)
+        if r.status_code != 200:
+            r = self._client.get("/login")
+        match = _CSRF_TOKEN_RE.search(r.text)
+        return match.group(1) if match else ""
+
+    def post(self, url, data=None, include_csrf=True, **kwargs):
+        data = dict(data) if data else {}
+        if include_csrf:
+            data.setdefault("csrf_token", self._fetch_token())
+        return self._client.post(url, data=data, **kwargs)
 
 
 @pytest.fixture()
@@ -168,7 +204,7 @@ def client(fresh_db):
     from fastapi.testclient import TestClient
 
     with TestClient(app) as c:
-        yield c
+        yield _CsrfAwareClient(c)
 
 
 @pytest.fixture()

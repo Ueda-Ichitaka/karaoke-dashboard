@@ -9,6 +9,7 @@
       {% if last_scanned_at %}&middot; last scanned {{ last_scanned_at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %}
     </p>
     <form method="post" action="/admin/duplicates/rescan">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button class="btn btn-small" type="submit">Rescan</button>
     </form>
   </div>
@@ -34,6 +35,7 @@
           <div class="actions">
             <a class="btn btn-small" href="/admin/duplicates/{{ g.group_id }}">Review</a>
             <form class="inline" method="post" action="/admin/duplicates/{{ g.group_id }}/dismiss">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <button class="btn btn-small btn-ghost" type="submit">Dismiss</button>
             </form>
           </div>

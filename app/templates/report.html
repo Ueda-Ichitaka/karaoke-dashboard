@@ -18,6 +18,7 @@
     {% endif %}
 
     <form class="stack-form" method="post" action="/report">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="field">
         <span class="field-label">Broken song</span>
         <div class="picker" data-picker
@@ -47,6 +48,15 @@
         <span class="field-label">What's broken? <em data-broken-description-hint>(required only for "Other")</em></span>
         <textarea name="description" rows="4" data-broken-description
                   placeholder="e.g. lyrics are out of sync, audio cuts out after the first chorus, wrong key…">{{ form.description or '' }}</textarea>
+      </label>
+
+      <label class="field">
+        <span class="field-label">
+          Genius lyrics link <em data-broken-genius-hint>(required for "Lyrics broken" / "Song goes out of sync")</em>
+          <span class="field-hint" tabindex="0" aria-label="A genius.com song page for this song - gives the admin a reference for the correct lyrics/timing when fixing the issue." data-tip="A genius.com song page for this song - gives the admin a reference for the correct lyrics/timing when fixing the issue.">?</span>
+        </span>
+        <input type="url" name="genius_url" value="{{ form.genius_url or '' }}" data-broken-genius
+               placeholder="https://genius.com/…">
       </label>
 
       <button type="submit" class="btn btn-primary">Submit report</button>

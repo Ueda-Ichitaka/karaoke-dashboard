@@ -17,8 +17,9 @@ from ..database import get_db
 from ..deps import render, require_admin
 from ..languages import LANGUAGE_CHOICES
 from ..models import BrokenReport, SongRequest, User
-from ..security import hash_password
-from ..validation import request_field_errors
+from ..musicbrainz import extract_musicbrainz_id
+from ..security import MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, hash_password
+from ..validation import neutralize_csv_formula, request_field_errors
 
 router = APIRouter(prefix="/admin")
 
@@ -82,9 +83,11 @@ def reports_csv(
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
     if settings.csv_include_header:
-        writer.writerow(["band", "song name", "category", "description"])
+        writer.writerow(["band", "song name", "category", "description", "lyrics_url"])
     for r in rows:
-        writer.writerow([r.song_artist or "", r.song_title or "", r.category or "", r.description])
+        writer.writerow(
+            [r.song_artist or "", r.song_title or "", r.category or "", r.description, r.genius_url or ""]
+        )
 
     return StreamingResponse(
         iter([buffer.getvalue()]),
@@ -189,10 +192,10 @@ def request_edit_submit(
     song_name = song_name.strip()
     youtube_url = youtube_url.strip()
     language = language.strip().lower()
-    musicbrainz_id = musicbrainz_id.strip()
+    musicbrainz_id = extract_musicbrainz_id(musicbrainz_id)
     lyrics_url = lyrics_url.strip()
 
-    errors = request_field_errors(band_name, song_name, youtube_url, language)
+    errors = request_field_errors(band_name, song_name, youtube_url, language, musicbrainz_id)
     if errors:
         return render(
             request, "admin/request_edit.html", user, status_code=422,
@@ -233,8 +236,9 @@ def requests_csv(
     for r in rows:
         writer.writerow(
             [
-                r.band_name, r.song_name, r.youtube_url or "",
-                r.language or "", r.musicbrainz_id or "", r.lyrics_url or "",
+                neutralize_csv_formula(r.band_name), neutralize_csv_formula(r.song_name),
+                r.youtube_url or "", r.language or "",
+                neutralize_csv_formula(r.musicbrainz_id or ""), r.lyrics_url or "",
             ]
         )
 
@@ -321,8 +325,12 @@ def users_create(
     username = username.strip()
     if not username or not password:
         return RedirectResponse("/admin/users?error=Username+and+password+are+required", status_code=303)
+    if len(username) > MAX_USERNAME_LENGTH:
+        return RedirectResponse("/admin/users?error=Username+is+too+long", status_code=303)
     if len(password) < 8:
         return RedirectResponse("/admin/users?error=Password+must+be+at+least+8+characters", status_code=303)
+    if len(password) > MAX_PASSWORD_LENGTH:
+        return RedirectResponse("/admin/users?error=Password+is+too+long", status_code=303)
     if db.scalar(select(User).where(User.username == username)):
         return RedirectResponse("/admin/users?error=That+username+already+exists", status_code=303)
     db.add(
@@ -346,6 +354,8 @@ def users_reset_password(
 ):
     if len(password) < 8:
         return RedirectResponse("/admin/users?error=Password+must+be+at+least+8+characters", status_code=303)
+    if len(password) > MAX_PASSWORD_LENGTH:
+        return RedirectResponse("/admin/users?error=Password+is+too+long", status_code=303)
     target = db.get(User, user_id)
     if target is None:
         raise HTTPException(status_code=404)
@@ -416,6 +426,16 @@ def integrity_view(
         structure_issues=structure_issues,
         trees=trees,
         misplaced_songs=misplaced_check.find_misplaced_songs(),
+    )
+
+
+@router.get("/integrity/format-issues.upl")
+def integrity_format_issues_upl_export(user: User = Depends(require_admin)):
+    content = upl_export.build_format_issues_upl(format_check.check_library())
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="format-issues.upl"'},
     )
 
 

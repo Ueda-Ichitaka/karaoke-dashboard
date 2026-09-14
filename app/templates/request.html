@@ -18,6 +18,7 @@
     {% endif %}
 
     <form class="stack-form" method="post" action="/request" data-duplicate-check data-endpoint="/request/check">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <label class="field">
         <span class="field-label">Band / artist <em>(required)</em></span>
         <input type="text" name="band_name" required value="{{ form.band_name or '' }}" placeholder="e.g. Queen" data-dup-field="band">

@@ -12,6 +12,7 @@
   {% endif %}
 
   <form class="stack-form" method="post" action="/admin/requests/{{ item.id }}/edit">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label class="field">
       <span class="field-label">Band / artist <em>(required)</em></span>
       <input type="text" name="band_name" required value="{{ form.band_name }}">

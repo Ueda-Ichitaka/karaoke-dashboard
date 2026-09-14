@@ -5,12 +5,12 @@ A small web app for a home karaoke system:
 | Tab | Who | What |
 | --- | --- | --- |
 | **Songs** | everyone | Browse & search the library (one entry per folder in your songs directory). |
-| **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, other), describe what's broken (required only for "other"), submit. |
-| **Request song** | logged-in users | Ask for a new song: band + title (required); YouTube link, language, MusicBrainz ID, lyrics link (all optional). Rejected if the song already exists in the library *or* already has an open request. |
+| **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, other), describe what's broken (required only for "other"), and give a genius.com lyrics link (required only for "lyrics broken" / "out of sync"), submit. |
+| **Request song** | logged-in users | Ask for a new song: band + title (required); YouTube link, language, MusicBrainz ID (bare ID or a pasted musicbrainz.org link - either is accepted), lyrics link (all optional). Rejected if the song already exists in the library *or* already has an open request. |
 | **Reported** | admins | Review / resolve broken-song reports, **export as CSV** (`broken.csv`). |
 | **Requested** | admins | Review / close / delete song requests, see whether one already matches the library, **export as CSV**. |
 | **Duplicates** | admins | Review songs that appear more than once, compare their metadata, dismiss false positives. Results are cached (scanning is expensive) - rescan on demand or wait for the scheduled monthly rescan. |
-| **Integrity** | admins | Song files checked against the UltraStar format spec, the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder) - each exportable as an UltraStar Manager playlist. Rescan on demand with the button at the top. |
+| **Integrity** | admins | Song files checked against the UltraStar format spec, the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder) - all three exportable as an UltraStar Manager playlist. Rescan on demand with the button at the top. |
 | **Users** | admins | Create users, reset passwords, grant/revoke admin, disable, delete. |
 
 Built with **FastAPI + Jinja2 + SQLAlchemy**, server-rendered, no JS framework.
@@ -64,10 +64,10 @@ actually belongs there. The comparison ignores `()`/`[]` asides (e.g. a
 yt-dlp video ID or "(Official Audio)"), a known "Napalm Records"-style label
 suffix, and treats filename-unsafe characters like `:` and `/` - and the `-`
 or `|` that commonly replace them once they're part of a folder/file name -
-as interchangeable, so those don't read as a mismatch. A non-conforming
-folder or a misplaced song can each be exported as an
-[UltraStar Deluxe playlist](https://usdx.eu/) (`.upl`, matched by Artist +
-Title) scoped to just those songs - open it in
+as interchangeable, so those don't read as a mismatch. Any of the three
+checks - format issues, non-conforming folders, or misplaced songs - can be
+exported as an [UltraStar Deluxe playlist](https://usdx.eu/) (`.upl`,
+matched by Artist + Title) scoped to just those songs - open it in
 [UltraStar Manager](https://github.com/UltraStar-Deluxe/UltraStar-Manager)
 to jump straight to them instead of browsing the whole library. That
 project is vendored read-only at `third_party/ultrastar-manager` (a git
@@ -105,16 +105,27 @@ start. `SESSION_COOKIE_SECURE=true` unless you reach the app over plain `http://
 
 ### 3. Compose file
 
-Use [`docker-compose.yml`](docker-compose.yml). **Edit two lines** for your NAS:
+Use [`docker-compose.yml`](docker-compose.yml). **Edit one line** for your NAS:
 
 ```yaml
     volumes:
       - /volume1/music/karaoke:/songs:ro   # <-- your real karaoke library path
 ```
 
+The web port (`${WEB_PORT:-9713}`, set via `.env` if you want a different
+one) is bound to `127.0.0.1` only - reachable from the NAS itself, not from
+your LAN or the internet directly. This is deliberate: it forces every
+visitor through a reverse proxy rather than the container's raw port,
+closing an otherwise-real hole where trusting `X-Forwarded-For` from
+"the Docker network" can't actually distinguish a real reverse proxy's
+traffic from anyone who reaches the port directly - Docker NATs *every*
+published-port connection through the same bridge gateway address,
+regardless of true origin. Only change this if you deliberately want direct
+LAN access without a proxy:
+
 ```yaml
     ports:
-      - 9713:8000                          # <-- host port you want (or set WEB_PORT in .env)
+      - ${WEB_PORT:-9713}:8000              # <-- removes the 127.0.0.1 restriction
 ```
 
 ### 4. Start
@@ -123,9 +134,11 @@ Use [`docker-compose.yml`](docker-compose.yml). **Edit two lines** for your NAS:
 `docker-compose.yml` and `.env`, and start it. The image is pulled from
 `ghcr.io/ueda-ichitaka/karaoke-dashboard:latest`.
 
-Open `http://<NAS-IP>:9713` and log in as `admin`. For public access, put it
-behind the Synology **reverse proxy** (adds HTTPS) and keep
-`SESSION_COOKIE_SECURE=true`.
+Set up the Synology **reverse proxy** (Control Panel → Login Portal →
+Advanced → Reverse Proxy) pointing your chosen hostname at
+`127.0.0.1:9713` (or your `WEB_PORT`), and log in through that hostname -
+`http://<NAS-IP>:9713` no longer works directly, by design (see above). Keep
+`SESSION_COOKIE_SECURE=true` once the proxy terminates HTTPS.
 
 ### Updating
 
@@ -199,12 +212,92 @@ whisper's language detection, `musicbrainz_id` enables a direct metadata
 lookup instead of a fuzzy search, and `lyrics_url` is tried before an online
 lyrics search (only a genius.com song page or a direct `.txt`/`.lrc` link
 actually work; anything else - including a filesystem path an admin may set -
-falls back silently, it's never an error).
+falls back silently, it's never an error). `musicbrainz_id` accepts either
+the bare ID or a pasted `musicbrainz.org` URL - the ID is extracted from the
+URL automatically (see `app/musicbrainz.py`), so the stored value always
+fits the column and matches what the downstream lookup expects.
 
 `Reported` tab → **Export open CSV** / **Export all CSV** (`broken.csv`).
-Columns: `band, song name, category, description`, same format as above.
-`category` is one of the fixed codes in `app/broken_categories.py`
-(`gap`, `async`, `lyrics`, `video`, `audio`, `other`).
+Columns: `band, song name, category, description, lyrics_url`, same format
+as above. `category` is one of the fixed codes in `app/broken_categories.py`
+(`gap`, `async`, `lyrics`, `video`, `audio`, `other`) - `lyrics` and `async`
+also require a genius.com lyrics link on the report form (stored as
+`BrokenReport.genius_url`, exported here as `lyrics_url` to match the
+UltraSinger-side column name). `description` is sanitized at submission
+time (`app/validation.py: sanitize_free_text`): collapsed to a single line
+and stripped of characters that could break a CSV row or trigger a
+spreadsheet formula (commas, semicolons, quotes, a leading `=`/`+`/`-`/`@`, ...).
+
+---
+
+## Security
+
+Password hashing is bcrypt (`app/security.py`). A few login-specific
+hardening measures on top of that, all in `app/routes/auth.py`:
+
+- **Timing-safe verification** (`security.verify_login`): a login for a
+  nonexistent/inactive user still runs a real bcrypt comparison (against a
+  fixed dummy hash) instead of short-circuiting, so "no such user" and
+  "wrong password" take the same time - otherwise the difference is a
+  side-channel for enumerating valid usernames.
+- **Brute-force lockout** (`app/rate_limit.py`): 5 failed attempts from the
+  same client IP within 5 minutes locks out further attempts (429) from
+  that IP, success or failure. Keyed by IP, not username, so an attacker
+  can't use it to lock a real account out from elsewhere. **In-memory
+  only** - correct for the single uvicorn process this app runs as today
+  (see `Dockerfile` - no `--workers`); switching to multiple
+  workers/replicas would need a shared store (e.g. Redis) instead, since
+  each process would track its own count. **Also depends on the port
+  binding**: this only sees a real per-visitor IP (rather than every
+  request colliding on one shared bucket) when `docker-compose.yml`'s port
+  is bound to `127.0.0.1` and reached only through a reverse proxy - see
+  the deploy section above for why (Docker NATs any published-port
+  connection through the same bridge gateway address regardless of its
+  true origin, so trusting `X-Forwarded-For` without that binding lets an
+  attacker who reaches the port directly spoof a fresh IP on every
+  request and bypass the lockout entirely).
+- **Open-redirect-proof `next` parameter**: only a same-site relative path
+  is honored; a leading backslash is normalized to a forward slash first,
+  since browsers treat `\` the same as `/` when resolving a URL and
+  `/\evil.example.com` would otherwise slip past a naive scheme/netloc
+  check and resolve as `//evil.example.com`.
+- **Oversized input rejected early**: username/password over a generous
+  length ceiling are refused before reaching bcrypt or the database
+  (also enforced on admin user creation/password reset).
+- **Security headers** (`app/main.py`, applied to every response):
+  `X-Frame-Options: DENY` (clickjacking), `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: same-origin`.
+
+**CSRF protection** (`app/csrf.py`, `app/main.py`) applies app-wide, not
+just to login: a random per-session token (synchronizer-token pattern) is
+handed to every rendered page (`app/deps.py: render()`) and must come back
+as a hidden `csrf_token` field on every `POST` - enforced centrally by one
+middleware rather than per-route, so a new form/route is covered
+automatically. A request missing or mismatching it gets a 403 before the
+route ever runs. Not rotated on login - see `app/csrf.py`'s docstring for
+why that's an acceptable trade-off here.
+
+SQL injection isn't possible - every query goes through SQLAlchemy's ORM
+with bound parameters, never raw string interpolation - and stored XSS
+(e.g. a `<script>` in a username) is neutralized by Jinja2's autoescaping,
+on by default for `.html` templates. Both are covered by regression tests
+in `tests/test_login_security.py`; CSRF has its own suite in
+`tests/test_csrf.py`.
+
+A couple more, app-wide:
+
+- **Request body size cap** (`app/main.py: MAX_BODY_BYTES`, 256 KB): an
+  oversized `POST` is rejected on `Content-Length` before its body is ever
+  read into memory - every field this app accepts is short text, so this
+  is pure headroom, not a real limit.
+- **CSV formula injection** (`app/validation.py: neutralize_csv_formula`):
+  a `band name`/`song name`/`musicbrainz_id` starting with `=`, `+`, `-` or
+  `@` is prefixed with `'` in the `song-requests.csv` export, so a
+  malicious request (e.g. band name `=cmd|'/c calc'!A0`) can't execute as a
+  formula when the admin opens the file in Excel/Sheets. `broken.csv`'s
+  `description` field is protected differently (see the CSV export section
+  above) since it's free text, not an identity field worth preserving
+  byte-for-byte.
 
 ---
 
@@ -285,6 +378,7 @@ app/
   request_matching.py  does a song request already exist in the library or the request queue?
   languages.py       ISO 639-1 choices for the request form's language field
   broken_categories.py  fixed category list for the broken-report form
+  musicbrainz.py     extracts a bare MBID from a pasted musicbrainz.org URL
   validation.py      shared request-form / broken-report field validation
   deps.py            current-user / auth guards / template helper
   routes/            songs, auth, reports, requests, admin

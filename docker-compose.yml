@@ -57,13 +57,27 @@ services:
       # SONG_SEPARATOR: " - "
       ADMIN_USERNAME: ${ADMIN_USERNAME:?set ADMIN_USERNAME in .env for first run}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env for first run}
+      # Read by the container's entrypoint (see Dockerfile), not the Python
+      # app - the address(es) uvicorn trusts to set X-Forwarded-For, i.e.
+      # your reverse proxy's real connecting IP. Only meaningful together
+      # with the loopback-only port binding below - Docker NATs every
+      # published-port connection through the bridge gateway regardless of
+      # its true origin, so without that binding this range can't actually
+      # distinguish your proxy's traffic from anyone who reaches the port
+      # directly. Override, comma-separated, if your setup differs:
+      # FORWARDED_ALLOW_IPS: 127.0.0.1,172.16.0.0/12
       # Automatic rescan of the admin duplicates report (also triggerable by
       # hand from that page): day of month (1-28) + 24h time, in TZ above.
       DUPLICATES_RESCAN_DAY: ${DUPLICATES_RESCAN_DAY:-1}
       DUPLICATES_RESCAN_HOUR: ${DUPLICATES_RESCAN_HOUR:-3}
       DUPLICATES_RESCAN_MINUTE: ${DUPLICATES_RESCAN_MINUTE:-0}
     ports:
-      - ${WEB_PORT:-9713}:8000
+      # Bound to loopback only - reachable from the NAS itself (where DSM's
+      # Reverse Proxy runs), not from your LAN or the internet directly.
+      # Access the app through the reverse proxy's hostname, never
+      # NAS-IP:${WEB_PORT:-9713}. If you deliberately don't run a reverse
+      # proxy and want LAN access, change this to just "${WEB_PORT:-9713}:8000".
+      - 127.0.0.1:${WEB_PORT:-9713}:8000
     volumes:
       # LEFT side = path to your existing karaoke library on the NAS (read-only).
       - /volume1/music/karaoke:/songs:ro

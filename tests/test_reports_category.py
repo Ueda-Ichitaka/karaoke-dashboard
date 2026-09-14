@@ -58,7 +58,10 @@ def test_report_submit_other_category_requires_description(admin_client):
 def test_admin_reports_view_shows_category(admin_client):
     admin_client.post(
         "/report",
-        data={"song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": ""},
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "",
+            "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
+        },
     )
     r = admin_client.get("/admin/reports")
     assert "Lyrics broken" in r.text
@@ -71,6 +74,7 @@ def test_broken_csv_export(admin_client):
             "song_folder": "Queen - Bohemian Rhapsody",
             "category": "async",
             "description": "drifts after 1 minute",
+            "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
         },
     )
     r = admin_client.get("/admin/reports.csv")
@@ -78,8 +82,108 @@ def test_broken_csv_export(admin_client):
     assert r.headers["content-type"].startswith("text/csv")
     assert 'filename="broken.csv"' in r.headers["content-disposition"]
     body = r.text
-    assert body.startswith("band,song name,category,description\n")
-    assert "Queen,Bohemian Rhapsody,async,drifts after 1 minute\n" in body
+    # column name is "lyrics_url" (matching the UltraSinger-side ask in
+    # UPSTREAM_REQUESTS.md), even though the field is named genius_url here
+    assert body.startswith("band,song name,category,description,lyrics_url\n")
+    assert (
+        "Queen,Bohemian Rhapsody,async,drifts after 1 minute,"
+        "https://genius.com/Queen-bohemian-rhapsody-lyrics\n"
+    ) in body
+
+
+def test_broken_csv_lyrics_url_column_blank_when_not_set(admin_client):
+    admin_client.post(
+        "/report",
+        data={"song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": ""},
+    )
+    r = admin_client.get("/admin/reports.csv")
+    body = r.text
+    assert "Queen,Bohemian Rhapsody,audio,,\n" in body
+
+
+# --------------------------------------------------------- genius link
+def test_genius_link_required_for_lyrics_category():
+    errors = broken_report_field_errors("lyrics", "", genius_url="")
+    assert any("genius" in e.lower() for e in errors)
+
+
+def test_genius_link_required_for_async_category():
+    errors = broken_report_field_errors("async", "", genius_url="")
+    assert any("genius" in e.lower() for e in errors)
+
+
+def test_genius_link_not_required_for_other_categories():
+    assert broken_report_field_errors("audio", "", genius_url="") == []
+    assert broken_report_field_errors("video", "", genius_url="") == []
+
+
+def test_genius_link_must_be_a_url_when_given():
+    errors = broken_report_field_errors("lyrics", "", genius_url="not-a-url")
+    assert any("http" in e.lower() for e in errors)
+    assert broken_report_field_errors("lyrics", "", genius_url="https://genius.com/x-lyrics") == []
+
+
+def test_report_submit_lyrics_category_requires_genius_link(admin_client):
+    r = admin_client.post(
+        "/report",
+        data={"song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": ""},
+    )
+    assert r.status_code == 422
+    assert "genius" in r.text.lower()
+
+
+def test_report_submit_async_category_requires_genius_link(admin_client):
+    r = admin_client.post(
+        "/report",
+        data={"song_folder": "Queen - Bohemian Rhapsody", "category": "async", "description": ""},
+    )
+    assert r.status_code == 422
+    assert "genius" in r.text.lower()
+
+
+def test_report_submit_lyrics_category_with_genius_link_succeeds(admin_client):
+    r = admin_client.post(
+        "/report",
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "",
+            "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
+        },
+    )
+    assert r.status_code == 200
+    assert "was submitted" in r.text
+
+
+def test_admin_reports_view_shows_genius_link(admin_client):
+    admin_client.post(
+        "/report",
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "",
+            "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
+        },
+    )
+    r = admin_client.get("/admin/reports")
+    assert 'href="https://genius.com/Queen-bohemian-rhapsody-lyrics"' in r.text
+
+
+def test_report_form_wires_up_category_and_genius_toggle(admin_client):
+    r = admin_client.get("/report")
+    assert "data-broken-category" in r.text
+    assert "data-broken-genius" in r.text
+
+
+# ------------------------------------------------------------ sanitization
+def test_report_description_is_collapsed_to_a_single_line_and_sanitized(admin_client):
+    admin_client.post(
+        "/report",
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody",
+            "category": "other",
+            "description": "line one,\nline two; with a \"quote\" and | a pipe\r\nline three",
+        },
+    )
+    r = admin_client.get("/admin/reports")
+    assert "line one line two with a quote and a pipe line three" in r.text
+    assert "\n" not in r.text.split("line one")[1].split("line three")[0]
 
 
 def test_broken_csv_requires_admin(admin_client):

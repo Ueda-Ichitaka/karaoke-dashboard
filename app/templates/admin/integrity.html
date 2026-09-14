@@ -12,7 +12,12 @@
     <a class="btn btn-small" href="/admin/integrity">Rescan</a>
   </div>
 
-  <h2>Song file format</h2>
+  <div class="page-head">
+    <h2>Song file format</h2>
+    {% if format_reports %}
+      <a class="btn btn-small" href="/admin/integrity/format-issues.upl">Export as UltraStar Manager playlist (.upl)</a>
+    {% endif %}
+  </div>
   {% if not format_reports %}
     <p class="empty">No format issues found.</p>
   {% else %}

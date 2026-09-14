@@ -13,6 +13,7 @@
   <details class="panel" {{ 'open' if error }}>
     <summary>Add a user</summary>
     <form class="inline-form" method="post" action="/admin/users">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <label><span>Username</span><input type="text" name="username" required></label>
       <label><span>Password (min 8)</span><input type="text" name="password" required minlength="8"></label>
       <label class="check"><input type="checkbox" name="is_admin" value="true"> admin</label>
@@ -34,18 +35,22 @@
             <td class="nowrap">{{ u.created_at.strftime('%Y-%m-%d') }}</td>
             <td class="actions">
               <form method="post" action="/admin/users/{{ u.id }}/password" class="inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="text" name="password" placeholder="new password" minlength="8" required>
                 <button class="btn btn-small">Reset</button>
               </form>
               {% if u.id != current_user.id %}
                 <form method="post" action="/admin/users/{{ u.id }}/admin" class="inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <button class="btn btn-small btn-ghost">{{ 'Revoke admin' if u.is_admin else 'Make admin' }}</button>
                 </form>
                 <form method="post" action="/admin/users/{{ u.id }}/active" class="inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <button class="btn btn-small btn-ghost">{{ 'Disable' if u.is_active else 'Enable' }}</button>
                 </form>
                 <form method="post" action="/admin/users/{{ u.id }}/delete" class="inline"
                       onsubmit="return confirm('Delete user {{ u.username }}?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <button class="btn btn-small btn-danger">Delete</button>
                 </form>
               {% endif %}

@@ -86,6 +86,30 @@ def test_misplaced_upl_export_downloads_playlist(admin_client):
     assert "30 Seconds to Mars : The Kill" in r.text
 
 
+# ---------------------------------------------------- song file format .upl
+def test_integrity_view_links_to_format_issues_upl_export(admin_client):
+    r = admin_client.get("/admin/integrity")
+    assert "/admin/integrity/format-issues.upl" in r.text
+
+
+def test_format_issues_upl_export_downloads_playlist(admin_client):
+    r = admin_client.get("/admin/integrity/format-issues.upl")
+    assert r.status_code == 200
+    assert "attachment" in r.headers["content-disposition"]
+    assert r.headers["content-type"].startswith("text/plain")
+    body = r.text
+    assert "#Ultrastar Deluxe Playlist Format v1.0" in body
+    # "Testband - Multi Song" folders have no #MP3/#AUDIO reference (see conftest.py)
+    assert "Testband : Song A" in body
+
+
+def test_format_issues_upl_export_requires_admin(admin_client):
+    admin_client.post("/admin/users", data={"username": "ivy", "password": "ivyivyivyivy"})
+    admin_client.post("/logout")
+    admin_client.post("/login", data={"username": "ivy", "password": "ivyivyivyivy"}, follow_redirects=False)
+    assert admin_client.get("/admin/integrity/format-issues.upl").status_code == 403
+
+
 def test_misplaced_upl_export_requires_admin(admin_client):
     admin_client.post("/admin/users", data={"username": "fay", "password": "fayfayfayfay"})
     admin_client.post("/logout")

@@ -20,6 +20,25 @@ def _insert_request(band: str, song: str, **kwargs) -> int:
         return req.id
 
 
+# ------------------------------------------------------------------- columns
+def test_requests_view_shows_lyrics_and_musicbrainz_columns(admin_client):
+    _insert_request(
+        "Journey", "Faithfully",
+        musicbrainz_id="2fa14ea5-9e94-4a6c-9c62-3c0dc9ce6b8f",
+        lyrics_url="https://genius.com/Journey-faithfully-lyrics",
+    )
+    r = admin_client.get("/admin/requests")
+    assert r.status_code == 200
+    assert "2fa14ea5-9e94-4a6c-9c62-3c0dc9ce6b8f" in r.text
+    assert 'href="https://genius.com/Journey-faithfully-lyrics"' in r.text
+
+
+def test_requests_view_blank_lyrics_and_musicbrainz_show_a_dash(admin_client):
+    _insert_request("Nope", "Nope")
+    r = admin_client.get("/admin/requests")
+    assert r.status_code == 200
+
+
 # --------------------------------------------------------------------- scan
 def test_requests_view_flags_exact_folder_match(admin_client):
     _insert_request("Queen", "Bohemian Rhapsody")

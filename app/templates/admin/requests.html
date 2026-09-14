@@ -24,7 +24,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Band</th><th>Song</th><th>YouTube</th><th>By</th><th>Library</th><th>Status</th><th></th></tr>
+          <tr><th>When</th><th>Band</th><th>Song</th><th>YouTube</th><th>Lyrics</th><th>MusicBrainz ID</th><th>By</th><th>Library</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in requests %}
@@ -35,6 +35,14 @@
               <td class="wrap">
                 {% if r.youtube_url %}<a href="{{ r.youtube_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
+              <td class="wrap">
+                {% if r.lyrics_url and r.lyrics_url.startswith('http') %}
+                  <a href="{{ r.lyrics_url }}" target="_blank" rel="noopener">link</a>
+                {% elif r.lyrics_url %}
+                  <span class="mono">{{ r.lyrics_url }}</span>
+                {% else %}-{% endif %}
+              </td>
+              <td class="mono">{{ r.musicbrainz_id or '-' }}</td>
               <td class="nowrap">{{ r.requester_username }}</td>
               <td class="nowrap">
                 {% if r.library_match and r.library_match.exact_folder %}
@@ -48,6 +56,7 @@
               <td>{{ r.status }}</td>
               <td class="nowrap actions">
                 <form method="post" action="/admin/requests/{{ r.id }}/status" class="inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <input type="hidden" name="show" value="{{ show }}">
                   {% if r.status == 'open' %}
                     <button class="btn btn-small" name="status" value="done">Mark done</button>
@@ -58,6 +67,7 @@
                 <a class="btn btn-small btn-ghost" href="/admin/requests/{{ r.id }}/edit">Edit</a>
                 <form method="post" action="/admin/requests/{{ r.id }}/delete" class="inline"
                       onsubmit="return confirm('Delete the request for {{ r.band_name }} - {{ r.song_name }}?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <button class="btn btn-small btn-danger">Delete</button>
                 </form>
               </td>

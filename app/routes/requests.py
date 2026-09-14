@@ -11,6 +11,7 @@ from ..database import get_db
 from ..deps import render, require_user
 from ..languages import LANGUAGE_CHOICES
 from ..models import SongRequest, User
+from ..musicbrainz import extract_musicbrainz_id
 from ..validation import request_field_errors
 
 router = APIRouter()
@@ -55,9 +56,9 @@ def request_submit(
     song_name = song_name.strip()
     youtube_url = youtube_url.strip()
     language = language.strip().lower()
-    musicbrainz_id = musicbrainz_id.strip()
+    musicbrainz_id = extract_musicbrainz_id(musicbrainz_id)
     lyrics_url = lyrics_url.strip()
-    errors = request_field_errors(band_name, song_name, youtube_url, language)
+    errors = request_field_errors(band_name, song_name, youtube_url, language, musicbrainz_id)
 
     if band_name and song_name:
         existing_folder = songs.folder_exists(band_name, song_name)

@@ -24,7 +24,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Song</th><th>Category</th><th>Description</th><th>By</th><th>Status</th><th></th></tr>
+          <tr><th>When</th><th>Song</th><th>Category</th><th>Description</th><th>Lyrics ref</th><th>By</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in reports %}
@@ -37,10 +37,14 @@
               </td>
               <td>{{ category_labels.get(r.category, r.category or '-') }}</td>
               <td class="wrap">{{ r.description }}</td>
+              <td class="wrap">
+                {% if r.genius_url %}<a href="{{ r.genius_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
+              </td>
               <td class="nowrap">{{ r.reporter_username }}</td>
               <td>{{ r.status }}</td>
               <td class="nowrap">
                 <form method="post" action="/admin/reports/{{ r.id }}/status">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <input type="hidden" name="show" value="{{ show }}">
                   {% if r.status == 'open' %}
                     <button class="btn btn-small" name="status" value="resolved">Mark resolved</button>

@@ -69,6 +69,51 @@ def test_lyrics_url_accepts_filesystem_path(admin_client):
     assert "was submitted" in r.text
 
 
+def test_request_accepts_a_pasted_musicbrainz_url_instead_of_a_bare_id(admin_client):
+    # This used to overflow the musicbrainz_id column (VARCHAR(64)) and
+    # crash the request - the URL alone is 71 chars.
+    r = admin_client.post(
+        "/request",
+        data={
+            "band_name": "Lacrimosa",
+            "song_name": "Lichtgestalt",
+            "musicbrainz_id": "https://musicbrainz.org/recording/2fa14ea5-9e94-4a6c-9c62-3c0dc9ce6b8f",
+        },
+    )
+    assert r.status_code == 200
+    assert "was submitted" in r.text
+
+    r = admin_client.get("/admin/requests.csv", params={"scope": "all"})
+    assert "2fa14ea5-9e94-4a6c-9c62-3c0dc9ce6b8f" in r.text
+    assert "musicbrainz.org" not in r.text
+
+
+def test_request_rejects_an_unreasonably_long_musicbrainz_value(admin_client):
+    r = admin_client.post(
+        "/request",
+        data={"band_name": "Journey", "song_name": "Faithfully", "musicbrainz_id": "x" * 100},
+    )
+    assert r.status_code == 422
+    assert "musicbrainz" in r.text.lower()
+
+
+def test_requests_csv_neutralizes_formula_injection_in_band_and_song_name(admin_client):
+    admin_client.post(
+        "/request",
+        data={"band_name": '=cmd|"/c calc"!A0', "song_name": "+1+1", "musicbrainz_id": "-DDE(1)"},
+    )
+    r = admin_client.get("/admin/requests.csv", params={"scope": "all"})
+    body = r.text
+    assert "'=cmd" in body
+    assert "'+1+1" in body
+    assert "'-DDE(1)" in body
+    # a formula-triggering field must never start right after the opening
+    # quote/comma - it must always be preceded by the defusing "'" first
+    assert '"=cmd' not in body
+    assert ",+1+1" not in body
+    assert ",-DDE(1)" not in body
+
+
 def test_requests_csv_includes_upstream_columns(admin_client):
     admin_client.post(
         "/request",

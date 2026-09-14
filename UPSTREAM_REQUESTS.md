@@ -82,3 +82,41 @@ of the two supported link kinds above. A same-page form field for
 requesters to optionally supply these at request time would be the
 obvious next step if that's wanted, but that's a decision for this
 project, not a requirement from the UltraSinger side.
+
+## Optional broken.csv column: lyrics_url
+
+**Requested:** 2026-09-14. **Status: implemented 2026-09-14** - `broken.csv`
+now exports a fifth `lyrics_url` column, sourced from a `genius_url` field
+already captured on the report form (required there for the `lyrics`/
+`async` categories, per this project's own validation - see
+`app/broken_categories.py`). Named `lyrics_url` in the export to match this
+ask exactly, even though the underlying model/form field is `genius_url`.
+
+The UltraSinger side now reads `broken.csv` (`GET /admin/reports.csv`,
+`app/routes/admin.py`'s `reports_csv()`) to repair only what a report's
+`category` (see `app/broken_categories.py`) actually calls for, instead of
+always running the same blind full repair - see that side's
+`stack/README.md` ("Repairing with broken.csv"). For `category == "lyrics"`
+specifically, a trusted lyrics link is tried before falling back to an
+automatic online search - exactly the same `lyrics_url` mechanism
+`song-requests.csv` already has (see above): only a genius.com song page,
+or a URL pointing straight at plain text/`.lrc`, actually works.
+
+**Ask:** one additional *optional* column, appended after the existing
+four so the format stays backward compatible:
+
+```csv
+band,song name,category,description,lyrics_url
+Metric,Black Sheep,lyrics,second verse is wrong,https://genius.com/Metric-black-sheep-lyrics
+```
+
+This would need a `lyrics_url` (or similar) field on `BrokenReport` (see
+`app/models.py`) and its form/edit views, populated the same optional way
+`SongRequest.lyrics_url` already is. The UltraSinger-side parser
+(`broken_report.py`) already reads a `lyrics_url` column when present and
+defaults to `""` when it's missing, so no further change is needed on that
+side once this ships - existing exports without the column keep working
+unchanged either way.
+
+**Not requested:** any UI/form changes, same caveat as the `song-requests.csv`
+ask above - this is only about the export shape.

@@ -136,14 +136,30 @@
 
   // ---- broken-report form: description is only mandatory for "Other" -----
   document.querySelectorAll("[data-broken-category]").forEach((select) => {
-    const description = select.closest("form").querySelector("[data-broken-description]");
-    const hint = select.closest("form").querySelector("[data-broken-description-hint]");
-    if (!description) return;
+    const form = select.closest("form");
+    const description = form.querySelector("[data-broken-description]");
+    const descriptionHint = form.querySelector("[data-broken-description-hint]");
+    const genius = form.querySelector("[data-broken-genius]");
+    const geniusHint = form.querySelector("[data-broken-genius-hint]");
+    const GENIUS_REQUIRED_CATEGORIES = ["lyrics", "async"];
 
     const update = () => {
       const isOther = select.value === "other";
-      description.required = isOther;
-      if (hint) hint.textContent = isOther ? "(required)" : "(required only for \"Other\")";
+      if (description) {
+        description.required = isOther;
+      }
+      if (descriptionHint) {
+        descriptionHint.textContent = isOther ? "(required)" : "(required only for \"Other\")";
+      }
+      const geniusRequired = GENIUS_REQUIRED_CATEGORIES.indexOf(select.value) !== -1;
+      if (genius) {
+        genius.required = geniusRequired;
+      }
+      if (geniusHint) {
+        geniusHint.textContent = geniusRequired
+          ? "(required)"
+          : "(required for \"Lyrics broken\" / \"Song goes out of sync\")";
+      }
     };
     select.addEventListener("change", update);
     update();

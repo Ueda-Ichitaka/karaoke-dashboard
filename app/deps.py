@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from .config import settings
+from .csrf import get_csrf_token
 from .database import get_db
 from .models import User
 
@@ -74,6 +75,7 @@ def render(
         {
             "app_title": settings.app_title,
             "current_user": user,
+            "csrf_token": get_csrf_token(request),
             **context,
         },
         status_code=status_code,

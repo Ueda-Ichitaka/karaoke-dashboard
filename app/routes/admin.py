@@ -15,7 +15,7 @@ from ..broken_categories import CATEGORY_LABELS
 from ..config import settings
 from ..database import get_db
 from ..deps import render, require_admin
-from ..languages import LANGUAGE_CHOICES
+from ..languages import LANGUAGE_CHOICES, LANGUAGE_LABELS
 from ..models import BrokenReport, SongRequest, User
 from ..musicbrainz import extract_musicbrainz_id
 from ..security import MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, hash_password
@@ -48,6 +48,7 @@ def reports_view(
     return render(
         request, "admin/reports.html", user,
         reports=reports, show=show, open_count=open_count or 0, category_labels=CATEGORY_LABELS,
+        language_labels=LANGUAGE_LABELS,
     )
 
 
@@ -83,10 +84,13 @@ def reports_csv(
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
     if settings.csv_include_header:
-        writer.writerow(["band", "song name", "category", "description", "lyrics_url"])
+        writer.writerow(["band", "song name", "category", "description", "lyrics_url", "language"])
     for r in rows:
         writer.writerow(
-            [r.song_artist or "", r.song_title or "", r.category or "", r.description, r.genius_url or ""]
+            [
+                r.song_artist or "", r.song_title or "", r.category or "", r.description,
+                r.genius_url or "", r.language or "",
+            ]
         )
 
     return StreamingResponse(
@@ -114,7 +118,7 @@ def requests_view(
     open_count = db.scalar(select(func.count()).select_from(SongRequest).where(SongRequest.status == "open"))
     return render(
         request, "admin/requests.html", user,
-        requests=items, show=show, open_count=open_count or 0,
+        requests=items, show=show, open_count=open_count or 0, language_labels=LANGUAGE_LABELS,
     )
 
 

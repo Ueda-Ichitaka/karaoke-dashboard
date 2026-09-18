@@ -45,6 +45,18 @@
       </label>
 
       <label class="field">
+        <span class="field-label">Language <em>(required)</em></span>
+        <select name="language" required>
+          <option value="" {{ 'selected' if not form.language else '' }} disabled>Choose a language…</option>
+          {% for code, label in language_choices %}
+            {% if code %}
+              <option value="{{ code }}" {{ 'selected' if form.language == code else '' }}>{{ label }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field">
         <span class="field-label">What's broken? <em data-broken-description-hint>(required only for "Other")</em></span>
         <textarea name="description" rows="4" data-broken-description
                   placeholder="e.g. lyrics are out of sync, audio cuts out after the first chorus, wrong key…">{{ form.description or '' }}</textarea>

@@ -79,13 +79,19 @@ def test_report_flow_and_admin_view(admin_client):
     # valid submission
     r = admin_client.post(
         "/report",
-        data={"song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": "audio cuts out"},
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
+            "description": "audio cuts out", "language": "en",
+        },
     )
     assert r.status_code == 200
     assert "was submitted" in r.text
 
     # unknown song rejected
-    r = admin_client.post("/report", data={"song_folder": "Nope - Nope", "category": "audio", "description": "x"})
+    r = admin_client.post(
+        "/report",
+        data={"song_folder": "Nope - Nope", "category": "audio", "description": "x", "language": "en"},
+    )
     assert r.status_code == 422
 
     # shows up in admin

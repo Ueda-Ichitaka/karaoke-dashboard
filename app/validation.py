@@ -77,7 +77,9 @@ def request_field_errors(
 _GENIUS_REQUIRED_CATEGORIES = frozenset({"lyrics", "async"})
 
 
-def broken_report_field_errors(category: str, description: str, genius_url: str = "") -> list[str]:
+def broken_report_field_errors(
+    category: str, description: str, genius_url: str = "", language: str = ""
+) -> list[str]:
     errors: list[str] = []
     if not category:
         errors.append("Please choose a category.")
@@ -89,4 +91,8 @@ def broken_report_field_errors(category: str, description: str, genius_url: str 
         errors.append('Please provide a genius.com lyrics link for this category.')
     if genius_url and not is_http_url(genius_url):
         errors.append("The lyrics link must start with http:// or https://")
+    if not language:
+        errors.append("Please choose the song's language.")
+    elif not is_valid_language_code(language):
+        errors.append("Unrecognized language.")
     return errors

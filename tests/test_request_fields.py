@@ -11,6 +11,7 @@ def test_request_form_shows_language_select_and_tooltips(admin_client):
     assert r.status_code == 200
     assert '<select name="language"' in r.text
     assert 'value="de"' in r.text and "German" in r.text
+    assert 'value="mixed"' in r.text and "Mixed" in r.text
     # tooltip hints on the two upstream-only fields - a CSS-driven tooltip
     # (data-tip), not the native title="" attribute, which browsers render
     # inconsistently (and not at all on some setups/devices)

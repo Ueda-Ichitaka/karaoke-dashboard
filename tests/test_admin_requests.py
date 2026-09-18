@@ -33,6 +33,13 @@ def test_requests_view_shows_lyrics_and_musicbrainz_columns(admin_client):
     assert 'href="https://genius.com/Journey-faithfully-lyrics"' in r.text
 
 
+def test_requests_view_shows_language_column(admin_client):
+    _insert_request("Journey", "Faithfully", language="en")
+    r = admin_client.get("/admin/requests")
+    assert r.status_code == 200
+    assert "English" in r.text
+
+
 def test_requests_view_blank_lyrics_and_musicbrainz_show_a_dash(admin_client):
     _insert_request("Nope", "Nope")
     r = admin_client.get("/admin/requests")

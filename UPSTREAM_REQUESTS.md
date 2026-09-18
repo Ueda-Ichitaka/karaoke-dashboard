@@ -120,3 +120,52 @@ unchanged either way.
 
 **Not requested:** any UI/form changes, same caveat as the `song-requests.csv`
 ask above - this is only about the export shape.
+
+## Optional broken.csv column: language
+
+**Requested:** 2026-09-15. **Status: implemented 2026-09-18** - `broken.csv`
+now exports a sixth `language` column, sourced from a `language` field on
+`BrokenReport` (see `app/models.py`). Unlike `song-requests.csv`'s optional
+`language` field, this one is **mandatory** on the report form (this
+project's own choice, not requested upstream) - a reporter of an
+"async"/"lyrics" report is usually exactly the person who'd know the song's
+language, so it made sense to just always ask. The dropdown (shared with the
+request form, see `app/languages.py`) also gained a "Mixed" option for songs
+whose lyrics switch languages mid-track, absent before this.
+
+The UltraSinger side is fixing a real, recurring sync-quality problem: a
+repair sometimes re-aligns lyrics against the wrong detected language
+(whisper's auto-detection can mis-fire, same class of bug as the
+`Lichtgestalt` example under the `language` ask above). For a *new* song
+request, `song-requests.csv`'s existing `language` column already lets a
+requester pin this - there's no equivalent for a *broken-song report*,
+even though a reporter reporting an "async"/"lyrics" category report is
+often exactly the person who'd know the song's language.
+
+**Ask:** one additional *optional* column, appended after the existing
+`lyrics_url` column so the format stays backward compatible:
+
+```csv
+band,song name,category,description,lyrics_url,language
+Lacrimosa,Lichtgestalt,async,drifts after the first line,,de
+```
+
+This would need a `language` field on `BrokenReport` (see `app/models.py`)
+and its form/edit views, populated the same optional way
+`SongRequest.language` already is (same ISO 639-1 code convention - a
+language dropdown/select if this project already has one reusable from the
+request form). The UltraSinger-side parser (`broken_report.py`) already
+reads a `language` column when present and defaults to `""` when it's
+missing, and threads it through to `repair.py --language`, so no further
+stack-side change is needed once this ships - existing exports without the
+column keep working unchanged either way.
+
+**Note on precedence:** on the UltraSinger side, this value is only used
+as a *fallback* - if the song's own folder already has a persisted,
+possibly admin-edited `language.txt` (see that project's `src/modules/
+language_file.py`), the saved file always wins over this column, the same
+way a manually-supplied `lyrics.txt`/`lyrics_url` already takes priority
+over an automatic fetch.
+
+**Not requested:** any UI/form changes, same caveat as the asks above -
+this is only about the export shape.

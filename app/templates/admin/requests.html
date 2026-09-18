@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Requested songs · {{ app_title }}{% endblock %}
+{% block content_class %} wide{% endblock %}
 {% block content %}
 <section class="page">
   <div class="page-head">
@@ -24,7 +25,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Band</th><th>Song</th><th>YouTube</th><th>Lyrics</th><th>MusicBrainz ID</th><th>By</th><th>Library</th><th>Status</th><th></th></tr>
+          <tr><th>When</th><th>Band</th><th>Song</th><th>Language</th><th>YouTube</th><th>Lyrics</th><th>MusicBrainz ID</th><th>By</th><th>Library</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in requests %}
@@ -32,6 +33,7 @@
               <td class="nowrap">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
               <td>{{ r.band_name }}</td>
               <td>{{ r.song_name }}</td>
+              <td class="nowrap">{{ language_labels.get(r.language, r.language or '-') }}</td>
               <td class="wrap">
                 {% if r.youtube_url %}<a href="{{ r.youtube_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>

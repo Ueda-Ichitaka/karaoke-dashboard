@@ -9,6 +9,7 @@ from .. import songs as song_index
 from ..broken_categories import CATEGORY_CHOICES
 from ..database import get_db
 from ..deps import render, require_user
+from ..languages import LANGUAGE_CHOICES
 from ..models import BrokenReport, User
 from ..validation import broken_report_field_errors, sanitize_free_text
 
@@ -20,6 +21,7 @@ def report_form(request: Request, user: User = Depends(require_user)):
     return render(
         request, "report.html", user,
         errors=[], form={}, submitted=False, category_choices=CATEGORY_CHOICES,
+        language_choices=LANGUAGE_CHOICES,
     )
 
 
@@ -41,6 +43,7 @@ def report_submit(
     category: str = Form(""),
     description: str = Form(""),
     genius_url: str = Form(""),
+    language: str = Form(""),
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
@@ -48,6 +51,7 @@ def report_submit(
     category = category.strip().lower()
     description = sanitize_free_text(description)
     genius_url = genius_url.strip()
+    language = language.strip().lower()
     errors: list[str] = []
 
     song = song_index.get_by_folder(song_folder) if song_folder else None
@@ -55,7 +59,7 @@ def report_submit(
         errors.append("Please pick the song that is broken.")
     elif song is None:
         errors.append("That song is no longer in the library - pick another.")
-    errors.extend(broken_report_field_errors(category, description, genius_url))
+    errors.extend(broken_report_field_errors(category, description, genius_url, language))
 
     if errors:
         return render(
@@ -63,9 +67,9 @@ def report_submit(
             errors=errors,
             form={
                 "song_folder": song_folder, "category": category,
-                "description": description, "genius_url": genius_url,
+                "description": description, "genius_url": genius_url, "language": language,
             },
-            submitted=False, category_choices=CATEGORY_CHOICES,
+            submitted=False, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
         )
 
     db.add(
@@ -76,6 +80,7 @@ def report_submit(
             category=category,
             description=description,
             genius_url=genius_url or None,
+            language=language or None,
             reporter_id=user.id,
             reporter_username=user.username,
         )
@@ -84,5 +89,5 @@ def report_submit(
     return render(
         request, "report.html", user,
         errors=[], form={}, submitted=True, submitted_song=song.display,
-        category_choices=CATEGORY_CHOICES,
+        category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
     )

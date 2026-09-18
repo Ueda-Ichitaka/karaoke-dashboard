@@ -45,6 +45,10 @@ class BrokenReport(Base):
     # broken" / "song goes out of sync" categories so the admin has a
     # reference for what the correct lyrics/timing should be.
     genius_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    # ISO 639-1 code, or "mixed" (see app/languages.py). Nullable here so
+    # reports created before this field existed still load - the app itself
+    # always requires it on a new submission.
+    language: Mapped[str | None] = mapped_column(String(8), nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="open", nullable=False)  # open | resolved
 
     reporter_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

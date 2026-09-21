@@ -169,3 +169,18 @@ over an automatic fetch.
 
 **Not requested:** any UI/form changes, same caveat as the asks above -
 this is only about the export shape.
+
+## Added on this side (not requested): cover_url and duet columns
+
+**Added 2026-09-21** - the dashboard's user input views gained new optional
+fields, so the CSV exports gained matching trailing columns (appended after
+the existing ones; existing parsers that ignore unknown trailing columns keep
+working unchanged). Nothing is required of the UltraSinger side.
+
+- `song-requests.csv` (`requests_csv()`): `..., lyrics_url, cover_url, duet`
+  - `cover_url`: an http(s) link to a cover image, or blank. Only the
+    scheme is checked - whether it really points at an image is not.
+  - `duet`: `yes` (a duet version of the song is requested), `no`, or blank
+    (requester didn't say).
+- `broken.csv` (`reports_csv()`): `..., lyrics_url, language, cover_url` -
+  same `cover_url` semantics as above.

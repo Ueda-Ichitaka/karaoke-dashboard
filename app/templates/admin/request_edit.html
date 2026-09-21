@@ -47,6 +47,18 @@
       </span>
       <input type="text" name="lyrics_url" value="{{ form.lyrics_url }}" placeholder="URL or a filesystem path">
     </label>
+    <label class="field">
+      <span class="field-label">Cover image link <em>(optional)</em></span>
+      <input type="url" name="cover_url" value="{{ form.cover_url }}">
+    </label>
+    <label class="field">
+      <span class="field-label">Duet <em>(optional)</em></span>
+      <select name="duet">
+        {% for code, label in duet_choices %}
+          <option value="{{ code }}" {{ 'selected' if form.duet == code }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
     <div class="inline-form">
       <button type="submit" class="btn btn-primary">Save</button>
       <a class="btn btn-ghost" href="/admin/requests">Cancel</a>

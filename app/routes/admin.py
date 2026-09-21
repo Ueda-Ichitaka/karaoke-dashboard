@@ -15,6 +15,7 @@ from ..broken_categories import CATEGORY_LABELS
 from ..config import settings
 from ..database import get_db
 from ..deps import render, require_admin
+from ..duet import DUET_CHOICES, DUET_LABELS
 from ..languages import LANGUAGE_CHOICES, LANGUAGE_LABELS
 from ..models import BrokenReport, SongRequest, User
 from ..musicbrainz import extract_musicbrainz_id
@@ -84,12 +85,12 @@ def reports_csv(
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
     if settings.csv_include_header:
-        writer.writerow(["band", "song name", "category", "description", "lyrics_url", "language"])
+        writer.writerow(["band", "song name", "category", "description", "lyrics_url", "language", "cover_url"])
     for r in rows:
         writer.writerow(
             [
                 r.song_artist or "", r.song_title or "", r.category or "", r.description,
-                r.genius_url or "", r.language or "",
+                r.genius_url or "", r.language or "", r.cover_url or "",
             ]
         )
 
@@ -119,6 +120,7 @@ def requests_view(
     return render(
         request, "admin/requests.html", user,
         requests=items, show=show, open_count=open_count or 0, language_labels=LANGUAGE_LABELS,
+        duet_labels=DUET_LABELS,
     )
 
 
@@ -166,11 +168,12 @@ def request_edit_form(
         raise HTTPException(status_code=404)
     return render(
         request, "admin/request_edit.html", user,
-        errors=[], item=item, language_choices=LANGUAGE_CHOICES,
+        errors=[], item=item, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
         form={
             "band_name": item.band_name, "song_name": item.song_name,
             "youtube_url": item.youtube_url or "", "language": item.language or "",
             "musicbrainz_id": item.musicbrainz_id or "", "lyrics_url": item.lyrics_url or "",
+            "cover_url": item.cover_url or "", "duet": item.duet or "",
         },
     )
 
@@ -185,6 +188,8 @@ def request_edit_submit(
     language: str = Form(""),
     musicbrainz_id: str = Form(""),
     lyrics_url: str = Form(""),
+    cover_url: str = Form(""),
+    duet: str = Form(""),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -198,15 +203,20 @@ def request_edit_submit(
     language = language.strip().lower()
     musicbrainz_id = extract_musicbrainz_id(musicbrainz_id)
     lyrics_url = lyrics_url.strip()
+    cover_url = cover_url.strip()
+    duet = duet.strip().lower()
 
-    errors = request_field_errors(band_name, song_name, youtube_url, language, musicbrainz_id)
+    errors = request_field_errors(
+        band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet
+    )
     if errors:
         return render(
             request, "admin/request_edit.html", user, status_code=422,
-            errors=errors, item=item, language_choices=LANGUAGE_CHOICES,
+            errors=errors, item=item, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
             form={
                 "band_name": band_name, "song_name": song_name, "youtube_url": youtube_url,
                 "language": language, "musicbrainz_id": musicbrainz_id, "lyrics_url": lyrics_url,
+                "cover_url": cover_url, "duet": duet,
             },
         )
 
@@ -216,6 +226,8 @@ def request_edit_submit(
     item.language = language or None
     item.musicbrainz_id = musicbrainz_id or None
     item.lyrics_url = lyrics_url or None
+    item.cover_url = cover_url or None
+    item.duet = duet or None
     db.commit()
     return RedirectResponse("/admin/requests", status_code=303)
 
@@ -235,7 +247,10 @@ def requests_csv(
     writer = csv.writer(buffer, lineterminator="\n")
     if settings.csv_include_header:
         writer.writerow(
-            ["band name", "song name", "youtube link", "language", "musicbrainz_id", "lyrics_url"]
+            [
+                "band name", "song name", "youtube link", "language", "musicbrainz_id",
+                "lyrics_url", "cover_url", "duet",
+            ]
         )
     for r in rows:
         writer.writerow(
@@ -243,6 +258,7 @@ def requests_csv(
                 neutralize_csv_formula(r.band_name), neutralize_csv_formula(r.song_name),
                 r.youtube_url or "", r.language or "",
                 neutralize_csv_formula(r.musicbrainz_id or ""), r.lyrics_url or "",
+                r.cover_url or "", r.duet or "",
             ]
         )
 

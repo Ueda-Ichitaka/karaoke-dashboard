@@ -125,8 +125,8 @@ def test_request_flow_validation_and_csv(admin_client):
     assert r.headers["content-type"].startswith("text/csv")
     body = r.text
     assert body.endswith("\n")
-    assert "band name,song name,youtube link,language,musicbrainz_id,lyrics_url\n" in body
-    assert "Journey,Faithfully,https://youtu.be/abc,,,\n" in body
+    assert "band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet\n" in body
+    assert "Journey,Faithfully,https://youtu.be/abc,,,,,\n" in body
 
 
 def test_app_js_loads_on_every_page(admin_client):

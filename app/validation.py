@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 
 from .broken_categories import is_valid_category
+from .duet import is_valid_duet
 from .languages import is_valid_language_code
 from .musicbrainz import MAX_LENGTH as MUSICBRAINZ_ID_MAX_LENGTH
 
@@ -55,7 +56,8 @@ def is_http_url(value: str) -> bool:
 
 
 def request_field_errors(
-    band_name: str, song_name: str, youtube_url: str, language: str, musicbrainz_id: str = ""
+    band_name: str, song_name: str, youtube_url: str, language: str, musicbrainz_id: str = "",
+    cover_url: str = "", duet: str = "",
 ) -> list[str]:
     errors: list[str] = []
     if not band_name:
@@ -71,6 +73,10 @@ def request_field_errors(
             f"Unrecognized MusicBrainz ID - paste the ID itself or a musicbrainz.org "
             f"link to it (max {MUSICBRAINZ_ID_MAX_LENGTH} characters)."
         )
+    if cover_url and not is_http_url(cover_url):
+        errors.append("The cover image link must start with http:// or https://")
+    if duet and not is_valid_duet(duet):
+        errors.append("Unrecognized duet choice.")
     return errors
 
 
@@ -78,7 +84,7 @@ _GENIUS_REQUIRED_CATEGORIES = frozenset({"lyrics", "async"})
 
 
 def broken_report_field_errors(
-    category: str, description: str, genius_url: str = "", language: str = ""
+    category: str, description: str, genius_url: str = "", language: str = "", cover_url: str = ""
 ) -> list[str]:
     errors: list[str] = []
     if not category:
@@ -95,4 +101,6 @@ def broken_report_field_errors(
         errors.append("Please choose the song's language.")
     elif not is_valid_language_code(language):
         errors.append("Unrecognized language.")
+    if cover_url and not is_http_url(cover_url):
+        errors.append("The cover image link must start with http:// or https://")
     return errors

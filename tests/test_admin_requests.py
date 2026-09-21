@@ -158,3 +158,45 @@ def test_non_admin_blocked_from_request_admin_actions(admin_client):
         f"/admin/requests/{rid}/edit", data={"band_name": "x", "song_name": "y"}
     ).status_code == 403
     assert admin_client.post(f"/admin/requests/{rid}/delete").status_code == 403
+
+
+# ------------------------------------------------------ cover image + duet
+def test_requests_view_shows_cover_and_duet_columns(admin_client):
+    _insert_request(
+        "Journey", "Faithfully", cover_url="https://example.com/cover.jpg", duet="yes"
+    )
+    r = admin_client.get("/admin/requests")
+    assert 'href="https://example.com/cover.jpg"' in r.text
+    assert "<th>Duet</th>" in r.text
+    assert "Yes" in r.text
+
+
+def test_edit_form_shows_and_saves_cover_url_and_duet(admin_client):
+    rid = _insert_request("Journey", "Faithfully", cover_url="https://example.com/a.jpg", duet="no")
+    r = admin_client.get(f"/admin/requests/{rid}/edit")
+    assert 'value="https://example.com/a.jpg"' in r.text
+    assert '<option value="no" selected>' in r.text
+
+    r = admin_client.post(
+        f"/admin/requests/{rid}/edit",
+        data={
+            "band_name": "Journey", "song_name": "Faithfully",
+            "cover_url": "https://example.com/b.jpg", "duet": "yes",
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    r2 = admin_client.get(f"/admin/requests/{rid}/edit")
+    assert 'value="https://example.com/b.jpg"' in r2.text
+    assert '<option value="yes" selected>' in r2.text
+
+
+def test_edit_rejects_invalid_cover_url_and_duet(admin_client):
+    rid = _insert_request("Journey", "Faithfully")
+    base = {"band_name": "Journey", "song_name": "Faithfully"}
+    assert admin_client.post(
+        f"/admin/requests/{rid}/edit", data={**base, "cover_url": "nope"}
+    ).status_code == 422
+    assert admin_client.post(
+        f"/admin/requests/{rid}/edit", data={**base, "duet": "maybe"}
+    ).status_code == 422

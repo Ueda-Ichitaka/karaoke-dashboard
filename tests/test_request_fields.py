@@ -131,10 +131,67 @@ def test_requests_csv_includes_upstream_columns(admin_client):
     r = admin_client.get("/admin/requests.csv", params={"scope": "all"})
     assert r.status_code == 200
     body = r.text
-    assert body.startswith("band name,song name,youtube link,language,musicbrainz_id,lyrics_url\n")
+    assert body.startswith("band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet\n")
     assert (
-        "Lacrimosa,Lichtgestalt,,de,mbid-123,https://genius.com/Lacrimosa-lichtgestalt-lyrics\n"
+        "Lacrimosa,Lichtgestalt,,de,mbid-123,https://genius.com/Lacrimosa-lichtgestalt-lyrics,,\n"
         in body
     )
     # optional columns stay blank, not "None", when unset
-    assert "Journey,Faithfully,,,,\n" in body
+    assert "Journey,Faithfully,,,,,,\n" in body
+
+
+# ------------------------------------------------------- cover image + duet
+def test_request_form_shows_cover_url_and_duet_fields(admin_client):
+    r = admin_client.get("/request")
+    assert 'name="cover_url"' in r.text
+    assert '<select name="duet"' in r.text
+    assert 'value="yes"' in r.text and 'value="no"' in r.text
+
+
+def test_request_submit_accepts_cover_url_and_duet(admin_client):
+    r = admin_client.post(
+        "/request",
+        data={
+            "band_name": "Lacrimosa", "song_name": "Lichtgestalt",
+            "cover_url": "https://example.com/cover.jpg", "duet": "yes",
+        },
+    )
+    assert r.status_code == 200
+    assert "was submitted" in r.text
+
+
+def test_request_rejects_a_cover_url_that_is_not_http(admin_client):
+    r = admin_client.post(
+        "/request",
+        data={"band_name": "Journey", "song_name": "Faithfully", "cover_url": "cover.jpg"},
+    )
+    assert r.status_code == 422
+    assert "cover" in r.text.lower()
+
+
+def test_request_rejects_an_unknown_duet_value(admin_client):
+    r = admin_client.post(
+        "/request",
+        data={"band_name": "Journey", "song_name": "Faithfully", "duet": "maybe"},
+    )
+    assert r.status_code == 422
+    assert "duet" in r.text.lower()
+
+
+def test_requests_csv_exports_cover_url_and_duet_columns(admin_client):
+    admin_client.post(
+        "/request",
+        data={
+            "band_name": "Lacrimosa", "song_name": "Lichtgestalt",
+            "cover_url": "https://example.com/cover.jpg", "duet": "yes",
+        },
+    )
+    admin_client.post(
+        "/request", data={"band_name": "Journey", "song_name": "Faithfully", "duet": "no"}
+    )
+    body = admin_client.get("/admin/requests.csv", params={"scope": "all"}).text
+    assert body.startswith(
+        "band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet\n"
+    )
+    assert "Lacrimosa,Lichtgestalt,,,,,https://example.com/cover.jpg,yes\n" in body
+    assert "Journey,Faithfully,,,,,,no\n" in body

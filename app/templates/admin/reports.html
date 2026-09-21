@@ -25,7 +25,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Song</th><th>Category</th><th>Language</th><th>Description</th><th>Lyrics ref</th><th>By</th><th>Status</th><th></th></tr>
+          <tr><th>When</th><th>Song</th><th>Category</th><th>Language</th><th>Description</th><th>Lyrics ref</th><th>Cover</th><th>By</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in reports %}
@@ -41,6 +41,9 @@
               <td class="wrap">{{ r.description }}</td>
               <td class="wrap">
                 {% if r.genius_url %}<a href="{{ r.genius_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
+              </td>
+              <td class="wrap">
+                {% if r.cover_url %}<a href="{{ r.cover_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
               <td class="nowrap">{{ r.reporter_username }}</td>
               <td>{{ r.status }}</td>

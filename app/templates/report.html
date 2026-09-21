@@ -71,6 +71,11 @@
                placeholder="https://genius.com/…">
       </label>
 
+      <label class="field">
+        <span class="field-label">Cover image link <em>(optional)</em></span>
+        <input type="url" name="cover_url" value="{{ form.cover_url or '' }}" placeholder="https://…/cover.jpg">
+      </label>
+
       <button type="submit" class="btn btn-primary">Submit report</button>
     </form>
   {% endif %}

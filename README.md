@@ -5,8 +5,8 @@ A small web app for a home karaoke system:
 | Tab | Who | What |
 | --- | --- | --- |
 | **Songs** | everyone | Browse & search the library (one entry per folder in your songs directory). |
-| **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, other), choose the song's language (required - includes a "Mixed" option for songs whose lyrics switch languages), describe what's broken (required only for "other"), and give a genius.com lyrics link (required only for "lyrics broken" / "out of sync"), submit. |
-| **Request song** | logged-in users | Ask for a new song: band + title (required); YouTube link, language (includes "Mixed"), MusicBrainz ID (bare ID or a pasted musicbrainz.org link - either is accepted), lyrics link (all optional). Rejected if the song already exists in the library *or* already has an open request. |
+| **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, other), choose the song's language (required - includes a "Mixed" option for songs whose lyrics switch languages), describe what's broken (required only for "other"), give a genius.com lyrics link (required only for "lyrics broken" / "out of sync"), and optionally a cover image link, submit. |
+| **Request song** | logged-in users | Ask for a new song: band + title (required); YouTube link, language (includes "Mixed"), MusicBrainz ID (bare ID or a pasted musicbrainz.org link - either is accepted), lyrics link, cover image link, Duet yes/no/blank - is a duet version wanted? (all optional). Rejected if the song already exists in the library *or* already has an open request. |
 | **Reported** | admins | Review / resolve broken-song reports, **export as CSV** (`broken.csv`). |
 | **Requested** | admins | Review / close / delete song requests, see whether one already matches the library, **export as CSV**. |
 | **Duplicates** | admins | Review songs that appear more than once, compare their metadata, dismiss false positives. Results are cached (scanning is expensive) - rescan on demand or wait for the scheduled monthly rescan. |
@@ -203,10 +203,10 @@ when scanning.
 ### CSV export
 
 `Requested` tab → **Export open CSV** / **Export all CSV**. Columns:
-`band name, song name, youtube link, language, musicbrainz_id, lyrics_url`,
+`band name, song name, youtube link, language, musicbrainz_id, lyrics_url, cover_url, duet`,
 comma-separated, `\n` row terminator, UTF-8. Header row unless
-`CSV_INCLUDE_HEADER=false`. The last three columns are optional/blank unless
-the requester filled them in on the request form; they're consumed by the
+`CSV_INCLUDE_HEADER=false`. The last five columns are optional/blank unless
+the requester filled them in on the request form (`duet` is `yes`, `no` or blank; `cover_url` must be an http(s) link); they're consumed by the
 UltraSinger batch pipeline (see `UPSTREAM_REQUESTS.md`) - `language` pins
 whisper's language detection, `musicbrainz_id` enables a direct metadata
 lookup instead of a fuzzy search, and `lyrics_url` is tried before an online
@@ -218,7 +218,7 @@ URL automatically (see `app/musicbrainz.py`), so the stored value always
 fits the column and matches what the downstream lookup expects.
 
 `Reported` tab → **Export open CSV** / **Export all CSV** (`broken.csv`).
-Columns: `band, song name, category, description, lyrics_url, language`,
+Columns: `band, song name, category, description, lyrics_url, language, cover_url`,
 same format as above. `category` is one of the fixed codes in
 `app/broken_categories.py` (`gap`, `async`, `lyrics`, `video`, `audio`,
 `other`) - `lyrics` and `async` also require a genius.com lyrics link on the
@@ -379,6 +379,7 @@ app/
   misplaced_check.py wrong-song-in-folder checks
   upl_export.py      UltraStar Manager (.upl) playlist export for both checks above
   request_matching.py  does a song request already exist in the library or the request queue?
+  duet.py            yes/no/blank Duet choice for the request form
   languages.py       language choices shared by the request/report forms (ISO 639-1 + "Mixed")
   broken_categories.py  fixed category list for the broken-report form
   musicbrainz.py     extracts a bare MBID from a pasted musicbrainz.org URL

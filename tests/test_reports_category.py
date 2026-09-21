@@ -90,10 +90,10 @@ def test_broken_csv_export(admin_client):
     # column names are "lyrics_url"/"language" (matching the UltraSinger-side
     # asks in UPSTREAM_REQUESTS.md), even though the lyrics field is named
     # genius_url here
-    assert body.startswith("band,song name,category,description,lyrics_url,language\n")
+    assert body.startswith("band,song name,category,description,lyrics_url,language,cover_url\n")
     assert (
         "Queen,Bohemian Rhapsody,async,drifts after 1 minute,"
-        "https://genius.com/Queen-bohemian-rhapsody-lyrics,de\n"
+        "https://genius.com/Queen-bohemian-rhapsody-lyrics,de,\n"
     ) in body
 
 
@@ -107,7 +107,7 @@ def test_broken_csv_lyrics_url_column_blank_when_not_set(admin_client):
     )
     r = admin_client.get("/admin/reports.csv")
     body = r.text
-    assert "Queen,Bohemian Rhapsody,audio,,,de\n" in body
+    assert "Queen,Bohemian Rhapsody,audio,,,de,\n" in body
 
 
 # --------------------------------------------------------- genius link
@@ -272,10 +272,10 @@ def test_broken_csv_includes_language_column(admin_client):
     )
     r = admin_client.get("/admin/reports.csv")
     body = r.text
-    assert body.startswith("band,song name,category,description,lyrics_url,language\n")
+    assert body.startswith("band,song name,category,description,lyrics_url,language,cover_url\n")
     assert (
         "Queen,Bohemian Rhapsody,async,drifts after 1 minute,"
-        "https://genius.com/Queen-bohemian-rhapsody-lyrics,de\n"
+        "https://genius.com/Queen-bohemian-rhapsody-lyrics,de,\n"
     ) in body
 
 
@@ -284,3 +284,47 @@ def test_broken_csv_requires_admin(admin_client):
     admin_client.post("/logout")
     admin_client.post("/login", data={"username": "greg", "password": "greggreggreg"}, follow_redirects=False)
     assert admin_client.get("/admin/reports.csv").status_code == 403
+
+
+# ------------------------------------------------------------- cover image
+def test_cover_url_is_optional_but_must_be_http_when_given():
+    assert broken_report_field_errors("audio", "", language="de", cover_url="") == []
+    assert (
+        broken_report_field_errors("audio", "", language="de", cover_url="https://x.org/c.png")
+        == []
+    )
+    errors = broken_report_field_errors("audio", "", language="de", cover_url="c.png")
+    assert any("cover" in e.lower() for e in errors)
+
+
+def test_report_form_shows_cover_url_field(admin_client):
+    assert 'name="cover_url"' in admin_client.get("/report").text
+
+
+def test_report_submit_rejects_a_non_http_cover_url(admin_client):
+    r = admin_client.post(
+        "/report",
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
+            "language": "de", "cover_url": "c.png",
+        },
+    )
+    assert r.status_code == 422
+    assert "cover" in r.text.lower()
+
+
+def test_report_cover_url_is_shown_in_admin_and_exported(admin_client):
+    r = admin_client.post(
+        "/report",
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
+            "language": "de", "cover_url": "https://example.com/cover.jpg",
+        },
+    )
+    assert r.status_code == 200
+    assert 'href="https://example.com/cover.jpg"' in admin_client.get("/admin/reports").text
+    body = admin_client.get("/admin/reports.csv").text
+    assert body.startswith(
+        "band,song name,category,description,lyrics_url,language,cover_url\n"
+    )
+    assert "Queen,Bohemian Rhapsody,audio,,,de,https://example.com/cover.jpg\n" in body

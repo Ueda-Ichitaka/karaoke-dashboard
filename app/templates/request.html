@@ -54,6 +54,18 @@
         </span>
         <input type="text" name="lyrics_url" value="{{ form.lyrics_url or '' }}" placeholder="https://genius.com/… or a direct .txt/.lrc link">
       </label>
+      <label class="field">
+        <span class="field-label">Cover image link <em>(optional)</em></span>
+        <input type="url" name="cover_url" value="{{ form.cover_url or '' }}" placeholder="https://…/cover.jpg">
+      </label>
+      <label class="field">
+        <span class="field-label">Duet <em>(optional - is a duet version wanted?)</em></span>
+        <select name="duet">
+          {% for code, label in duet_choices %}
+            <option value="{{ code }}" {{ 'selected' if (form.duet or '') == code }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
       <button type="submit" class="btn btn-primary" data-dup-submit>Submit request</button>
     </form>
   {% endif %}

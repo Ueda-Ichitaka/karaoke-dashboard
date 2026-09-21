@@ -44,6 +44,7 @@ def report_submit(
     description: str = Form(""),
     genius_url: str = Form(""),
     language: str = Form(""),
+    cover_url: str = Form(""),
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
@@ -52,6 +53,7 @@ def report_submit(
     description = sanitize_free_text(description)
     genius_url = genius_url.strip()
     language = language.strip().lower()
+    cover_url = cover_url.strip()
     errors: list[str] = []
 
     song = song_index.get_by_folder(song_folder) if song_folder else None
@@ -59,7 +61,7 @@ def report_submit(
         errors.append("Please pick the song that is broken.")
     elif song is None:
         errors.append("That song is no longer in the library - pick another.")
-    errors.extend(broken_report_field_errors(category, description, genius_url, language))
+    errors.extend(broken_report_field_errors(category, description, genius_url, language, cover_url))
 
     if errors:
         return render(
@@ -68,6 +70,7 @@ def report_submit(
             form={
                 "song_folder": song_folder, "category": category,
                 "description": description, "genius_url": genius_url, "language": language,
+                "cover_url": cover_url,
             },
             submitted=False, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
         )
@@ -81,6 +84,7 @@ def report_submit(
             description=description,
             genius_url=genius_url or None,
             language=language or None,
+            cover_url=cover_url or None,
             reporter_id=user.id,
             reporter_username=user.username,
         )

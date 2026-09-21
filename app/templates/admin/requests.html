@@ -25,7 +25,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Band</th><th>Song</th><th>Language</th><th>YouTube</th><th>Lyrics</th><th>MusicBrainz ID</th><th>By</th><th>Library</th><th>Status</th><th></th></tr>
+          <tr><th>When</th><th>Band</th><th>Song</th><th>Language</th><th>YouTube</th><th>Lyrics</th><th>MusicBrainz ID</th><th>Cover</th><th>Duet</th><th>By</th><th>Library</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in requests %}
@@ -45,6 +45,10 @@
                 {% else %}-{% endif %}
               </td>
               <td class="mono">{{ r.musicbrainz_id or '-' }}</td>
+              <td class="wrap">
+                {% if r.cover_url %}<a href="{{ r.cover_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
+              </td>
+              <td class="nowrap">{{ duet_labels.get(r.duet, '-') if r.duet else '-' }}</td>
               <td class="nowrap">{{ r.requester_username }}</td>
               <td class="nowrap">
                 {% if r.library_match and r.library_match.exact_folder %}

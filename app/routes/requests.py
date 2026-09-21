@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from .. import request_matching, songs
 from ..database import get_db
 from ..deps import render, require_user
+from ..duet import DUET_CHOICES
 from ..languages import LANGUAGE_CHOICES
 from ..models import SongRequest, User
 from ..musicbrainz import extract_musicbrainz_id
@@ -22,6 +23,7 @@ def request_form(request: Request, user: User = Depends(require_user)):
     return render(
         request, "request.html", user,
         errors=[], form={}, submitted=False, language_choices=LANGUAGE_CHOICES,
+        duet_choices=DUET_CHOICES,
     )
 
 
@@ -49,6 +51,8 @@ def request_submit(
     language: str = Form(""),
     musicbrainz_id: str = Form(""),
     lyrics_url: str = Form(""),
+    cover_url: str = Form(""),
+    duet: str = Form(""),
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
@@ -58,7 +62,11 @@ def request_submit(
     language = language.strip().lower()
     musicbrainz_id = extract_musicbrainz_id(musicbrainz_id)
     lyrics_url = lyrics_url.strip()
-    errors = request_field_errors(band_name, song_name, youtube_url, language, musicbrainz_id)
+    cover_url = cover_url.strip()
+    duet = duet.strip().lower()
+    errors = request_field_errors(
+        band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet
+    )
 
     if band_name and song_name:
         existing_folder = songs.folder_exists(band_name, song_name)
@@ -77,9 +85,10 @@ def request_submit(
             form={
                 "band_name": band_name, "song_name": song_name, "youtube_url": youtube_url,
                 "language": language, "musicbrainz_id": musicbrainz_id, "lyrics_url": lyrics_url,
+                "cover_url": cover_url, "duet": duet,
             },
             submitted=False,
-            language_choices=LANGUAGE_CHOICES,
+            language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
         )
 
     db.add(
@@ -90,6 +99,8 @@ def request_submit(
             language=language or None,
             musicbrainz_id=musicbrainz_id or None,
             lyrics_url=lyrics_url or None,
+            cover_url=cover_url or None,
+            duet=duet or None,
             requester_id=user.id,
             requester_username=user.username,
         )
@@ -98,5 +109,6 @@ def request_submit(
     return render(
         request, "request.html", user,
         errors=[], form={}, submitted=True, language_choices=LANGUAGE_CHOICES,
+        duet_choices=DUET_CHOICES,
         submitted_song=f"{band_name} - {song_name}",
     )

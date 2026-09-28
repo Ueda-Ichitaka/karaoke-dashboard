@@ -11,6 +11,7 @@ from ..database import get_db
 from ..deps import render, require_user
 from ..languages import LANGUAGE_CHOICES
 from ..models import BrokenReport, User
+from ..report_matching import find_existing_report, merge_into_existing_report
 from ..validation import broken_report_field_errors, sanitize_free_text
 
 router = APIRouter()
@@ -75,20 +76,27 @@ def report_submit(
             submitted=False, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
         )
 
-    db.add(
-        BrokenReport(
-            song_folder=song.folder,
-            song_artist=song.artist,
-            song_title=song.title,
-            category=category,
-            description=description,
-            genius_url=genius_url or None,
-            language=language or None,
-            cover_url=cover_url or None,
-            reporter_id=user.id,
-            reporter_username=user.username,
+    existing = find_existing_report(db, song.folder)
+    if existing is not None:
+        merge_into_existing_report(
+            existing, category=category, description=description,
+            genius_url=genius_url, cover_url=cover_url,
         )
-    )
+    else:
+        db.add(
+            BrokenReport(
+                song_folder=song.folder,
+                song_artist=song.artist,
+                song_title=song.title,
+                category=category,
+                description=description,
+                genius_url=genius_url or None,
+                language=language or None,
+                cover_url=cover_url or None,
+                reporter_id=user.id,
+                reporter_username=user.username,
+            )
+        )
     db.commit()
     return render(
         request, "report.html", user,

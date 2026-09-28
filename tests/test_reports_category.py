@@ -328,3 +328,73 @@ def test_report_cover_url_is_shown_in_admin_and_exported(admin_client):
         "band,song name,category,description,lyrics_url,language,cover_url\n"
     )
     assert "Queen,Bohemian Rhapsody,audio,,,de,https://example.com/cover.jpg\n" in body
+
+
+# -------------------------------------------------------- duplicate merging
+def test_second_report_for_the_same_open_report_merges_instead_of_duplicating(admin_client):
+    admin_client.post(
+        "/report",
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
+            "description": "cuts out at the start", "language": "de",
+        },
+    )
+    r = admin_client.post(
+        "/report",
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "video",
+            "description": "also no video", "language": "de",
+            "cover_url": "https://example.com/cover.jpg",
+        },
+    )
+    assert r.status_code == 200
+    assert "was submitted" in r.text
+
+    listing = admin_client.get("/admin/reports?show=all")
+    # one merged row for this song, not two - each row shows the title
+    # twice (subtitle span + mono folder span)
+    assert listing.text.count("Bohemian Rhapsody") == 2
+    assert "cuts out at the start" in listing.text
+    assert "also no video" in listing.text
+    assert "Missing video" in listing.text
+    assert 'href="https://example.com/cover.jpg"' in listing.text
+
+
+def test_merged_report_does_not_overwrite_an_existing_lyrics_link(admin_client):
+    admin_client.post(
+        "/report",
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "",
+            "language": "de", "genius_url": "https://genius.com/original-lyrics",
+        },
+    )
+    admin_client.post(
+        "/report",
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "",
+            "language": "de", "genius_url": "https://genius.com/a-different-link",
+        },
+    )
+    listing = admin_client.get("/admin/reports?show=all")
+    assert "https://genius.com/original-lyrics" in listing.text
+    assert "https://genius.com/a-different-link" not in listing.text
+
+
+def test_a_new_report_after_the_old_one_is_resolved_is_not_merged(admin_client):
+    admin_client.post(
+        "/report",
+        data={"song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "language": "de"},
+    )
+    listing = admin_client.get("/admin/reports?show=all")
+    import re
+    report_id = re.search(r"/admin/reports/(\d+)/status", listing.text).group(1)
+    admin_client.post(
+        f"/admin/reports/{report_id}/status", data={"status": "resolved", "show": "all"}
+    )
+
+    admin_client.post(
+        "/report",
+        data={"song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "language": "de"},
+    )
+    listing = admin_client.get("/admin/reports?show=all")
+    assert listing.text.count("Bohemian Rhapsody") == 4

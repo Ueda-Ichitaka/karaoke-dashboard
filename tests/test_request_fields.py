@@ -195,3 +195,18 @@ def test_requests_csv_exports_cover_url_and_duet_columns(admin_client):
     )
     assert "Lacrimosa,Lichtgestalt,,,,,https://example.com/cover.jpg,yes\n" in body
     assert "Journey,Faithfully,,,,,,no\n" in body
+
+
+# --------------------------------------------------------- duet default
+def test_request_form_defaults_the_duet_select_to_no(admin_client):
+    r = admin_client.get("/request")
+    assert '<option value="no" selected>' in r.text
+
+
+def test_request_form_keeps_an_explicit_duet_choice_after_a_validation_error(admin_client):
+    r = admin_client.post(
+        "/request",
+        data={"band_name": "", "song_name": "x", "duet": "yes"},
+    )
+    assert r.status_code == 422
+    assert '<option value="yes" selected>' in r.text

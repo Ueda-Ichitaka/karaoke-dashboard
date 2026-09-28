@@ -47,8 +47,8 @@
               </td>
               <td class="nowrap">{{ r.reporter_username }}</td>
               <td>{{ r.status }}</td>
-              <td class="nowrap">
-                <form method="post" action="/admin/reports/{{ r.id }}/status">
+              <td class="nowrap actions">
+                <form method="post" action="/admin/reports/{{ r.id }}/status" class="inline">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <input type="hidden" name="show" value="{{ show }}">
                   {% if r.status == 'open' %}
@@ -57,6 +57,7 @@
                     <button class="btn btn-small btn-ghost" name="status" value="open">Reopen</button>
                   {% endif %}
                 </form>
+                <a class="btn btn-small btn-ghost" href="/admin/reports/{{ r.id }}/edit">Edit</a>
               </td>
             </tr>
           {% endfor %}

@@ -31,6 +31,7 @@ def request_form(request: Request, user: User = Depends(require_user)):
 def request_check(
     band_name: str = "",
     song_name: str = "",
+    duet: str = "",
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
@@ -38,7 +39,7 @@ def request_check(
     band_name = band_name.strip()
     song_name = song_name.strip()
     folder = songs.folder_exists(band_name, song_name) if band_name and song_name else None
-    existing = request_matching.find_existing_request(db, band_name, song_name)
+    existing = request_matching.find_existing_request(db, band_name, song_name, duet)
     return JSONResponse({"exists": folder is not None, "folder": folder, "requested": existing is not None})
 
 
@@ -75,7 +76,7 @@ def request_submit(
                 f'"{band_name} - {song_name}" already appears to be in the library '
                 f'(folder: "{existing_folder}").'
             )
-        elif request_matching.find_existing_request(db, band_name, song_name):
+        elif request_matching.find_existing_request(db, band_name, song_name, duet):
             errors.append(f'"{band_name} - {song_name}" has already been requested and is awaiting review.')
 
     if errors:

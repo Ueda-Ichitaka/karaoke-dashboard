@@ -86,3 +86,48 @@ def test_request_submit_rejected_when_already_requested(admin_client):
     assert r.status_code == 422
     assert "already" in r.text.lower()
     assert "requested" in r.text.lower()
+
+
+# --------------------------------------------------- duet-aware duplicates
+def test_request_check_ignores_an_existing_request_with_a_different_duet_setting(admin_client):
+    admin_client.post("/request", data={"band_name": "Journey", "song_name": "Faithfully", "duet": "no"})
+    r = admin_client.get(
+        "/request/check", params={"band_name": "Journey", "song_name": "Faithfully", "duet": "yes"}
+    )
+    assert r.json()["requested"] is False
+
+
+def test_request_check_flags_an_existing_request_with_the_same_duet_setting(admin_client):
+    admin_client.post("/request", data={"band_name": "Journey", "song_name": "Faithfully", "duet": "yes"})
+    r = admin_client.get(
+        "/request/check", params={"band_name": "Journey", "song_name": "Faithfully", "duet": "yes"}
+    )
+    assert r.json()["requested"] is True
+
+
+def test_unspecified_and_no_are_treated_as_the_same_duet_setting(admin_client):
+    admin_client.post("/request", data={"band_name": "Journey", "song_name": "Faithfully", "duet": "no"})
+    r = admin_client.get(
+        "/request/check", params={"band_name": "Journey", "song_name": "Faithfully", "duet": ""}
+    )
+    assert r.json()["requested"] is True
+
+
+def test_request_submit_allowed_when_only_duet_setting_differs(admin_client):
+    admin_client.post("/request", data={"band_name": "Journey", "song_name": "Faithfully", "duet": "no"})
+    r = admin_client.post("/request", data={"band_name": "Journey", "song_name": "Faithfully", "duet": "yes"})
+    assert r.status_code == 200
+    assert "was submitted" in r.text
+
+    listing = admin_client.get("/admin/requests?show=all")
+    # two rows - each row mentions the song name twice (the song-name column
+    # and the delete button's confirm() text)
+    assert listing.text.count("Faithfully") == 4
+
+
+def test_request_submit_still_rejected_when_duet_setting_matches(admin_client):
+    admin_client.post("/request", data={"band_name": "Journey", "song_name": "Faithfully", "duet": "yes"})
+    r = admin_client.post("/request", data={"band_name": "Journey", "song_name": "Faithfully", "duet": "yes"})
+    assert r.status_code == 422
+    assert "already" in r.text.lower()
+    assert "requested" in r.text.lower()

@@ -59,10 +59,11 @@
         <input type="url" name="cover_url" value="{{ form.cover_url or '' }}" placeholder="https://…/cover.jpg">
       </label>
       <label class="field">
-        <span class="field-label">Duet <em>(optional - is a duet version wanted?)</em></span>
-        <select name="duet">
+        <span class="field-label">Duet <em>(is a duet version wanted?)</em></span>
+        <select name="duet" data-dup-field="duet">
+          {% set effective_duet = form.duet if form.duet is defined and form.duet else 'no' %}
           {% for code, label in duet_choices %}
-            <option value="{{ code }}" {{ 'selected' if (form.duet or '') == code }}>{{ label }}</option>
+            <option value="{{ code }}" {{ 'selected' if effective_duet == code }}>{{ label }}</option>
           {% endfor %}
         </select>
       </label>

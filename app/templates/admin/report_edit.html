@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Edit report · {{ app_title }}{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <h1>Edit report</h1>
+  <p class="subtle">Reported by {{ item.reporter_username }} on {{ item.created_at.strftime('%Y-%m-%d %H:%M') }}.</p>
+
+  {% if errors %}
+    <div class="alert alert-error">
+      <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  <form class="stack-form" method="post" action="/admin/reports/{{ item.id }}/edit">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="field">
+      <span class="field-label">Broken song</span>
+      <div class="picker" data-picker
+           data-endpoint="/report/songs/partial"
+           data-input="#song_folder">
+        <input type="hidden" name="song_folder" id="song_folder" value="{{ form.song_folder }}">
+        <div class="picker-chosen{{ '' if form.song_folder else ' empty' }}" data-chosen>
+          {{ form.song_folder or 'No song selected' }}
+        </div>
+        <input type="search" class="picker-search" placeholder="Search the library…" autocomplete="off"
+               data-picker-search aria-label="Search for the broken song">
+        <div class="picker-results" data-picker-results hidden></div>
+      </div>
+    </div>
+
+    <label class="field">
+      <span class="field-label">Category <em>(required)</em></span>
+      <select name="category" required data-broken-category>
+        {% for code, label in category_choices %}
+          <option value="{{ code }}" {{ 'selected' if form.category == code else '' }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Language <em>(required)</em></span>
+      <select name="language" required>
+        {% for code, label in language_choices %}
+          {% if code %}
+            <option value="{{ code }}" {{ 'selected' if form.language == code else '' }}>{{ label }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field-label">What's broken? <em data-broken-description-hint>(required only for "Other")</em></span>
+      <textarea name="description" rows="4" data-broken-description>{{ form.description }}</textarea>
+    </label>
+
+    <label class="field">
+      <span class="field-label">
+        Genius lyrics link <em data-broken-genius-hint>(required for "Lyrics broken" / "Song goes out of sync")</em>
+      </span>
+      <input type="url" name="genius_url" value="{{ form.genius_url }}" data-broken-genius
+             placeholder="https://genius.com/…">
+    </label>
+
+    <label class="field">
+      <span class="field-label">Cover image link <em>(optional)</em></span>
+      <input type="url" name="cover_url" value="{{ form.cover_url }}" placeholder="https://…/cover.jpg">
+    </label>
+
+    <div class="inline-form">
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a class="btn btn-ghost" href="/admin/reports">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

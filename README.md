@@ -6,9 +6,9 @@ A small web app for a home karaoke system:
 | --- | --- | --- |
 | **Songs** | everyone | Browse & search the library (one entry per folder in your songs directory). |
 | **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, other), choose the song's language (required - includes a "Mixed" option for songs whose lyrics switch languages), describe what's broken (required only for "other"), give a genius.com lyrics link (required only for "lyrics broken" / "out of sync"), and optionally a cover image link, submit. |
-| **Request song** | logged-in users | Ask for a new song: band + title (required); YouTube link, language (includes "Mixed"), MusicBrainz ID (bare ID or a pasted musicbrainz.org link - either is accepted), lyrics link, cover image link, Duet yes/no/blank - is a duet version wanted? (all optional). Rejected if the song already exists in the library *or* already has an open request. |
-| **Reported** | admins | Review / resolve broken-song reports, **export as CSV** (`broken.csv`). |
-| **Requested** | admins | Review / close / delete song requests, see whether one already matches the library, **export as CSV**. |
+| **Request song** | logged-in users | Ask for a new song: band + title (required); YouTube link, language (includes "Mixed"), MusicBrainz ID (bare ID or a pasted musicbrainz.org link - either is accepted), lyrics link, cover image link (all optional), and Duet - is a duet version wanted? (defaults to "No"). Rejected if the song already exists in the library *or* already has an open request with the same Duet setting - a plain and a duet request for the same song are both allowed open at once. |
+| **Reported** | admins | Review / edit / resolve broken-song reports, **export as CSV** (`broken.csv`). A second report for a song that already has an open report merges into it instead of creating a duplicate row - see below. |
+| **Requested** | admins | Review / edit / close / delete song requests, see whether one already matches the library, **export as CSV**. |
 | **Duplicates** | admins | Review songs that appear more than once, compare their metadata, dismiss false positives. Results are cached (scanning is expensive) - rescan on demand or wait for the scheduled monthly rescan. |
 | **Integrity** | admins | Song files checked against the UltraStar format spec, the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder) - all three exportable as an UltraStar Manager playlist. Rescan on demand with the button at the top. |
 | **Users** | admins | Create users, reset passwords, grant/revoke admin, disable, delete. |
@@ -206,7 +206,10 @@ when scanning.
 `band name, song name, youtube link, language, musicbrainz_id, lyrics_url, cover_url, duet`,
 comma-separated, `\n` row terminator, UTF-8. Header row unless
 `CSV_INCLUDE_HEADER=false`. The last five columns are optional/blank unless
-the requester filled them in on the request form (`duet` is `yes`, `no` or blank; `cover_url` must be an http(s) link); they're consumed by the
+the requester filled them in on the request form (`duet` is `yes`, `no` or
+blank - the form defaults to "No", so blank is a leftover value from before
+that default existed, and both downstream and this project's own duplicate
+check treat it the same as `no`; `cover_url` must be an http(s) link); they're consumed by the
 UltraSinger batch pipeline (see `UPSTREAM_REQUESTS.md`) - `language` pins
 whisper's language detection, `musicbrainz_id` enables a direct metadata
 lookup instead of a fuzzy search, and `lyrics_url` is tried before an online
@@ -230,6 +233,17 @@ row or trigger a spreadsheet formula (commas, semicolons, quotes, a leading
 `=`/`+`/`-`/`@`, ...). Unlike the request form, `language` is **mandatory**
 on the report form - a reporter of an "async"/"lyrics" report is usually
 exactly the person who'd know the song's language.
+
+**Duplicate reports merge** (`app/report_matching.py`): submitting a report
+for a song that already has an open report doesn't create a second row.
+The lyrics link and cover image link fill in on the existing report only if
+it doesn't already have one; the description always accumulates instead - if
+the new report's category differs from the existing one, that category's
+label is appended to the description, and any new description text is
+appended after it. The existing report's category, reporter and open/resolved
+status are left as they are. A report against a song whose earlier report has
+already been marked resolved is treated as a new occurrence, not a
+duplicate, and gets its own row.
 
 ---
 
@@ -379,6 +393,7 @@ app/
   misplaced_check.py wrong-song-in-folder checks
   upl_export.py      UltraStar Manager (.upl) playlist export for both checks above
   request_matching.py  does a song request already exist in the library or the request queue?
+  report_matching.py   finds/merges a duplicate broken-song report into an already-open one
   duet.py            yes/no/blank Duet choice for the request form
   languages.py       language choices shared by the request/report forms (ISO 639-1 + "Mixed")
   broken_categories.py  fixed category list for the broken-report form

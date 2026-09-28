@@ -96,6 +96,7 @@
     const endpoint = form.dataset.endpoint;
     const band = form.querySelector('[data-dup-field="band"]');
     const song = form.querySelector('[data-dup-field="song"]');
+    const duet = form.querySelector('[data-dup-field="duet"]');
     const warning = form.querySelector("[data-dup-warning]");
     const submit = form.querySelector("[data-dup-submit]");
     if (!endpoint || !band || !song || !warning || !submit) return;
@@ -109,7 +110,8 @@
         return;
       }
       try {
-        const url = endpoint + "?band_name=" + encodeURIComponent(b) + "&song_name=" + encodeURIComponent(s);
+        let url = endpoint + "?band_name=" + encodeURIComponent(b) + "&song_name=" + encodeURIComponent(s);
+        if (duet) url += "&duet=" + encodeURIComponent(duet.value);
         const data = await fetchJSON(url);
         if (data.exists) {
           warning.textContent = '"' + b + " - " + s + '" already appears to be in the library (folder: "' + data.folder + '").';
@@ -132,6 +134,7 @@
 
     band.addEventListener("input", run);
     song.addEventListener("input", run);
+    if (duet) duet.addEventListener("change", run);
   });
 
   // ---- broken-report form: description is only mandatory for "Other" -----

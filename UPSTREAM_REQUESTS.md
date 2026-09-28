@@ -180,7 +180,35 @@ working unchanged). Nothing is required of the UltraSinger side.
 - `song-requests.csv` (`requests_csv()`): `..., lyrics_url, cover_url, duet`
   - `cover_url`: an http(s) link to a cover image, or blank. Only the
     scheme is checked - whether it really points at an image is not.
-  - `duet`: `yes` (a duet version of the song is requested), `no`, or blank
-    (requester didn't say).
+  - `duet`: `yes` (a duet version of the song is requested), `no`, or blank.
+    **Blank must be treated the same as `no`** - the form now defaults to
+    `no` (2026-09-26, see below), and blank only remains on rows from before
+    the field existed or before that default was added.
+
+**Update 2026-09-26** - two related changes to `duet`:
+
+- The request form now pre-selects "No" by default instead of leaving the
+  field blank, so a fresh submission stores an explicit `no` rather than
+  blank (app/templates/request.html). Existing blank rows are unaffected and
+  still mean the same thing - see the "must be treated the same as `no`"
+  note above.
+- A request for a band/song pair that already has an open request no longer
+  blocks the new one if the two disagree on `duet` (`yes` vs. `no`/blank) -
+  see `app/request_matching.py: find_existing_request` /
+  `app/duet.py: wants_duet`. This is deliberate: it lets someone request
+  both a plain and a duet version of the same song, as two separate open
+  rows, so this pipeline can generate both. **`song-requests.csv` may now
+  contain two rows with the same `band name`/`song name`, differing only in
+  `duet`** - previously that combination was always unique per open export.
+  A request still blocks a duplicate that matches on `duet` too (both
+  blank/`no`, or both `yes`).
 - `broken.csv` (`reports_csv()`): `..., lyrics_url, language, cover_url` -
   same `cover_url` semantics as above.
+
+**Consumed on the song factory side (2026-09-27):** both columns are read
+(USDX-Song-Factory, `stack/orchestrator/orchestrator.py` / `broken_report.py`).
+`cover_url` replaces the created or repaired song's cover (a link that fails
+or is not an image is ignored). `duet` follows `wants_duet()` (only `yes`);
+a plain and a duet row of the same song become two separate jobs. Duet
+generation itself does not exist yet on that side, so a duet row is listed
+as skipped with that reason until it does.

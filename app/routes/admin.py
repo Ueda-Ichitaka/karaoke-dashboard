@@ -11,7 +11,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import duplicates, format_check, misplaced_check, request_matching, structure_check, upl_export
-from ..broken_categories import CATEGORY_LABELS
+from .. import songs as song_index
+from ..broken_categories import CATEGORY_CHOICES, CATEGORY_LABELS
 from ..config import settings
 from ..database import get_db
 from ..deps import render, require_admin
@@ -20,7 +21,7 @@ from ..languages import LANGUAGE_CHOICES, LANGUAGE_LABELS
 from ..models import BrokenReport, SongRequest, User
 from ..musicbrainz import extract_musicbrainz_id
 from ..security import MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, hash_password
-from ..validation import neutralize_csv_formula, request_field_errors
+from ..validation import broken_report_field_errors, neutralize_csv_formula, request_field_errors, sanitize_free_text
 
 router = APIRouter(prefix="/admin")
 
@@ -69,6 +70,81 @@ def report_set_status(
     report.status = status
     db.commit()
     return RedirectResponse(f"/admin/reports?show={show}", status_code=303)
+
+
+@router.get("/reports/{report_id}/edit")
+def report_edit_form(
+    report_id: int,
+    request: Request,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(BrokenReport, report_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+    return render(
+        request, "admin/report_edit.html", user,
+        errors=[], item=item, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
+        form={
+            "song_folder": item.song_folder, "category": item.category or "",
+            "description": item.description or "", "genius_url": item.genius_url or "",
+            "language": item.language or "", "cover_url": item.cover_url or "",
+        },
+    )
+
+
+@router.post("/reports/{report_id}/edit")
+def report_edit_submit(
+    report_id: int,
+    request: Request,
+    song_folder: str = Form(""),
+    category: str = Form(""),
+    description: str = Form(""),
+    genius_url: str = Form(""),
+    language: str = Form(""),
+    cover_url: str = Form(""),
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(BrokenReport, report_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+
+    song_folder = song_folder.strip()
+    category = category.strip().lower()
+    description = sanitize_free_text(description)
+    genius_url = genius_url.strip()
+    language = language.strip().lower()
+    cover_url = cover_url.strip()
+
+    errors: list[str] = []
+    song = song_index.get_by_folder(song_folder) if song_folder else None
+    if not song_folder:
+        errors.append("Please pick the song that is broken.")
+    elif song is None:
+        errors.append("That song is no longer in the library - pick another.")
+    errors.extend(broken_report_field_errors(category, description, genius_url, language, cover_url))
+
+    if errors:
+        return render(
+            request, "admin/report_edit.html", user, status_code=422,
+            errors=errors, item=item, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
+            form={
+                "song_folder": song_folder, "category": category, "description": description,
+                "genius_url": genius_url, "language": language, "cover_url": cover_url,
+            },
+        )
+
+    item.song_folder = song.folder
+    item.song_artist = song.artist
+    item.song_title = song.title
+    item.category = category
+    item.description = description
+    item.genius_url = genius_url or None
+    item.language = language or None
+    item.cover_url = cover_url or None
+    db.commit()
+    return RedirectResponse("/admin/reports", status_code=303)
 
 
 @router.get("/reports.csv")

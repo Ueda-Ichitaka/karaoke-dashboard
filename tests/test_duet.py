@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.duet import DUET_CHOICES, DUET_LABELS, is_valid_duet
+from app.duet import DUET_CHOICES, DUET_LABELS, is_valid_duet, wants_duet
 
 
 def test_yes_and_no_are_valid():
@@ -19,3 +19,11 @@ def test_choices_start_with_the_blank_option():
     assert DUET_CHOICES[0][0] == ""
     assert DUET_LABELS["yes"] == "Yes"
     assert DUET_LABELS["no"] == "No"
+
+
+# ---------------------------------------------------------- wants_duet
+def test_only_yes_wants_a_duet():
+    assert wants_duet("yes") is True
+    assert wants_duet("no") is False
+    assert wants_duet("") is False
+    assert wants_duet(None) is False

@@ -52,10 +52,11 @@
       <input type="url" name="cover_url" value="{{ form.cover_url }}">
     </label>
     <label class="field">
-      <span class="field-label">Duet <em>(optional)</em></span>
+      <span class="field-label">Duet</span>
       <select name="duet">
+        {% set effective_duet = form.duet if form.duet else 'no' %}
         {% for code, label in duet_choices %}
-          <option value="{{ code }}" {{ 'selected' if form.duet == code }}>{{ label }}</option>
+          <option value="{{ code }}" {{ 'selected' if effective_duet == code }}>{{ label }}</option>
         {% endfor %}
       </select>
     </label>

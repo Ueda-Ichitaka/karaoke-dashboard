@@ -8,6 +8,58 @@
     <p class="subtle">{{ open_count }} open</p>
   </div>
 
+  {% if pending_requests %}
+    <section class="page-head">
+      <h2>Needs review</h2>
+      <p class="subtle">{{ pending_requests|length }} awaiting admission to the exportable list.</p>
+    </section>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>When</th><th>Band</th><th>Song</th><th>Language</th><th>YouTube</th><th>Lyrics</th><th>MusicBrainz ID</th><th>Cover</th><th>Duet</th><th>By</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for r in pending_requests %}
+            <tr>
+              <td class="nowrap">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td>{{ r.band_name }}</td>
+              <td>{{ r.song_name }}</td>
+              <td class="nowrap">{{ language_labels.get(r.language, r.language or '-') }}</td>
+              <td class="wrap">
+                {% if r.youtube_url %}<a href="{{ r.youtube_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
+              </td>
+              <td class="wrap">
+                {% if r.lyrics_url and r.lyrics_url.startswith('http') %}
+                  <a href="{{ r.lyrics_url }}" target="_blank" rel="noopener">link</a>
+                {% elif r.lyrics_url %}
+                  <span class="mono">{{ r.lyrics_url }}</span>
+                {% else %}-{% endif %}
+              </td>
+              <td class="mono">{{ r.musicbrainz_id or '-' }}</td>
+              <td class="wrap">
+                {% if r.cover_url %}<a href="{{ r.cover_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
+              </td>
+              <td class="nowrap">{{ duet_labels.get(r.duet, '-') if r.duet else '-' }}</td>
+              <td class="nowrap">{{ r.requester_username }}</td>
+              <td class="nowrap actions">
+                <a class="btn btn-small btn-ghost" href="/admin/requests/pending/{{ r.id }}/edit">Edit</a>
+                <form method="post" action="/admin/requests/pending/{{ r.id }}/admit" class="inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button class="btn btn-small">Admit</button>
+                </form>
+                <form method="post" action="/admin/requests/pending/{{ r.id }}/discard" class="inline"
+                      onsubmit="return confirm('Discard the request for {{ r.band_name }} - {{ r.song_name }}?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button class="btn btn-small btn-danger">Discard</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
   <div class="toolbar">
     <div class="segmented">
       <a href="/admin/requests?show=open" class="{{ 'active' if show == 'open' }}">Open</a>

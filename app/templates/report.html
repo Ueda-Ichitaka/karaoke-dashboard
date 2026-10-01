@@ -17,7 +17,7 @@
       </div>
     {% endif %}
 
-    <form class="stack-form" method="post" action="/report">
+    <form class="stack-form" method="post" action="/report" data-report-profile="{{ profile }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="field">
         <span class="field-label">Broken song</span>
@@ -45,8 +45,8 @@
       </label>
 
       <label class="field">
-        <span class="field-label">Language <em>(required)</em></span>
-        <select name="language" required>
+        <span class="field-label">Language <em>({{ 'required' if 'language' in required_fields else 'optional' }})</em></span>
+        <select name="language" {{ 'required' if 'language' in required_fields }}>
           <option value="" {{ 'selected' if not form.language else '' }} disabled>Choose a language…</option>
           {% for code, label in language_choices %}
             {% if code %}
@@ -57,14 +57,14 @@
       </label>
 
       <label class="field">
-        <span class="field-label">What's broken? <em data-broken-description-hint>(required only for "Other")</em></span>
-        <textarea name="description" rows="4" data-broken-description
+        <span class="field-label">What's broken? <em>(required)</em></span>
+        <textarea name="description" rows="4" required
                   placeholder="e.g. lyrics are out of sync, audio cuts out after the first chorus, wrong key…">{{ form.description or '' }}</textarea>
       </label>
 
       <label class="field">
         <span class="field-label">
-          Genius lyrics link <em data-broken-genius-hint>(required for "Lyrics broken" / "Song goes out of sync")</em>
+          Genius lyrics link <em data-broken-genius-hint>{{ '(required for "Lyrics broken" / "Song goes out of sync")' if profile == 'strict' else '(optional)' }}</em>
           <span class="field-hint" tabindex="0" aria-label="A genius.com song page for this song - gives the admin a reference for the correct lyrics/timing when fixing the issue." data-tip="A genius.com song page for this song - gives the admin a reference for the correct lyrics/timing when fixing the issue.">?</span>
         </span>
         <input type="url" name="genius_url" value="{{ form.genius_url or '' }}" data-broken-genius

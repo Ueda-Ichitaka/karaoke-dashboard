@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Settings · {{ app_title }}{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <h1>Settings</h1>
+  <p class="subtle">
+    Karaoke night relaxes the public forms to the bare minimum. Strict requires full
+    details up front. Each form switches independently.
+  </p>
+
+  {% if errors %}
+    <div class="alert alert-error">
+      <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  <form class="stack-form" method="post" action="/admin/settings">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field">
+      <span class="field-label">Request song form</span>
+      <select name="request_profile">
+        {% for code, label in profile_choices %}
+          <option value="{{ code }}" {{ 'selected' if app_settings.request_profile == code }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">Report broken form</span>
+      <select name="report_profile">
+        {% for code, label in profile_choices %}
+          <option value="{{ code }}" {{ 'selected' if app_settings.report_profile == code }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="btn btn-primary">Save</button>
+  </form>
+</section>
+{% endblock %}

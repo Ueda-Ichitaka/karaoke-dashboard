@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+from app.database import SessionLocal
+from app.models import PendingSongRequest
+
+
+def _admit_the_pending_request(admin_client) -> None:
+    with SessionLocal() as db:
+        pending_id = db.query(PendingSongRequest).one().id
+    admin_client.post(f"/admin/requests/pending/{pending_id}/admit")
+
 
 def test_song_list_public_and_parsed(client):
     r = client.get("/songs")
@@ -115,10 +124,15 @@ def test_request_flow_validation_and_csv(admin_client):
             "band_name": "Journey",
             "song_name": "Faithfully",
             "youtube_url": "https://youtu.be/abc",
+            "language": "en",
+            "lyrics_url": "https://genius.com/journey-faithfully-lyrics",
         },
     )
     assert r.status_code == 200
     assert "was submitted" in r.text
+
+    # a pending request isn't exportable until an admin admits it
+    _admit_the_pending_request(admin_client)
 
     r = admin_client.get("/admin/requests.csv", params={"scope": "all"})
     assert r.status_code == 200
@@ -126,7 +140,10 @@ def test_request_flow_validation_and_csv(admin_client):
     body = r.text
     assert body.endswith("\n")
     assert "band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet\n" in body
-    assert "Journey,Faithfully,https://youtu.be/abc,,,,,\n" in body
+    assert (
+        "Journey,Faithfully,https://youtu.be/abc,en,,"
+        "https://genius.com/journey-faithfully-lyrics,,\n"
+    ) in body
 
 
 def test_app_js_loads_on_every_page(admin_client):

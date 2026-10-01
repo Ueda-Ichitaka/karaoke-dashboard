@@ -6,11 +6,13 @@ from fastapi import APIRouter, Depends, Form, Request
 from sqlalchemy.orm import Session
 
 from .. import songs as song_index
+from ..app_settings import get_app_settings
 from ..broken_categories import CATEGORY_CHOICES
 from ..database import get_db
 from ..deps import render, require_user
 from ..languages import LANGUAGE_CHOICES
-from ..models import BrokenReport, User
+from ..models import PendingBrokenReport, User
+from ..profiles import report_required_fields
 from ..report_matching import find_existing_report, merge_into_existing_report
 from ..validation import broken_report_field_errors, sanitize_free_text
 
@@ -18,11 +20,13 @@ router = APIRouter()
 
 
 @router.get("/report")
-def report_form(request: Request, user: User = Depends(require_user)):
+def report_form(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    profile = get_app_settings(db).report_profile
     return render(
         request, "report.html", user,
         errors=[], form={}, submitted=False, category_choices=CATEGORY_CHOICES,
-        language_choices=LANGUAGE_CHOICES,
+        language_choices=LANGUAGE_CHOICES, profile=profile,
+        required_fields=report_required_fields(profile, category=""),
     )
 
 
@@ -49,6 +53,7 @@ def report_submit(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
+    profile = get_app_settings(db).report_profile
     song_folder = song_folder.strip()
     category = category.strip().lower()
     description = sanitize_free_text(description)
@@ -62,7 +67,7 @@ def report_submit(
         errors.append("Please pick the song that is broken.")
     elif song is None:
         errors.append("That song is no longer in the library - pick another.")
-    errors.extend(broken_report_field_errors(category, description, genius_url, language, cover_url))
+    errors.extend(broken_report_field_errors(category, description, genius_url, language, cover_url, profile=profile))
 
     if errors:
         return render(
@@ -74,6 +79,7 @@ def report_submit(
                 "cover_url": cover_url,
             },
             submitted=False, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
+            profile=profile, required_fields=report_required_fields(profile, category),
         )
 
     existing = find_existing_report(db, song.folder)
@@ -84,10 +90,8 @@ def report_submit(
         )
     else:
         db.add(
-            BrokenReport(
+            PendingBrokenReport(
                 song_folder=song.folder,
-                song_artist=song.artist,
-                song_title=song.title,
                 category=category,
                 description=description,
                 genius_url=genius_url or None,

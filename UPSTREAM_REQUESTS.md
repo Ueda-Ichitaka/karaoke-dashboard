@@ -212,3 +212,46 @@ or is not an image is ignored). `duet` follows `wants_duet()` (only `yes`);
 a plain and a duet row of the same song become two separate jobs. Duet
 generation itself does not exist yet on that side, so a duet row is listed
 as skipped with that reason until it does.
+
+## Optional song-requests.csv column: style (announced, not final)
+
+**Announced:** 2026-10-01. **Status: do not implement yet** - the song
+factory does not read this column, and the list of values below is a
+proposal that still has to be confirmed by measurements on that side. This
+entry exists so the dependency is known early. It will be updated to
+"requested" with the final values once they are fixed.
+
+Background: the song factory's results are clearly worse for some vocal
+styles (growled or screamed metal vocals, operatic singing, songs with a
+loud high-pitched lead instrument). The plan there is one pipeline with
+style profiles that switch single steps (for example: no automatic start
+correction for harsh vocals). The profile is detected automatically from
+the audio. This column is a manual override for the cases where a person
+knows better than the detector.
+
+**Planned ask:** one additional *optional* column, appended after the
+existing `duet` column so the format stays backward compatible:
+
+```csv
+band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet,style
+Cypecore,Identity,https://www.youtube.com/watch?v=_AzMxjumRys,en,be67370d-fae3-40b5-a734-b10caf51268c,,,no,harsh
+```
+
+Proposed values (not final):
+
+- blank: detect automatically (the default, and the meaning of every
+  existing row)
+- `clean`: ordinary sung vocals
+- `harsh`: growled, screamed or shouted vocals
+- `operatic`: operatic or very high vocals, or a loud high-pitched lead
+  instrument over the vocals
+
+**Blank must stay valid.** The song factory will never require this
+column; a missing column or a blank value means automatic detection.
+
+**Who fills it in:** not the requester. Like a corrected `musicbrainz_id`,
+this is information an admin adds when reviewing a request, so it fits an
+admin edit step on the request rather than the public request form.
+
+**Possibly later:** the same optional column on `broken.csv`, if repairs
+turn out to need it too. Not asked for now.

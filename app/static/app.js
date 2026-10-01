@@ -137,31 +137,24 @@
     if (duet) duet.addEventListener("change", run);
   });
 
-  // ---- broken-report form: description is only mandatory for "Other" -----
+  // ---- broken-report form: a lyrics link is only mandatory for specific --
+  // ---- categories, and only under the strict profile (see app/profiles.py)
   document.querySelectorAll("[data-broken-category]").forEach((select) => {
     const form = select.closest("form");
-    const description = form.querySelector("[data-broken-description]");
-    const descriptionHint = form.querySelector("[data-broken-description-hint]");
     const genius = form.querySelector("[data-broken-genius]");
     const geniusHint = form.querySelector("[data-broken-genius-hint]");
+    const isStrict = form.dataset.reportProfile === "strict";
     const GENIUS_REQUIRED_CATEGORIES = ["lyrics", "async"];
 
     const update = () => {
-      const isOther = select.value === "other";
-      if (description) {
-        description.required = isOther;
-      }
-      if (descriptionHint) {
-        descriptionHint.textContent = isOther ? "(required)" : "(required only for \"Other\")";
-      }
-      const geniusRequired = GENIUS_REQUIRED_CATEGORIES.indexOf(select.value) !== -1;
+      const geniusRequired = isStrict && GENIUS_REQUIRED_CATEGORIES.indexOf(select.value) !== -1;
       if (genius) {
         genius.required = geniusRequired;
       }
       if (geniusHint) {
-        geniusHint.textContent = geniusRequired
-          ? "(required)"
-          : "(required for \"Lyrics broken\" / \"Song goes out of sync\")";
+        geniusHint.textContent = isStrict
+          ? "(required for \"Lyrics broken\" / \"Song goes out of sync\")"
+          : "(optional)";
       }
     };
     select.addEventListener("change", update);

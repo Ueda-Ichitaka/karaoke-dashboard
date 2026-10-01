@@ -15,8 +15,8 @@ def test_anything_else_is_invalid():
     assert not is_valid_duet("")
 
 
-def test_choices_start_with_the_blank_option():
-    assert DUET_CHOICES[0][0] == ""
+def test_choices_are_only_yes_and_no():
+    assert DUET_CHOICES == (("yes", "Yes"), ("no", "No"))
     assert DUET_LABELS["yes"] == "Yes"
     assert DUET_LABELS["no"] == "No"
 

@@ -11,7 +11,9 @@
     </div>
   {% endif %}
 
-  <form class="stack-form" method="post" action="/admin/reports/{{ item.id }}/edit">
+  <form class="stack-form" method="post"
+        action="{{ '/admin/reports/pending/' ~ item.id ~ '/edit' if pending else '/admin/reports/' ~ item.id ~ '/edit' }}"
+        data-report-profile="strict">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="field">
       <span class="field-label">Broken song</span>
@@ -49,8 +51,8 @@
     </label>
 
     <label class="field">
-      <span class="field-label">What's broken? <em data-broken-description-hint>(required only for "Other")</em></span>
-      <textarea name="description" rows="4" data-broken-description>{{ form.description }}</textarea>
+      <span class="field-label">What's broken? <em>(required)</em></span>
+      <textarea name="description" rows="4" required>{{ form.description }}</textarea>
     </label>
 
     <label class="field">
@@ -71,5 +73,12 @@
       <a class="btn btn-ghost" href="/admin/reports">Cancel</a>
     </div>
   </form>
+
+  {% if pending %}
+    <form class="inline-form" method="post" action="/admin/reports/pending/{{ item.id }}/admit">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-primary">Admit to the exportable list</button>
+    </form>
+  {% endif %}
 </section>
 {% endblock %}

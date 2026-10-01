@@ -7,23 +7,26 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from .. import request_matching, songs
+from ..app_settings import get_app_settings
 from ..database import get_db
 from ..deps import render, require_user
 from ..duet import DUET_CHOICES
 from ..languages import LANGUAGE_CHOICES
-from ..models import SongRequest, User
+from ..models import PendingSongRequest, User
 from ..musicbrainz import extract_musicbrainz_id
+from ..profiles import request_required_fields
 from ..validation import request_field_errors
 
 router = APIRouter()
 
 
 @router.get("/request")
-def request_form(request: Request, user: User = Depends(require_user)):
+def request_form(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    profile = get_app_settings(db).request_profile
     return render(
         request, "request.html", user,
         errors=[], form={}, submitted=False, language_choices=LANGUAGE_CHOICES,
-        duet_choices=DUET_CHOICES,
+        duet_choices=DUET_CHOICES, required_fields=request_required_fields(profile),
     )
 
 
@@ -57,6 +60,7 @@ def request_submit(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
+    profile = get_app_settings(db).request_profile
     band_name = band_name.strip()
     song_name = song_name.strip()
     youtube_url = youtube_url.strip()
@@ -66,7 +70,8 @@ def request_submit(
     cover_url = cover_url.strip()
     duet = duet.strip().lower()
     errors = request_field_errors(
-        band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet
+        band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet,
+        lyrics_url=lyrics_url, profile=profile,
     )
 
     if band_name and song_name:
@@ -90,10 +95,11 @@ def request_submit(
             },
             submitted=False,
             language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
+            required_fields=request_required_fields(profile),
         )
 
     db.add(
-        SongRequest(
+        PendingSongRequest(
             band_name=band_name,
             song_name=song_name,
             youtube_url=youtube_url or None,

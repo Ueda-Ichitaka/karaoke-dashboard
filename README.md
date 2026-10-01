@@ -5,13 +5,14 @@ A small web app for a home karaoke system:
 | Tab | Who | What |
 | --- | --- | --- |
 | **Songs** | everyone | Browse & search the library (one entry per folder in your songs directory). |
-| **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, other), choose the song's language (required - includes a "Mixed" option for songs whose lyrics switch languages), describe what's broken (required only for "other"), give a genius.com lyrics link (required only for "lyrics broken" / "out of sync"), and optionally a cover image link, submit. |
-| **Request song** | logged-in users | Ask for a new song: band + title (required); YouTube link, language (includes "Mixed"), MusicBrainz ID (bare ID or a pasted musicbrainz.org link - either is accepted), lyrics link, cover image link (all optional), and Duet - is a duet version wanted? (defaults to "No"). Rejected if the song already exists in the library *or* already has an open request with the same Duet setting - a plain and a duet request for the same song are both allowed open at once. |
-| **Reported** | admins | Review / edit / resolve broken-song reports, **export as CSV** (`broken.csv`). A second report for a song that already has an open report merges into it instead of creating a duplicate row - see below. |
-| **Requested** | admins | Review / edit / close / delete song requests, see whether one already matches the library, **export as CSV**. |
+| **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, other) and describe what's broken (both always required). Under the **strict** profile, the language and (for "lyrics broken"/"out of sync") a genius.com lyrics link are required too; under **karaoke night**, everything past the song/category/description is optional. Which profile applies is an admin setting - see Settings below. Submissions land in a review queue, not the exportable list directly - see **Requested**/**Reported** below. |
+| **Request song** | logged-in users | Ask for a new song: band + title always required. Under **strict**, YouTube link, language and lyrics link are required too, plus MusicBrainz ID, cover image link and Duet stay optional in both profiles; under **karaoke night**, only band + title are required. Duet - is a duet version wanted? - defaults to "No" (blank/"Unspecified" was removed as a choice). Rejected if the song already exists in the library *or* already has a request (pending review or already admitted) with the same Duet setting - a plain and a duet request for the same song are both allowed at once. Submissions land in a review queue - see **Requested** below. |
+| **Reported** | admins | A **"Needs review" section** lists newly submitted reports, not yet exportable: edit one to fill in anything missing, then **Admit** it (blocked until it meets the strict profile's full field list, regardless of which profile was live at submission) to move it into the exportable list below, or **Discard** it. The exportable list itself: review / edit / resolve broken-song reports, **export as CSV** (`broken.csv`). A second report for a song that's still pending review or already has an open admitted report merges into it instead of creating a duplicate row - see below. |
+| **Requested** | admins | Same **"Needs review"** / Edit / Admit / Discard flow as Reported, above, for song requests. The exportable list: review / edit / close / delete song requests, see whether one already matches the library, **export as CSV**. |
 | **Duplicates** | admins | Review songs that appear more than once, compare their metadata, dismiss false positives. Results are cached (scanning is expensive) - rescan on demand or wait for the scheduled monthly rescan. |
 | **Integrity** | admins | Song files checked against the UltraStar format spec, the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder) - all three exportable as an UltraStar Manager playlist. Rescan on demand with the button at the top. |
 | **Users** | admins | Create users, reset passwords, grant/revoke admin, disable, delete. |
+| **Settings** | admins | Switch the Request song and Report broken forms between the **karaoke night** and **strict** profiles, independently of each other. |
 
 Built with **FastAPI + Jinja2 + SQLAlchemy**, server-rendered, no JS framework.
 The song list is the set of sub-folders of a directory you mount into the
@@ -382,7 +383,8 @@ app/
   main.py            FastAPI app, middleware, error handlers
   config.py          env-based settings
   database.py        engine, session, wait-for-db, create tables
-  models.py          User, BrokenReport, SongRequest, DismissedDuplicate
+  models.py          User, BrokenReport, SongRequest, PendingBrokenReport, PendingSongRequest,
+                     AppSettings, DismissedDuplicate
   security.py        password hashing, admin seed
   songs.py           filesystem scan + cached search index
   ultrastar.py       UltraStar .txt metadata parsing (cover, length, duet, ...)
@@ -392,13 +394,16 @@ app/
   structure_check.py flat "Artist - Title" library structure checks
   misplaced_check.py wrong-song-in-folder checks
   upl_export.py      UltraStar Manager (.upl) playlist export for both checks above
-  request_matching.py  does a song request already exist in the library or the request queue?
-  report_matching.py   finds/merges a duplicate broken-song report into an already-open one
-  duet.py            yes/no/blank Duet choice for the request form
+  request_matching.py  does a song request already exist in the library, the pending queue, or the request queue?
+  report_matching.py   finds/merges a duplicate broken-song report into a pending or already-open one
+  duet.py            yes/no Duet choice for the request form (defaults to "No")
   languages.py       language choices shared by the request/report forms (ISO 639-1 + "Mixed")
   broken_categories.py  fixed category list for the broken-report form
   musicbrainz.py     extracts a bare MBID from a pasted musicbrainz.org URL
   validation.py      shared request-form / broken-report field validation
+  profiles.py         karaoke-night/strict required-field rules for both forms and the admit check
+  app_settings.py     fetches/creates the AppSettings singleton (the two profile switches)
+  pending_migration.py  one-time startup move of pre-review "open" rows into the pending tables
   deps.py            current-user / auth guards / template helper
   routes/            songs, auth, reports, requests, admin
   templates/         Jinja2 templates

@@ -11,7 +11,8 @@
     </div>
   {% endif %}
 
-  <form class="stack-form" method="post" action="/admin/requests/{{ item.id }}/edit">
+  <form class="stack-form" method="post"
+        action="{{ '/admin/requests/pending/' ~ item.id ~ '/edit' if pending else '/admin/requests/' ~ item.id ~ '/edit' }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label class="field">
       <span class="field-label">Band / artist <em>(required)</em></span>
@@ -65,5 +66,12 @@
       <a class="btn btn-ghost" href="/admin/requests">Cancel</a>
     </div>
   </form>
+
+  {% if pending %}
+    <form class="inline-form" method="post" action="/admin/requests/pending/{{ item.id }}/admit">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-primary">Admit to the exportable list</button>
+    </form>
+  {% endif %}
 </section>
 {% endblock %}

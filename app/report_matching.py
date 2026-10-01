@@ -2,7 +2,11 @@
 Rather than blocking a second report for a song that already has an open one,
 find_existing_report locates it and merge_into_existing_report folds the new
 submission's data into it - the same known issue stays a single row instead
-of piling up duplicates.
+of piling up duplicates. A report still awaiting admin review
+(PendingBrokenReport) is checked first - merging into it keeps the queue from
+growing with separate pending duplicates - falling back to an already-admitted
+open report (BrokenReport) otherwise; either way, the new data lands on
+whichever row is still "live".
 """
 
 from __future__ import annotations
@@ -11,11 +15,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .broken_categories import CATEGORY_LABELS
-from .models import BrokenReport
+from .models import BrokenReport, PendingBrokenReport
 
 
-def find_existing_report(db: Session, song_folder: str) -> BrokenReport | None:
-    """The oldest still-open report for this exact song folder, if any.
+def find_existing_report(db: Session, song_folder: str) -> PendingBrokenReport | BrokenReport | None:
+    """A still-pending or already-admitted-open report for this exact song
+    folder, if any - pending takes priority over admitted.
 
     A resolved report no longer matches - a fresh report against the same
     song is treated as a new occurrence, not a duplicate of a fixed issue.
@@ -23,6 +28,13 @@ def find_existing_report(db: Session, song_folder: str) -> BrokenReport | None:
     song_folder = song_folder.strip()
     if not song_folder:
         return None
+    pending = db.scalar(
+        select(PendingBrokenReport)
+        .where(PendingBrokenReport.song_folder == song_folder)
+        .order_by(PendingBrokenReport.created_at.asc())
+    )
+    if pending is not None:
+        return pending
     return db.scalar(
         select(BrokenReport)
         .where(BrokenReport.song_folder == song_folder, BrokenReport.status == "open")
@@ -31,7 +43,8 @@ def find_existing_report(db: Session, song_folder: str) -> BrokenReport | None:
 
 
 def merge_into_existing_report(
-    existing: BrokenReport, *, category: str, description: str, genius_url: str, cover_url: str
+    existing: PendingBrokenReport | BrokenReport, *, category: str, description: str, genius_url: str,
+    cover_url: str,
 ) -> None:
     """Folds a new duplicate report's data into an already-open one.
 

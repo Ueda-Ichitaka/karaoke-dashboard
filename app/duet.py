@@ -1,17 +1,15 @@
-"""About me: the yes/no/blank "Duet" choice on the song-request form (and its
-admin edit view) - whether a duet version of the requested song is wanted.
-Blank means the requester didn't say; it's stored as NULL and exported as an
-empty CSV cell. The request form now pre-selects "No" by default (see
-app/templates/request.html) - blank only remains reachable as a leftover
-value on older rows, or if explicitly chosen - and wants_duet() treats it the
-same as an explicit "No", both on this side (app/request_matching.py's
-duplicate check) and, per UPSTREAM_REQUESTS.md, on the UltraSinger side.
+"""About me: the yes/no "Duet" choice on the song-request form (and its admin
+edit view) - whether a duet version of the requested song is wanted. The form
+only offers Yes/No (no blank option) and defaults to "No". Blank/NULL only
+remains reachable on rows stored before this field existed or before the
+blank option was removed; wants_duet() treats it the same as an explicit
+"No", both on this side (app/request_matching.py's duplicate check) and, per
+UPSTREAM_REQUESTS.md, on the UltraSinger side.
 """
 
 from __future__ import annotations
 
 DUET_CHOICES: tuple[tuple[str, str], ...] = (
-    ("", "Unspecified"),
     ("yes", "Yes"),
     ("no", "No"),
 )

@@ -78,8 +78,15 @@ def _sync_schema(target_engine: Engine) -> None:
 
 
 def init_db() -> None:
-    """Create tables and add any columns missing from existing ones."""
+    """Create tables, add any columns missing from existing ones, and
+    retroactively move any pre-pending-review "open" row into its pending
+    table (see app/pending_migration.py).
+    """
     from . import models  # noqa: F401  (register models on Base.metadata)
+    from .pending_migration import migrate_open_rows_to_pending
 
     Base.metadata.create_all(bind=engine)
     _sync_schema(engine)
+    with SessionLocal() as db:
+        migrate_open_rows_to_pending(db)
+        db.commit()

@@ -1,12 +1,15 @@
 """Tests for app/report_matching.py: finding an already-open broken-song
 report for the same song (so a new report merges instead of duplicating),
-and the merge itself.
+and the merge itself. find_existing_report checks a still-pending report
+(PendingBrokenReport) before an already-admitted open one (BrokenReport), so
+a second report for the same song merges into whichever one is still "live"
+instead of creating a separate duplicate.
 """
 
 from __future__ import annotations
 
 from app.database import SessionLocal
-from app.models import BrokenReport
+from app.models import BrokenReport, PendingBrokenReport
 from app.report_matching import find_existing_report, merge_into_existing_report
 
 
@@ -45,6 +48,73 @@ def test_does_not_match_a_different_song(admin_client):
 def test_blank_song_folder_matches_nothing(admin_client):
     with SessionLocal() as db:
         assert find_existing_report(db, "") is None
+
+
+# ---------------------------------------------------------- pending review
+def test_matches_a_still_pending_report(fresh_db):
+    with SessionLocal() as db:
+        db.add(
+            PendingBrokenReport(
+                song_folder="Queen - Bohemian Rhapsody", category="audio",
+                description="no audio", reporter_username="admin",
+            )
+        )
+        db.commit()
+
+        found = find_existing_report(db, "Queen - Bohemian Rhapsody")
+        assert isinstance(found, PendingBrokenReport)
+
+
+def test_prefers_a_pending_report_over_an_admitted_open_one(fresh_db):
+    with SessionLocal() as db:
+        db.add(
+            BrokenReport(
+                song_folder="Queen - Bohemian Rhapsody", category="audio",
+                description="no audio", status="open", reporter_username="admin",
+            )
+        )
+        db.add(
+            PendingBrokenReport(
+                song_folder="Queen - Bohemian Rhapsody", category="video",
+                description="no video", reporter_username="admin",
+            )
+        )
+        db.commit()
+
+        found = find_existing_report(db, "Queen - Bohemian Rhapsody")
+        assert isinstance(found, PendingBrokenReport)
+        assert found.description == "no video"
+
+
+def test_falls_back_to_an_admitted_open_report_when_nothing_pending_matches(fresh_db):
+    with SessionLocal() as db:
+        db.add(
+            BrokenReport(
+                song_folder="Queen - Bohemian Rhapsody", category="audio",
+                description="no audio", status="open", reporter_username="admin",
+            )
+        )
+        db.commit()
+
+        found = find_existing_report(db, "Queen - Bohemian Rhapsody")
+        assert isinstance(found, BrokenReport)
+
+
+def test_merge_still_works_on_a_pending_report(fresh_db):
+    with SessionLocal() as db:
+        existing = PendingBrokenReport(
+            song_folder="Queen - Bohemian Rhapsody", category="audio",
+            description="no audio", reporter_username="admin",
+        )
+        db.add(existing)
+        db.commit()
+
+        merge_into_existing_report(
+            existing, category="video", description="also no video", genius_url="", cover_url=""
+        )
+        db.commit()
+
+        assert existing.description == "no audio; Missing video; also no video"
 
 
 # --------------------------------------------------------------------- merge

@@ -11,6 +11,7 @@ from .broken_categories import is_valid_category
 from .duet import is_valid_duet
 from .languages import is_valid_language_code
 from .musicbrainz import MAX_LENGTH as MUSICBRAINZ_ID_MAX_LENGTH
+from .profiles import report_required_fields, request_required_fields
 
 _LINE_BREAK_RE = re.compile(r"[\r\n\x0b\x0c]+")
 _CONTROL_RE = re.compile(r"[\x00-\x08\x0e-\x1f\x7f]")
@@ -57,15 +58,20 @@ def is_http_url(value: str) -> bool:
 
 def request_field_errors(
     band_name: str, song_name: str, youtube_url: str, language: str, musicbrainz_id: str = "",
-    cover_url: str = "", duet: str = "",
+    cover_url: str = "", duet: str = "", lyrics_url: str = "", profile: str = "karaoke_night",
 ) -> list[str]:
+    required = request_required_fields(profile)
     errors: list[str] = []
     if not band_name:
         errors.append("Band name is required.")
     if not song_name:
         errors.append("Song name is required.")
+    if "youtube_url" in required and not youtube_url:
+        errors.append("YouTube link is required.")
     if youtube_url and not is_http_url(youtube_url):
         errors.append("The YouTube link must start with http:// or https://")
+    if "language" in required and not language:
+        errors.append("Please choose the song's language.")
     if language and not is_valid_language_code(language):
         errors.append("Unrecognized language.")
     if len(musicbrainz_id) > MUSICBRAINZ_ID_MAX_LENGTH:
@@ -73,6 +79,8 @@ def request_field_errors(
             f"Unrecognized MusicBrainz ID - paste the ID itself or a musicbrainz.org "
             f"link to it (max {MUSICBRAINZ_ID_MAX_LENGTH} characters)."
         )
+    if "lyrics_url" in required and not lyrics_url:
+        errors.append("Lyrics link is required.")
     if cover_url and not is_http_url(cover_url):
         errors.append("The cover image link must start with http:// or https://")
     if duet and not is_valid_duet(duet):
@@ -80,26 +88,25 @@ def request_field_errors(
     return errors
 
 
-_GENIUS_REQUIRED_CATEGORIES = frozenset({"lyrics", "async"})
-
-
 def broken_report_field_errors(
-    category: str, description: str, genius_url: str = "", language: str = "", cover_url: str = ""
+    category: str, description: str, genius_url: str = "", language: str = "", cover_url: str = "",
+    profile: str = "strict",
 ) -> list[str]:
+    required = report_required_fields(profile, category)
     errors: list[str] = []
     if not category:
         errors.append("Please choose a category.")
     elif not is_valid_category(category):
         errors.append("Unrecognized category.")
-    if category == "other" and not description:
+    if not description:
         errors.append("Please describe what's broken.")
-    if category in _GENIUS_REQUIRED_CATEGORIES and not genius_url:
+    if "genius_url" in required and not genius_url:
         errors.append('Please provide a genius.com lyrics link for this category.')
     if genius_url and not is_http_url(genius_url):
         errors.append("The lyrics link must start with http:// or https://")
-    if not language:
+    if "language" in required and not language:
         errors.append("Please choose the song's language.")
-    elif not is_valid_language_code(language):
+    elif language and not is_valid_language_code(language):
         errors.append("Unrecognized language.")
     if cover_url and not is_http_url(cover_url):
         errors.append("The cover image link must start with http:// or https://")

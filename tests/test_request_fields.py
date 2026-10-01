@@ -5,6 +5,9 @@ validation, and the requests.csv export.
 
 from __future__ import annotations
 
+from app.database import SessionLocal
+from app.models import PendingSongRequest, SongRequest
+
 
 def test_request_form_shows_language_select_and_tooltips(admin_client):
     r = admin_client.get("/request")
@@ -84,9 +87,10 @@ def test_request_accepts_a_pasted_musicbrainz_url_instead_of_a_bare_id(admin_cli
     assert r.status_code == 200
     assert "was submitted" in r.text
 
-    r = admin_client.get("/admin/requests.csv", params={"scope": "all"})
-    assert "2fa14ea5-9e94-4a6c-9c62-3c0dc9ce6b8f" in r.text
-    assert "musicbrainz.org" not in r.text
+    with SessionLocal() as db:
+        pending = db.query(PendingSongRequest).one()
+        # the extraction already happened at submit time, before admission
+        assert pending.musicbrainz_id == "2fa14ea5-9e94-4a6c-9c62-3c0dc9ce6b8f"
 
 
 def test_request_rejects_an_unreasonably_long_musicbrainz_value(admin_client):
@@ -99,10 +103,14 @@ def test_request_rejects_an_unreasonably_long_musicbrainz_value(admin_client):
 
 
 def test_requests_csv_neutralizes_formula_injection_in_band_and_song_name(admin_client):
-    admin_client.post(
-        "/request",
-        data={"band_name": '=cmd|"/c calc"!A0', "song_name": "+1+1", "musicbrainz_id": "-DDE(1)"},
-    )
+    with SessionLocal() as db:
+        db.add(
+            SongRequest(
+                band_name='=cmd|"/c calc"!A0', song_name="+1+1", musicbrainz_id="-DDE(1)",
+                status="open", requester_username="admin",
+            )
+        )
+        db.commit()
     r = admin_client.get("/admin/requests.csv", params={"scope": "all"})
     body = r.text
     assert "'=cmd" in body
@@ -116,17 +124,20 @@ def test_requests_csv_neutralizes_formula_injection_in_band_and_song_name(admin_
 
 
 def test_requests_csv_includes_upstream_columns(admin_client):
-    admin_client.post(
-        "/request",
-        data={
-            "band_name": "Lacrimosa",
-            "song_name": "Lichtgestalt",
-            "language": "de",
-            "musicbrainz_id": "mbid-123",
-            "lyrics_url": "https://genius.com/Lacrimosa-lichtgestalt-lyrics",
-        },
-    )
-    admin_client.post("/request", data={"band_name": "Journey", "song_name": "Faithfully"})
+    with SessionLocal() as db:
+        db.add(
+            SongRequest(
+                band_name="Lacrimosa", song_name="Lichtgestalt", language="de",
+                musicbrainz_id="mbid-123", lyrics_url="https://genius.com/Lacrimosa-lichtgestalt-lyrics",
+                status="open", requester_username="admin",
+            )
+        )
+        db.add(
+            SongRequest(
+                band_name="Journey", song_name="Faithfully", status="open", requester_username="admin",
+            )
+        )
+        db.commit()
 
     r = admin_client.get("/admin/requests.csv", params={"scope": "all"})
     assert r.status_code == 200
@@ -179,16 +190,21 @@ def test_request_rejects_an_unknown_duet_value(admin_client):
 
 
 def test_requests_csv_exports_cover_url_and_duet_columns(admin_client):
-    admin_client.post(
-        "/request",
-        data={
-            "band_name": "Lacrimosa", "song_name": "Lichtgestalt",
-            "cover_url": "https://example.com/cover.jpg", "duet": "yes",
-        },
-    )
-    admin_client.post(
-        "/request", data={"band_name": "Journey", "song_name": "Faithfully", "duet": "no"}
-    )
+    with SessionLocal() as db:
+        db.add(
+            SongRequest(
+                band_name="Lacrimosa", song_name="Lichtgestalt",
+                cover_url="https://example.com/cover.jpg", duet="yes",
+                status="open", requester_username="admin",
+            )
+        )
+        db.add(
+            SongRequest(
+                band_name="Journey", song_name="Faithfully", duet="no",
+                status="open", requester_username="admin",
+            )
+        )
+        db.commit()
     body = admin_client.get("/admin/requests.csv", params={"scope": "all"}).text
     assert body.startswith(
         "band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet\n"

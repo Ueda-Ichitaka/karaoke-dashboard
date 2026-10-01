@@ -1,11 +1,19 @@
 """Tests for the broken-report category field: mandatory choice list (see
-app/broken_categories.py), with the free-text description only required
-when "other" is chosen, plus the admin broken.csv export.
+app/broken_categories.py), the free-text description (now required for
+every category), plus the admin broken.csv export.
 """
 
 from __future__ import annotations
 
+from app.database import SessionLocal
+from app.models import PendingBrokenReport
 from app.validation import broken_report_field_errors
+
+
+def _admit_the_pending_report(admin_client) -> None:
+    with SessionLocal() as db:
+        pending_id = db.query(PendingBrokenReport).one().id
+    admin_client.post(f"/admin/reports/pending/{pending_id}/admit")
 
 
 def test_category_is_required():
@@ -18,8 +26,9 @@ def test_unrecognized_category_is_rejected():
     assert any("category" in e.lower() for e in errors)
 
 
-def test_description_optional_for_a_specific_category():
-    assert broken_report_field_errors("audio", "", language="de") == []
+def test_description_is_required_for_every_category():
+    errors = broken_report_field_errors("audio", "", language="de")
+    assert any("describe" in e.lower() for e in errors)
 
 
 def test_description_required_when_category_is_other():
@@ -37,12 +46,12 @@ def test_report_submit_requires_category(admin_client):
     assert "category" in r.text.lower()
 
 
-def test_report_submit_with_specific_category_and_no_description_succeeds(admin_client):
+def test_report_submit_with_specific_category_and_description_succeeds(admin_client):
     r = admin_client.post(
         "/report",
         data={
-            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": "",
-            "language": "de",
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
+            "description": "cuts out at the end", "language": "de",
         },
     )
     assert r.status_code == 200
@@ -62,7 +71,7 @@ def test_admin_reports_view_shows_category(admin_client):
     admin_client.post(
         "/report",
         data={
-            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "",
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "x",
             "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
             "language": "de",
         },
@@ -82,6 +91,7 @@ def test_broken_csv_export(admin_client):
             "language": "de",
         },
     )
+    _admit_the_pending_report(admin_client)
     r = admin_client.get("/admin/reports.csv")
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/csv")
@@ -101,13 +111,14 @@ def test_broken_csv_lyrics_url_column_blank_when_not_set(admin_client):
     admin_client.post(
         "/report",
         data={
-            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": "",
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": "no audio",
             "language": "de",
         },
     )
+    _admit_the_pending_report(admin_client)
     r = admin_client.get("/admin/reports.csv")
     body = r.text
-    assert "Queen,Bohemian Rhapsody,audio,,,de,\n" in body
+    assert "Queen,Bohemian Rhapsody,audio,no audio,,de,\n" in body
 
 
 # --------------------------------------------------------- genius link
@@ -122,8 +133,8 @@ def test_genius_link_required_for_async_category():
 
 
 def test_genius_link_not_required_for_other_categories():
-    assert broken_report_field_errors("audio", "", genius_url="", language="de") == []
-    assert broken_report_field_errors("video", "", genius_url="", language="de") == []
+    assert broken_report_field_errors("audio", "x", genius_url="", language="de") == []
+    assert broken_report_field_errors("video", "x", genius_url="", language="de") == []
 
 
 def test_genius_link_must_be_a_url_when_given():
@@ -131,7 +142,7 @@ def test_genius_link_must_be_a_url_when_given():
     assert any("http" in e.lower() for e in errors)
     assert (
         broken_report_field_errors(
-            "lyrics", "", genius_url="https://genius.com/x-lyrics", language="de"
+            "lyrics", "x", genius_url="https://genius.com/x-lyrics", language="de"
         )
         == []
     )
@@ -159,7 +170,7 @@ def test_report_submit_lyrics_category_with_genius_link_succeeds(admin_client):
     r = admin_client.post(
         "/report",
         data={
-            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "",
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "x",
             "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
             "language": "de",
         },
@@ -172,7 +183,7 @@ def test_admin_reports_view_shows_genius_link(admin_client):
     admin_client.post(
         "/report",
         data={
-            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "",
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "x",
             "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
             "language": "de",
         },
@@ -217,7 +228,7 @@ def test_unrecognized_language_is_rejected():
 
 
 def test_mixed_language_is_accepted():
-    assert broken_report_field_errors("audio", "", genius_url="", language="mixed") == []
+    assert broken_report_field_errors("audio", "x", genius_url="", language="mixed") == []
 
 
 def test_report_form_shows_a_required_language_select(admin_client):
@@ -239,7 +250,7 @@ def test_report_submit_with_language_succeeds(admin_client):
     r = admin_client.post(
         "/report",
         data={
-            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": "",
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": "x",
             "language": "de",
         },
     )
@@ -251,7 +262,7 @@ def test_admin_reports_view_shows_language(admin_client):
     admin_client.post(
         "/report",
         data={
-            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": "",
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": "x",
             "language": "de",
         },
     )
@@ -270,6 +281,7 @@ def test_broken_csv_includes_language_column(admin_client):
             "language": "de",
         },
     )
+    _admit_the_pending_report(admin_client)
     r = admin_client.get("/admin/reports.csv")
     body = r.text
     assert body.startswith("band,song name,category,description,lyrics_url,language,cover_url\n")
@@ -288,12 +300,12 @@ def test_broken_csv_requires_admin(admin_client):
 
 # ------------------------------------------------------------- cover image
 def test_cover_url_is_optional_but_must_be_http_when_given():
-    assert broken_report_field_errors("audio", "", language="de", cover_url="") == []
+    assert broken_report_field_errors("audio", "x", language="de", cover_url="") == []
     assert (
-        broken_report_field_errors("audio", "", language="de", cover_url="https://x.org/c.png")
+        broken_report_field_errors("audio", "x", language="de", cover_url="https://x.org/c.png")
         == []
     )
-    errors = broken_report_field_errors("audio", "", language="de", cover_url="c.png")
+    errors = broken_report_field_errors("audio", "x", language="de", cover_url="c.png")
     assert any("cover" in e.lower() for e in errors)
 
 
@@ -317,17 +329,18 @@ def test_report_cover_url_is_shown_in_admin_and_exported(admin_client):
     r = admin_client.post(
         "/report",
         data={
-            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": "no audio",
             "language": "de", "cover_url": "https://example.com/cover.jpg",
         },
     )
     assert r.status_code == 200
     assert 'href="https://example.com/cover.jpg"' in admin_client.get("/admin/reports").text
+    _admit_the_pending_report(admin_client)
     body = admin_client.get("/admin/reports.csv").text
     assert body.startswith(
         "band,song name,category,description,lyrics_url,language,cover_url\n"
     )
-    assert "Queen,Bohemian Rhapsody,audio,,,de,https://example.com/cover.jpg\n" in body
+    assert "Queen,Bohemian Rhapsody,audio,no audio,,de,https://example.com/cover.jpg\n" in body
 
 
 # -------------------------------------------------------- duplicate merging
@@ -364,14 +377,14 @@ def test_merged_report_does_not_overwrite_an_existing_lyrics_link(admin_client):
     admin_client.post(
         "/report",
         data={
-            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "",
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "x",
             "language": "de", "genius_url": "https://genius.com/original-lyrics",
         },
     )
     admin_client.post(
         "/report",
         data={
-            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "",
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "lyrics", "description": "x",
             "language": "de", "genius_url": "https://genius.com/a-different-link",
         },
     )
@@ -383,8 +396,12 @@ def test_merged_report_does_not_overwrite_an_existing_lyrics_link(admin_client):
 def test_a_new_report_after_the_old_one_is_resolved_is_not_merged(admin_client):
     admin_client.post(
         "/report",
-        data={"song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "language": "de"},
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
+            "description": "no audio", "language": "de",
+        },
     )
+    _admit_the_pending_report(admin_client)
     listing = admin_client.get("/admin/reports?show=all")
     import re
     report_id = re.search(r"/admin/reports/(\d+)/status", listing.text).group(1)
@@ -394,7 +411,11 @@ def test_a_new_report_after_the_old_one_is_resolved_is_not_merged(admin_client):
 
     admin_client.post(
         "/report",
-        data={"song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "language": "de"},
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
+            "description": "no audio again", "language": "de",
+        },
     )
+    _admit_the_pending_report(admin_client)
     listing = admin_client.get("/admin/reports?show=all")
     assert listing.text.count("Bohemian Rhapsody") == 4

@@ -29,12 +29,12 @@
       </label>
       <div class="alert alert-error" data-dup-warning hidden></div>
       <label class="field">
-        <span class="field-label">YouTube link <em>(optional)</em></span>
-        <input type="url" name="youtube_url" value="{{ form.youtube_url or '' }}" placeholder="https://www.youtube.com/watch?v=…">
+        <span class="field-label">YouTube link <em>({{ 'required' if 'youtube_url' in required_fields else 'optional' }})</em></span>
+        <input type="url" name="youtube_url" {{ 'required' if 'youtube_url' in required_fields }} value="{{ form.youtube_url or '' }}" placeholder="https://www.youtube.com/watch?v=…">
       </label>
       <label class="field">
-        <span class="field-label">Language <em>(optional)</em></span>
-        <select name="language">
+        <span class="field-label">Language <em>({{ 'required' if 'language' in required_fields else 'optional' }})</em></span>
+        <select name="language" {{ 'required' if 'language' in required_fields }}>
           {% for code, label in language_choices %}
             <option value="{{ code }}" {{ 'selected' if (form.language or '') == code }}>{{ label }}</option>
           {% endfor %}
@@ -49,10 +49,10 @@
       </label>
       <label class="field">
         <span class="field-label">
-          Lyrics link <em>(optional)</em>
+          Lyrics link <em>({{ 'required' if 'lyrics_url' in required_fields else 'optional' }})</em>
           <span class="field-hint" tabindex="0" aria-label="Only a genius.com song page, or a direct link to a .txt/.lrc file, actually gets used - anything else (AZLyrics, Musixmatch, a lyrics wiki, ...) is ignored, not an error, and falls back to an online search instead." data-tip="Only a genius.com song page, or a direct link to a .txt/.lrc file, actually gets used - anything else (AZLyrics, Musixmatch, a lyrics wiki, ...) is ignored, not an error, and falls back to an online search instead.">?</span>
         </span>
-        <input type="text" name="lyrics_url" value="{{ form.lyrics_url or '' }}" placeholder="https://genius.com/… or a direct .txt/.lrc link">
+        <input type="text" name="lyrics_url" {{ 'required' if 'lyrics_url' in required_fields }} value="{{ form.lyrics_url or '' }}" placeholder="https://genius.com/… or a direct .txt/.lrc link">
       </label>
       <label class="field">
         <span class="field-label">Cover image link <em>(optional)</em></span>

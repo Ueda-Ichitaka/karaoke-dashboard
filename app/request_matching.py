@@ -1,17 +1,20 @@
 """About me: checks whether a song request matches something already in the
 library, for the admin requests view's "scan" indicator, and whether it
-matches something already sitting open in the request queue itself (so two
-members can't pile up duplicate requests for the same not-yet-added song).
-Library matches come in two kinds: an exact "<band> - <song>" folder name
-(see songs.folder_exists), or just a matching UltraStar artist/title tag pair
-inside a folder that doesn't follow that naming convention (e.g. one
-produced by another library-management tool) - the same normalized-key
-comparison app/duplicates.py uses for cross-folder duplicate detection.
+matches something already sitting in the request queue itself - either
+still awaiting admin review (PendingSongRequest) or already admitted and
+open (SongRequest) - so two members can't pile up duplicate requests for the
+same not-yet-added song. Library matches come in two kinds: an exact
+"<band> - <song>" folder name (see songs.folder_exists), or just a matching
+UltraStar artist/title tag pair inside a folder that doesn't follow that
+naming convention (e.g. one produced by another library-management tool) -
+the same normalized-key comparison app/duplicates.py uses for cross-folder
+duplicate detection.
 
 A same band/song request is only a duplicate if it also wants the same Duet
 setting (app/duet.py's wants_duet, "yes" vs. "no"/blank) - a plain and a
-duet version of the same song are deliberately allowed to sit as two open
-requests side by side, so the downstream pipeline can generate both.
+duet version of the same song are deliberately allowed to sit as two
+requests side by side (pending or open), so the downstream pipeline can
+generate both.
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from . import duplicates, songs, ultrastar
 from .duet import wants_duet
-from .models import SongRequest
+from .models import PendingSongRequest, SongRequest
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,8 +56,11 @@ def find_library_match(band_name: str, song_name: str) -> LibraryMatch | None:
     return None
 
 
-def find_existing_request(db: Session, band_name: str, song_name: str, duet: str = "") -> SongRequest | None:
-    """An open request that already covers this band/song/duet-setting, if any.
+def find_existing_request(
+    db: Session, band_name: str, song_name: str, duet: str = ""
+) -> PendingSongRequest | SongRequest | None:
+    """A pending or already-admitted-open request that already covers this
+    band/song/duet-setting, if any.
 
     A "done" request no longer blocks a re-request - it's already been
     fulfilled (and would then show up via find_library_match instead) or
@@ -68,7 +74,10 @@ def find_existing_request(db: Session, band_name: str, song_name: str, duet: str
     target_band = duplicates.normalize_key(band_name)
     target_song = duplicates.normalize_key(song_name)
     target_wants_duet = wants_duet(duet)
-    rows = db.scalars(select(SongRequest).where(SongRequest.status == "open")).all()
+    rows = [
+        *db.scalars(select(PendingSongRequest)).all(),
+        *db.scalars(select(SongRequest).where(SongRequest.status == "open")).all(),
+    ]
     for row in rows:
         band_matches = duplicates.normalize_key(row.band_name) == target_band
         song_matches = duplicates.normalize_key(row.song_name) == target_song

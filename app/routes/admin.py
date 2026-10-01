@@ -12,14 +12,16 @@ from sqlalchemy.orm import Session
 
 from .. import duplicates, format_check, misplaced_check, request_matching, structure_check, upl_export
 from .. import songs as song_index
+from ..app_settings import get_app_settings
 from ..broken_categories import CATEGORY_CHOICES, CATEGORY_LABELS
 from ..config import settings
 from ..database import get_db
 from ..deps import render, require_admin
 from ..duet import DUET_CHOICES, DUET_LABELS
 from ..languages import LANGUAGE_CHOICES, LANGUAGE_LABELS
-from ..models import BrokenReport, SongRequest, User
+from ..models import BrokenReport, PendingBrokenReport, PendingSongRequest, SongRequest, User
 from ..musicbrainz import extract_musicbrainz_id
+from ..profiles import PROFILE_CHOICES, PROFILE_CODES
 from ..security import MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, hash_password
 from ..validation import broken_report_field_errors, neutralize_csv_formula, request_field_errors, sanitize_free_text
 
@@ -32,6 +34,46 @@ _REQUEST_STATES = {"open", "done"}
 @router.get("")
 def admin_home():
     return RedirectResponse("/admin/reports", status_code=303)
+
+
+# --------------------------------------------------------------------------- settings
+@router.get("/settings")
+def settings_view(
+    request: Request,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    app_settings = get_app_settings(db)
+    return render(
+        request, "admin/settings.html", user,
+        errors=[], app_settings=app_settings, profile_choices=PROFILE_CHOICES,
+    )
+
+
+@router.post("/settings")
+def settings_update(
+    request: Request,
+    request_profile: str = Form(""),
+    report_profile: str = Form(""),
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    app_settings = get_app_settings(db)
+    errors: list[str] = []
+    if request_profile not in PROFILE_CODES:
+        errors.append("Unrecognized request-song profile.")
+    if report_profile not in PROFILE_CODES:
+        errors.append("Unrecognized report-broken profile.")
+    if errors:
+        return render(
+            request, "admin/settings.html", user, status_code=422,
+            errors=errors, app_settings=app_settings, profile_choices=PROFILE_CHOICES,
+        )
+
+    app_settings.request_profile = request_profile
+    app_settings.report_profile = report_profile
+    db.commit()
+    return RedirectResponse("/admin/settings", status_code=303)
 
 
 # --------------------------------------------------------------------------- reports
@@ -47,10 +89,11 @@ def reports_view(
         stmt = stmt.where(BrokenReport.status == "open")
     reports = db.scalars(stmt).all()
     open_count = db.scalar(select(func.count()).select_from(BrokenReport).where(BrokenReport.status == "open"))
+    pending = db.scalars(select(PendingBrokenReport).order_by(PendingBrokenReport.created_at.asc())).all()
     return render(
         request, "admin/reports.html", user,
         reports=reports, show=show, open_count=open_count or 0, category_labels=CATEGORY_LABELS,
-        language_labels=LANGUAGE_LABELS,
+        language_labels=LANGUAGE_LABELS, pending_reports=pending,
     )
 
 
@@ -84,7 +127,7 @@ def report_edit_form(
         raise HTTPException(status_code=404)
     return render(
         request, "admin/report_edit.html", user,
-        errors=[], item=item, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
+        errors=[], item=item, pending=False, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
         form={
             "song_folder": item.song_folder, "category": item.category or "",
             "description": item.description or "", "genius_url": item.genius_url or "",
@@ -128,7 +171,8 @@ def report_edit_submit(
     if errors:
         return render(
             request, "admin/report_edit.html", user, status_code=422,
-            errors=errors, item=item, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
+            errors=errors, item=item, pending=False, category_choices=CATEGORY_CHOICES,
+            language_choices=LANGUAGE_CHOICES,
             form={
                 "song_folder": song_folder, "category": category, "description": description,
                 "genius_url": genius_url, "language": language, "cover_url": cover_url,
@@ -143,6 +187,146 @@ def report_edit_submit(
     item.genius_url = genius_url or None
     item.language = language or None
     item.cover_url = cover_url or None
+    db.commit()
+    return RedirectResponse("/admin/reports", status_code=303)
+
+
+# ------------------------------------------------------------- pending reports
+@router.get("/reports/pending/{pending_id}/edit")
+def pending_report_edit_form(
+    pending_id: int,
+    request: Request,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(PendingBrokenReport, pending_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+    return render(
+        request, "admin/report_edit.html", user,
+        errors=[], item=item, pending=True, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
+        form={
+            "song_folder": item.song_folder, "category": item.category or "",
+            "description": item.description or "", "genius_url": item.genius_url or "",
+            "language": item.language or "", "cover_url": item.cover_url or "",
+        },
+    )
+
+
+@router.post("/reports/pending/{pending_id}/edit")
+def pending_report_edit_submit(
+    pending_id: int,
+    request: Request,
+    song_folder: str = Form(""),
+    category: str = Form(""),
+    description: str = Form(""),
+    genius_url: str = Form(""),
+    language: str = Form(""),
+    cover_url: str = Form(""),
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(PendingBrokenReport, pending_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+
+    song_folder = song_folder.strip()
+    category = category.strip().lower()
+    description = sanitize_free_text(description)
+    genius_url = genius_url.strip()
+    language = language.strip().lower()
+    cover_url = cover_url.strip()
+
+    errors: list[str] = []
+    song = song_index.get_by_folder(song_folder) if song_folder else None
+    if not song_folder:
+        errors.append("Please pick the song that is broken.")
+    elif song is None:
+        errors.append("That song is no longer in the library - pick another.")
+    # a pending entry can be saved incrementally - the strict completeness
+    # check only applies when actually admitting it (see pending_report_admit)
+    errors.extend(
+        broken_report_field_errors(category, description, genius_url, language, cover_url, profile="karaoke_night")
+    )
+
+    if errors:
+        return render(
+            request, "admin/report_edit.html", user, status_code=422,
+            errors=errors, item=item, pending=True, category_choices=CATEGORY_CHOICES,
+            language_choices=LANGUAGE_CHOICES,
+            form={
+                "song_folder": song_folder, "category": category, "description": description,
+                "genius_url": genius_url, "language": language, "cover_url": cover_url,
+            },
+        )
+
+    item.song_folder = song.folder
+    item.category = category
+    item.description = description
+    item.genius_url = genius_url or None
+    item.language = language or None
+    item.cover_url = cover_url or None
+    db.commit()
+    return RedirectResponse("/admin/reports", status_code=303)
+
+
+@router.post("/reports/pending/{pending_id}/admit")
+def pending_report_admit(
+    pending_id: int,
+    request: Request,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(PendingBrokenReport, pending_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+
+    errors = broken_report_field_errors(
+        item.category or "", item.description, item.genius_url or "", item.language or "",
+        item.cover_url or "", profile="strict",
+    )
+    if errors:
+        return render(
+            request, "admin/report_edit.html", user, status_code=422,
+            errors=errors, item=item, pending=True, category_choices=CATEGORY_CHOICES,
+            language_choices=LANGUAGE_CHOICES,
+            form={
+                "song_folder": item.song_folder, "category": item.category or "",
+                "description": item.description or "", "genius_url": item.genius_url or "",
+                "language": item.language or "", "cover_url": item.cover_url or "",
+            },
+        )
+
+    song = song_index.get_by_folder(item.song_folder)
+    db.add(
+        BrokenReport(
+            song_folder=item.song_folder,
+            song_artist=song.artist if song else None,
+            song_title=song.title if song else None,
+            category=item.category,
+            description=item.description,
+            genius_url=item.genius_url,
+            language=item.language,
+            cover_url=item.cover_url,
+            reporter_id=item.reporter_id,
+            reporter_username=item.reporter_username,
+        )
+    )
+    db.delete(item)
+    db.commit()
+    return RedirectResponse("/admin/reports", status_code=303)
+
+
+@router.post("/reports/pending/{pending_id}/discard")
+def pending_report_discard(
+    pending_id: int,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(PendingBrokenReport, pending_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+    db.delete(item)
     db.commit()
     return RedirectResponse("/admin/reports", status_code=303)
 
@@ -193,10 +377,11 @@ def requests_view(
         # Not persisted - computed live on every view, like duplicates.py.
         item.library_match = request_matching.find_library_match(item.band_name, item.song_name)
     open_count = db.scalar(select(func.count()).select_from(SongRequest).where(SongRequest.status == "open"))
+    pending = db.scalars(select(PendingSongRequest).order_by(PendingSongRequest.created_at.asc())).all()
     return render(
         request, "admin/requests.html", user,
         requests=items, show=show, open_count=open_count or 0, language_labels=LANGUAGE_LABELS,
-        duet_labels=DUET_LABELS,
+        duet_labels=DUET_LABELS, pending_requests=pending,
     )
 
 
@@ -244,7 +429,7 @@ def request_edit_form(
         raise HTTPException(status_code=404)
     return render(
         request, "admin/request_edit.html", user,
-        errors=[], item=item, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
+        errors=[], item=item, pending=False, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
         form={
             "band_name": item.band_name, "song_name": item.song_name,
             "youtube_url": item.youtube_url or "", "language": item.language or "",
@@ -283,12 +468,12 @@ def request_edit_submit(
     duet = duet.strip().lower()
 
     errors = request_field_errors(
-        band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet
+        band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet, lyrics_url=lyrics_url
     )
     if errors:
         return render(
             request, "admin/request_edit.html", user, status_code=422,
-            errors=errors, item=item, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
+            errors=errors, item=item, pending=False, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
             form={
                 "band_name": band_name, "song_name": song_name, "youtube_url": youtube_url,
                 "language": language, "musicbrainz_id": musicbrainz_id, "lyrics_url": lyrics_url,
@@ -304,6 +489,144 @@ def request_edit_submit(
     item.lyrics_url = lyrics_url or None
     item.cover_url = cover_url or None
     item.duet = duet or None
+    db.commit()
+    return RedirectResponse("/admin/requests", status_code=303)
+
+
+# ------------------------------------------------------------ pending requests
+@router.get("/requests/pending/{pending_id}/edit")
+def pending_request_edit_form(
+    pending_id: int,
+    request: Request,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(PendingSongRequest, pending_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+    return render(
+        request, "admin/request_edit.html", user,
+        errors=[], item=item, pending=True, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
+        form={
+            "band_name": item.band_name, "song_name": item.song_name,
+            "youtube_url": item.youtube_url or "", "language": item.language or "",
+            "musicbrainz_id": item.musicbrainz_id or "", "lyrics_url": item.lyrics_url or "",
+            "cover_url": item.cover_url or "", "duet": item.duet or "",
+        },
+    )
+
+
+@router.post("/requests/pending/{pending_id}/edit")
+def pending_request_edit_submit(
+    pending_id: int,
+    request: Request,
+    band_name: str = Form(""),
+    song_name: str = Form(""),
+    youtube_url: str = Form(""),
+    language: str = Form(""),
+    musicbrainz_id: str = Form(""),
+    lyrics_url: str = Form(""),
+    cover_url: str = Form(""),
+    duet: str = Form(""),
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(PendingSongRequest, pending_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+
+    band_name = band_name.strip()
+    song_name = song_name.strip()
+    youtube_url = youtube_url.strip()
+    language = language.strip().lower()
+    musicbrainz_id = extract_musicbrainz_id(musicbrainz_id)
+    lyrics_url = lyrics_url.strip()
+    cover_url = cover_url.strip()
+    duet = duet.strip().lower()
+
+    errors = request_field_errors(
+        band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet, lyrics_url=lyrics_url
+    )
+    if errors:
+        return render(
+            request, "admin/request_edit.html", user, status_code=422,
+            errors=errors, item=item, pending=True, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
+            form={
+                "band_name": band_name, "song_name": song_name, "youtube_url": youtube_url,
+                "language": language, "musicbrainz_id": musicbrainz_id, "lyrics_url": lyrics_url,
+                "cover_url": cover_url, "duet": duet,
+            },
+        )
+
+    item.band_name = band_name
+    item.song_name = song_name
+    item.youtube_url = youtube_url or None
+    item.language = language or None
+    item.musicbrainz_id = musicbrainz_id or None
+    item.lyrics_url = lyrics_url or None
+    item.cover_url = cover_url or None
+    item.duet = duet or None
+    db.commit()
+    return RedirectResponse("/admin/requests", status_code=303)
+
+
+@router.post("/requests/pending/{pending_id}/admit")
+def pending_request_admit(
+    pending_id: int,
+    request: Request,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(PendingSongRequest, pending_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+
+    errors = request_field_errors(
+        item.band_name, item.song_name, item.youtube_url or "", item.language or "",
+        item.musicbrainz_id or "", item.cover_url or "", item.duet or "",
+        lyrics_url=item.lyrics_url or "", profile="strict",
+    )
+    if errors:
+        return render(
+            request, "admin/request_edit.html", user, status_code=422,
+            errors=errors, item=item, pending=True, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
+            form={
+                "band_name": item.band_name, "song_name": item.song_name,
+                "youtube_url": item.youtube_url or "", "language": item.language or "",
+                "musicbrainz_id": item.musicbrainz_id or "", "lyrics_url": item.lyrics_url or "",
+                "cover_url": item.cover_url or "", "duet": item.duet or "",
+            },
+        )
+
+    db.add(
+        SongRequest(
+            band_name=item.band_name,
+            song_name=item.song_name,
+            youtube_url=item.youtube_url,
+            language=item.language,
+            musicbrainz_id=item.musicbrainz_id,
+            lyrics_url=item.lyrics_url,
+            cover_url=item.cover_url,
+            duet=item.duet,
+            requester_id=item.requester_id,
+            requester_username=item.requester_username,
+        )
+    )
+    db.delete(item)
+    db.commit()
+    return RedirectResponse("/admin/requests", status_code=303)
+
+
+@router.post("/requests/pending/{pending_id}/discard")
+def pending_request_discard(
+    pending_id: int,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(PendingSongRequest, pending_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+    db.delete(item)
     db.commit()
     return RedirectResponse("/admin/requests", status_code=303)
 

@@ -85,6 +85,66 @@ class SongRequest(Base):
     requester: Mapped[User | None] = relationship(back_populates="song_requests")
 
 
+class AppSettings(Base):
+    """Admin-editable app-wide settings - currently just the karaoke-night/
+    strict profile for each of the two public forms (see app/profiles.py,
+    app/app_settings.py). A singleton row, always id=1.
+    """
+
+    __tablename__ = "app_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    request_profile: Mapped[str] = mapped_column(String(16), default="karaoke_night", nullable=False)
+    report_profile: Mapped[str] = mapped_column(String(16), default="strict", nullable=False)
+
+
+class PendingSongRequest(Base):
+    """A newly submitted song request, awaiting admin review before it can
+    be admitted into SongRequest (the exportable list) - see
+    app/routes/admin.py's request admit/discard routes. Mirrors SongRequest's
+    fields exactly; an admitted row is copied over and this one is deleted.
+    """
+
+    __tablename__ = "pending_song_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    band_name: Mapped[str] = mapped_column(String(512))
+    song_name: Mapped[str] = mapped_column(String(512))
+    youtube_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    language: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    musicbrainz_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    lyrics_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    cover_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    duet: Mapped[str | None] = mapped_column(String(3), nullable=True)
+
+    requester_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    requester_username: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
+
+
+class PendingBrokenReport(Base):
+    """A newly submitted broken-song report, awaiting admin review before it
+    can be admitted into BrokenReport (the exportable list) - see
+    app/routes/admin.py's report admit/discard routes. Mirrors BrokenReport's
+    fields exactly (minus song_artist/song_title, re-derived on admit); an
+    admitted row is copied over and this one is deleted.
+    """
+
+    __tablename__ = "pending_broken_reports"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    song_folder: Mapped[str] = mapped_column(String(512), index=True)
+    category: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    description: Mapped[str] = mapped_column(Text)
+    genius_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    language: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    cover_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+
+    reporter_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reporter_username: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
+
+
 class DismissedDuplicate(Base):
     """An admin-reviewed duplicate-song group that should stop being reported.
 

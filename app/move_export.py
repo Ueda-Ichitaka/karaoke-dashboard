@@ -11,6 +11,15 @@ Format: a flat stream of NUL-terminated tokens, alternating a source path
 then its destination path - the same convention as `find -print0`. No
 other separator or escaping is needed, since a NUL byte can never appear
 in a real filename; the script reads it with a `read -d ''` loop.
+
+Paths are relative to the library root (e.g. "Artist - Title/song.txt"),
+never absolute. settings.songs_dir is only where *this app* (inside its
+container) finds the library to scan it - an admin runs apply_moves.sh
+somewhere else entirely (directly against the real library on the NAS
+host, outside any container), where that mount point means nothing. The
+script resolves these relative paths against its own `--root` (default:
+the current directory), which the admin points at wherever the library
+actually lives there.
 """
 
 from __future__ import annotations
@@ -55,16 +64,19 @@ def _own_files(folder: Path, txt_filename: str) -> list[str]:
 
 
 def build_misplaced_moves(songs: list[MisplacedSong], root: str | Path | None = None) -> bytes:
+    # `base` is only used to read the real files on this machine (to see
+    # which media/cover files a song actually has) - never written to a
+    # token (see this module's docstring).
     base = Path(root if root is not None else settings.songs_dir)
     tokens: list[str] = []
     for song in songs:
         source_folder = base / song.folder
         artist = sanitize_folder_component(song.artist)
         title = sanitize_folder_component(song.title)
-        dest_folder = base / f"{artist}{settings.song_separator}{title}"
+        dest_folder_name = f"{artist}{settings.song_separator}{title}"
         for name in _own_files(source_folder, song.source_file):
-            tokens.append(str(source_folder / name))
-            tokens.append(str(dest_folder / name))
+            tokens.append(f"{song.folder}/{name}")
+            tokens.append(f"{dest_folder_name}/{name}")
     return _encode(tokens)
 
 
@@ -79,6 +91,6 @@ def build_structure_moves(issues: list[StructureIssue], root: str | Path | None 
         except OSError:
             continue
         for child in children:
-            tokens.append(str(child))
-            tokens.append(str(base / child.name))
+            tokens.append(f"{issue.folder}/{child.name}")
+            tokens.append(child.name)
     return _encode(tokens)

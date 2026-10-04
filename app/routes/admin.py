@@ -26,7 +26,7 @@ from ..models import BrokenReport, PendingBrokenReport, PendingSongRequest, Song
 from ..musicbrainz import extract_musicbrainz_id
 from ..profiles import PROFILE_CHOICES, PROFILE_CODES
 from ..security import MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, hash_password
-from ..traits import DEFAULT_TRAIT, TRAIT_CHOICES, is_valid_trait
+from ..traits import DEFAULT_TRAIT, TRAIT_CHOICES, format_traits, is_valid_trait, parse_traits
 from ..validation import broken_report_field_errors, neutralize_csv_formula, request_field_errors, sanitize_free_text
 
 logger = get_logger(__name__)
@@ -37,25 +37,29 @@ _REPORT_STATES = {"open", "resolved"}
 _REQUEST_STATES = {"open", "done"}
 
 
-def _parse_genre_trait(genre: list[str], trait: str) -> tuple[str, str, list[str]]:
+def _parse_genre_trait(genre: list[str], trait: list[str]) -> tuple[str, str, list[str]]:
     """Normalizes+validates the admin-only genre/trait fields shared by the
-    request and report edit forms (app/genres.py, app/traits.py). Returns
-    the comma-joined genre string, the normalized trait, and any errors.
+    request and report edit forms (app/genres.py, app/traits.py). Both are
+    checkbox groups - a song can carry several of each. Returns the two
+    comma-joined strings and any errors.
     """
     errors: list[str] = []
-    codes: list[str] = []
-    for raw in genre:
-        code = raw.strip().lower()
-        if not code:
-            continue
-        if is_valid_genre(code):
-            codes.append(code)
-        else:
-            errors.append(f"Unrecognized genre: {code}.")
-    trait = trait.strip().lower() or DEFAULT_TRAIT
-    if not is_valid_trait(trait):
-        errors.append(f"Unrecognized trait: {trait}.")
-    return format_genres(codes), trait, errors
+
+    def _codes(raw_values: list[str], is_valid, label: str) -> list[str]:
+        codes: list[str] = []
+        for raw in raw_values:
+            code = raw.strip().lower()
+            if not code:
+                continue
+            if is_valid(code):
+                codes.append(code)
+            else:
+                errors.append(f"Unrecognized {label}: {code}.")
+        return codes
+
+    genre_codes = _codes(genre, is_valid_genre, "genre")
+    trait_codes = _codes(trait, is_valid_trait, "trait")
+    return format_genres(genre_codes), format_traits(trait_codes), errors
 
 
 @router.get("")
@@ -169,7 +173,7 @@ def report_edit_form(
             "song_folder": item.song_folder, "category": item.category or "",
             "description": item.description or "", "genius_url": item.genius_url or "",
             "language": item.language or "", "cover_url": item.cover_url or "",
-            "genre": parse_genres(item.genre), "trait": item.trait or DEFAULT_TRAIT,
+            "genre": parse_genres(item.genre), "trait": parse_traits(item.trait),
         },
     )
 
@@ -185,7 +189,7 @@ def report_edit_submit(
     language: str = Form(""),
     cover_url: str = Form(""),
     genre: list[str] = Form([]),
-    trait: str = Form(DEFAULT_TRAIT),
+    trait: list[str] = Form([]),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -255,7 +259,7 @@ def pending_report_edit_form(
             "song_folder": item.song_folder, "category": item.category or "",
             "description": item.description or "", "genius_url": item.genius_url or "",
             "language": item.language or "", "cover_url": item.cover_url or "",
-            "genre": parse_genres(item.genre), "trait": item.trait or DEFAULT_TRAIT,
+            "genre": parse_genres(item.genre), "trait": parse_traits(item.trait),
         },
     )
 
@@ -271,7 +275,7 @@ def pending_report_edit_submit(
     language: str = Form(""),
     cover_url: str = Form(""),
     genre: list[str] = Form([]),
-    trait: str = Form(DEFAULT_TRAIT),
+    trait: list[str] = Form([]),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -348,7 +352,7 @@ def pending_report_admit(
                 "song_folder": item.song_folder, "category": item.category or "",
                 "description": item.description or "", "genius_url": item.genius_url or "",
                 "language": item.language or "", "cover_url": item.cover_url or "",
-                "genre": parse_genres(item.genre), "trait": item.trait or DEFAULT_TRAIT,
+                "genre": parse_genres(item.genre), "trait": parse_traits(item.trait),
             },
         )
 
@@ -498,7 +502,7 @@ def request_edit_form(
             "youtube_url": item.youtube_url or "", "language": item.language or "",
             "musicbrainz_id": item.musicbrainz_id or "", "lyrics_url": item.lyrics_url or "",
             "cover_url": item.cover_url or "", "duet": item.duet or "",
-            "genre": parse_genres(item.genre), "trait": item.trait or DEFAULT_TRAIT,
+            "genre": parse_genres(item.genre), "trait": parse_traits(item.trait),
         },
     )
 
@@ -516,7 +520,7 @@ def request_edit_submit(
     cover_url: str = Form(""),
     duet: str = Form(""),
     genre: list[str] = Form([]),
-    trait: str = Form(DEFAULT_TRAIT),
+    trait: list[str] = Form([]),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -584,7 +588,7 @@ def pending_request_edit_form(
             "youtube_url": item.youtube_url or "", "language": item.language or "",
             "musicbrainz_id": item.musicbrainz_id or "", "lyrics_url": item.lyrics_url or "",
             "cover_url": item.cover_url or "", "duet": item.duet or "",
-            "genre": parse_genres(item.genre), "trait": item.trait or DEFAULT_TRAIT,
+            "genre": parse_genres(item.genre), "trait": parse_traits(item.trait),
         },
     )
 
@@ -602,7 +606,7 @@ def pending_request_edit_submit(
     cover_url: str = Form(""),
     duet: str = Form(""),
     genre: list[str] = Form([]),
-    trait: str = Form(DEFAULT_TRAIT),
+    trait: list[str] = Form([]),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -683,7 +687,7 @@ def pending_request_admit(
                 "youtube_url": item.youtube_url or "", "language": item.language or "",
                 "musicbrainz_id": item.musicbrainz_id or "", "lyrics_url": item.lyrics_url or "",
                 "cover_url": item.cover_url or "", "duet": item.duet or "",
-                "genre": parse_genres(item.genre), "trait": item.trait or DEFAULT_TRAIT,
+                "genre": parse_genres(item.genre), "trait": parse_traits(item.trait),
             },
         )
 

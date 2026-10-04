@@ -51,9 +51,10 @@ def test_structure_moves_export_lists_the_nested_subfolder(admin_client):
     assert r.status_code == 200
     assert "attachment" in r.headers["content-disposition"]
     tokens = [t for t in r.content.split(b"\x00") if t]
-    # "Coverband - Import Batch" / CD1 from conftest.py, moved up to the base path
-    assert any(t.endswith(b"Coverband - Import Batch/CD1") for t in tokens)
-    assert any(t.endswith(b"/CD1") and b"Coverband" not in t for t in tokens)
+    # "Coverband - Import Batch" / CD1 from conftest.py, moved up to the base
+    # path - paths are root-relative, not absolute (see app/move_export.py)
+    assert b"Coverband - Import Batch/CD1" in tokens
+    assert b"CD1" in tokens
 
 
 def test_structure_moves_export_requires_admin(admin_client):

@@ -55,9 +55,9 @@ class BrokenReport(Base):
     # - never on the public form. Nullable so _sync_schema can auto-add these
     # to the already-existing table; a NULL row predates the fields and is
     # treated the same as its default by every reader (app/routes/admin.py).
-    # Comma-joined - see app/genres.py.
+    # Comma-joined - see app/genres.py and app/traits.py.
     genre: Mapped[str | None] = mapped_column(String(128), nullable=True, default="default")
-    trait: Mapped[str | None] = mapped_column(String(32), nullable=True, default="none")
+    trait: Mapped[str | None] = mapped_column(String(128), nullable=True, default="none")
 
     reporter_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reporter_username: Mapped[str] = mapped_column(String(64))  # snapshot, survives user deletion
@@ -88,9 +88,9 @@ class SongRequest(Base):
     # - never on the public form. Nullable so _sync_schema can auto-add these
     # to the already-existing table; a NULL row predates the fields and is
     # treated the same as its default by every reader (app/routes/admin.py).
-    # Comma-joined - see app/genres.py.
+    # Comma-joined - see app/genres.py and app/traits.py.
     genre: Mapped[str | None] = mapped_column(String(128), nullable=True, default="default")
-    trait: Mapped[str | None] = mapped_column(String(32), nullable=True, default="none")
+    trait: Mapped[str | None] = mapped_column(String(128), nullable=True, default="none")
 
     requester_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     requester_username: Mapped[str] = mapped_column(String(64))
@@ -141,7 +141,7 @@ class PendingSongRequest(Base):
     cover_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     duet: Mapped[str | None] = mapped_column(String(3), nullable=True)
     genre: Mapped[str | None] = mapped_column(String(128), nullable=True, default="default")
-    trait: Mapped[str | None] = mapped_column(String(32), nullable=True, default="none")
+    trait: Mapped[str | None] = mapped_column(String(128), nullable=True, default="none")
 
     requester_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     requester_username: Mapped[str] = mapped_column(String(64))
@@ -166,7 +166,7 @@ class PendingBrokenReport(Base):
     language: Mapped[str | None] = mapped_column(String(8), nullable=True)
     cover_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     genre: Mapped[str | None] = mapped_column(String(128), nullable=True, default="default")
-    trait: Mapped[str | None] = mapped_column(String(32), nullable=True, default="none")
+    trait: Mapped[str | None] = mapped_column(String(128), nullable=True, default="none")
 
     reporter_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reporter_username: Mapped[str] = mapped_column(String(64))

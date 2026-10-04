@@ -1,10 +1,11 @@
 """About me: the admin-only vocal/instrument trait choice list for tagging
 a song request or broken report when reviewing it (app/routes/admin.py's
-edit/admit routes) - not shown on the public request/report forms. Unlike
-app/genres.py, only one trait applies at a time, stored directly on
+edit/admit routes) - not shown on the public request/report forms. A song
+can carry several traits at once, stored as a comma-joined string on
 SongRequest.trait / BrokenReport.trait (and their Pending* counterparts,
-app/models.py). The list is still growing - only the choices themselves are
-expected to change.
+app/models.py), the same convention app/genres.py uses; parse_traits()/
+format_traits() convert between that and a code list. The list is still
+growing - only the choices themselves are expected to change.
 """
 
 from __future__ import annotations
@@ -24,3 +25,15 @@ DEFAULT_TRAIT = "none"
 
 def is_valid_trait(code: str) -> bool:
     return code in TRAIT_CODES
+
+
+def parse_traits(value: str | None) -> list[str]:
+    if not value:
+        return [DEFAULT_TRAIT]
+    codes = [c for c in value.split(",") if c]
+    return codes or [DEFAULT_TRAIT]
+
+
+def format_traits(codes: list[str]) -> str:
+    codes = [c for c in codes if c]
+    return ",".join(codes) if codes else DEFAULT_TRAIT

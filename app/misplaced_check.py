@@ -6,12 +6,19 @@ name itself parses as "Artist - Title" are considered (see
 app/structure_check.py for folders that fail even that), and only songs
 that carry both tags (see app/format_check.py for songs missing them).
 
-The comparison ignores parenthesized/bracketed asides and a couple of known
-noise suffixes (e.g. a record label pulled in from a source video's title),
-and treats filename-unsafe characters - and the "-"/"|" that commonly
-replace them - as interchangeable: a real ":" or "/" in a tag is often
-dropped or swapped for a dash once it becomes part of a folder/file name,
-which would otherwise look like a mismatch even though it's the same song.
+The comparison builds the song's own "Artist - Title" and compares it to
+the folder name as a whole - never by splitting the folder into separate
+artist/title parts first, since a multi-artist tag (e.g. a duet's
+"A / B") already contains the same separator the folder uses, and a
+first-match split would cut the wrong one. The comparison ignores
+parenthesized/bracketed asides and a couple of known noise suffixes (e.g.
+a record label pulled in from a source video's title), treats
+filename-unsafe characters - and the "-"/"|" that commonly replace them -
+as interchangeable (a real ":" or "/" in a tag is often dropped or swapped
+for a dash once it becomes part of a folder/file name), and ignores a
+trailing "." or space, which Windows/exFAT silently strips from a folder
+name even though the tag itself kept it (e.g. an abbreviation like
+"T.N.T.").
 """
 
 from __future__ import annotations
@@ -36,7 +43,7 @@ def _comparison_key(text: str) -> str:
     for noise in _NOISE_SUBSTRINGS:
         lowered = lowered.replace(noise, " ")
     lowered = _FILENAME_UNSAFE_RE.sub(" ", lowered)
-    return normalize_key(lowered)
+    return normalize_key(lowered).rstrip(". ")
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,16 +73,14 @@ def find_misplaced_songs(root: str | Path | None = None) -> list[MisplacedSong]:
         if parsed.artist is None:
             continue  # non-conforming folder name - structure_check's concern, not this one
 
-        expected_artist_key = _comparison_key(parsed.artist)
-        expected_title_key = _comparison_key(parsed.title)
+        folder_key = _comparison_key(folder.name)
 
         songs = (parse_song_file(p) for p in sorted(folder.glob("*.txt")))
         for meta in (m for m in songs if m is not None):
             if not meta.artist or not meta.title:
                 continue  # can't judge placement without both tags
-            artist_matches = _comparison_key(meta.artist) == expected_artist_key
-            title_matches = _comparison_key(meta.title) == expected_title_key
-            if artist_matches and title_matches:
+            expected_folder = f"{meta.artist}{settings.song_separator}{meta.title}"
+            if _comparison_key(expected_folder) == folder_key:
                 continue  # correctly placed
             results.append(
                 MisplacedSong(
@@ -83,7 +88,7 @@ def find_misplaced_songs(root: str | Path | None = None) -> list[MisplacedSong]:
                     source_file=meta.source_file,
                     artist=meta.artist,
                     title=meta.title,
-                    expected_folder=f"{meta.artist}{settings.song_separator}{meta.title}",
+                    expected_folder=expected_folder,
                 )
             )
     return results

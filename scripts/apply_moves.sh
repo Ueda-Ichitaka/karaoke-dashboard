@@ -9,12 +9,19 @@
 # path (the same convention `find -print0` uses), so no filename, however
 # unusual, needs quoting or escaping here.
 #
+# Both paths in a move-list file are RELATIVE to the library's own root
+# (e.g. "Artist - Title/song.txt"), never absolute - the dashboard's own
+# songs_dir is just where its container happens to have the library
+# mounted, which has nothing to do with where this script runs. --root (or
+# the current directory, if omitted) tells this script where that root
+# actually is here.
+#
 # Lives outside app/ on purpose: the Dockerfile only COPYs app/, so this
 # never ships in the container image. Run it by hand, directly against the
-# real songs_dir mount.
+# real library on its host.
 #
 # Usage:
-#   scripts/apply_moves.sh [--dry-run] <move-list-file> [more-files...]
+#   scripts/apply_moves.sh [--dry-run] [--root <dir>] <move-list-file> [more-files...]
 #
 # For each pair: the destination's parent directory is created if missing,
 # then the source is moved into place. A pair is skipped (not an error) and
@@ -23,26 +30,53 @@
 
 set -uo pipefail
 
+usage() {
+  echo "Usage: $0 [--dry-run] [--root <dir>] <move-list-file> [more-files...]" >&2
+}
+
 dry_run=0
+root="."
 files=()
 
-for arg in "$@"; do
-  case "$arg" in
+while [ $# -gt 0 ]; do
+  case "$1" in
     --dry-run)
       dry_run=1
+      shift
+      ;;
+    --root)
+      if [ $# -lt 2 ]; then
+        echo "error: --root needs a directory argument" >&2
+        exit 1
+      fi
+      # Strip any trailing slash(es) so "$root/$rel_path" below never ends
+      # up with a doubled "//". Root "/" itself is normalized to "" instead
+      # of being stripped away entirely, so "$root/$rel_path" still comes
+      # out as "/$rel_path" rather than "//$rel_path".
+      root="$2"
+      while [ "${root: -1}" = "/" ]; do
+        root="${root%/}"
+      done
+      shift 2
       ;;
     -h | --help)
-      echo "Usage: $0 [--dry-run] <move-list-file> [more-files...]" >&2
+      usage
       exit 0
       ;;
     *)
-      files+=("$arg")
+      files+=("$1")
+      shift
       ;;
   esac
 done
 
 if [ "${#files[@]}" -eq 0 ]; then
-  echo "Usage: $0 [--dry-run] <move-list-file> [more-files...]" >&2
+  usage
+  exit 1
+fi
+
+if [ ! -d "${root:-/}" ]; then
+  echo "error: --root '${root:-/}' is not a directory" >&2
   exit 1
 fi
 
@@ -58,7 +92,10 @@ skipped=0
 missing=0
 
 for file in "${files[@]}"; do
-  while IFS= read -r -d '' src && IFS= read -r -d '' dst; do
+  while IFS= read -r -d '' rel_src && IFS= read -r -d '' rel_dst; do
+    src="$root/$rel_src"
+    dst="$root/$rel_dst"
+
     if [ ! -e "$src" ]; then
       echo "skip (source missing): $src" >&2
       missing=$((missing + 1))

@@ -42,8 +42,12 @@ def test_build_misplaced_moves_includes_the_txt_file(tmp_path):
     pairs = _pairs(build_misplaced_moves(songs, root=tmp_path))
     assert len(pairs) == 1
     src, dst = pairs[0]
-    assert src == str(folder / "TheKill.txt")
-    assert dst == str(tmp_path / "30 Seconds to Mars - The Kill" / "TheKill.txt")
+    # root-relative, not an absolute filesystem path - see app/move_export.py's
+    # module docstring for why: the app's configured songs_dir is a mount
+    # point inside the container, which has nothing to do with where the
+    # real library sits on the host this script runs against.
+    assert src == "30 Seconds to Mars - Attack/TheKill.txt"
+    assert dst == "30 Seconds to Mars - The Kill/TheKill.txt"
 
 
 def test_build_misplaced_moves_includes_referenced_media_and_cover_files(tmp_path):
@@ -60,11 +64,13 @@ def test_build_misplaced_moves_includes_referenced_media_and_cover_files(tmp_pat
     songs = misplaced_check.find_misplaced_songs(root=tmp_path)
     pairs = _pairs(build_misplaced_moves(songs, root=tmp_path))
     sources = {src for src, _ in pairs}
-    assert str(folder / "TheKill.txt") in sources
-    assert str(folder / "TheKill.mp3") in sources
-    assert str(folder / "TheKill [CO].jpg") in sources
-    dest_folder = tmp_path / "30 Seconds to Mars - The Kill"
-    assert (str(folder / "TheKill.mp3"), str(dest_folder / "TheKill.mp3")) in pairs
+    assert "30 Seconds to Mars - Attack/TheKill.txt" in sources
+    assert "30 Seconds to Mars - Attack/TheKill.mp3" in sources
+    assert "30 Seconds to Mars - Attack/TheKill [CO].jpg" in sources
+    assert (
+        "30 Seconds to Mars - Attack/TheKill.mp3",
+        "30 Seconds to Mars - The Kill/TheKill.mp3",
+    ) in pairs
 
 
 def test_build_misplaced_moves_sanitizes_a_slash_in_the_destination_folder(tmp_path):
@@ -77,7 +83,7 @@ def test_build_misplaced_moves_sanitizes_a_slash_in_the_destination_folder(tmp_p
     pairs = _pairs(build_misplaced_moves(songs, root=tmp_path))
     assert len(pairs) == 1
     _, dst = pairs[0]
-    assert dst == str(tmp_path / "AC-DC - Back in Black" / "BackInBlack.txt")
+    assert dst == "AC-DC - Back in Black/BackInBlack.txt"
 
 
 def test_build_misplaced_moves_empty_when_nothing_misplaced(tmp_path):
@@ -97,7 +103,7 @@ def test_build_structure_moves_moves_nested_subfolder_to_base(tmp_path):
 
     issues = structure_check.check_structure(root=tmp_path)
     pairs = _pairs(build_structure_moves(issues, root=tmp_path))
-    assert (str(cd1), str(tmp_path / "CD1")) in pairs
+    assert ("Coverband - Import Batch/CD1", "CD1") in pairs
 
 
 def test_build_structure_moves_ignores_a_folder_literally_named_dash(tmp_path):
@@ -110,8 +116,8 @@ def test_build_structure_moves_ignores_a_folder_literally_named_dash(tmp_path):
     issues = structure_check.check_structure(root=tmp_path)
     pairs = _pairs(build_structure_moves(issues, root=tmp_path))
     sources = {src for src, _ in pairs}
-    assert str(folder / "-") not in sources
-    assert str(folder / "CD1") in sources
+    assert "Coverband - Import Batch/-" not in sources
+    assert "Coverband - Import Batch/CD1" in sources
 
 
 def test_build_structure_moves_empty_when_nothing_nested(tmp_path):

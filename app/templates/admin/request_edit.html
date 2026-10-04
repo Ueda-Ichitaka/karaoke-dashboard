@@ -72,14 +72,17 @@
         {% endfor %}
       </div>
     </div>
-    <label class="field">
+    <div class="field">
       <span class="field-label">Trait</span>
-      <select name="trait">
+      <div class="checkbox-group">
         {% for code, label in trait_choices %}
-          <option value="{{ code }}" {{ 'selected' if form.trait == code }}>{{ label }}</option>
+          <label class="checkbox-option">
+            <input type="checkbox" name="trait" value="{{ code }}" {{ 'checked' if code in form.trait }}>
+            {{ label }}
+          </label>
         {% endfor %}
-      </select>
-    </label>
+      </div>
+    </div>
     <div class="inline-form">
       <button type="submit" class="btn btn-primary">Save</button>
       <a class="btn btn-ghost" href="/admin/requests">Cancel</a>

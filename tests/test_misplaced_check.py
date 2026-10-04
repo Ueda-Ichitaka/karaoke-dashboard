@@ -129,3 +129,32 @@ def test_genuinely_misplaced_song_is_still_flagged_after_cleaning(tmp_path):
     results = misplaced_check.find_misplaced_songs(root=tmp_path)
     assert len(results) == 1
     assert results[0].title == "Totally Different Song"
+
+
+def test_multi_artist_tag_with_slash_matches_its_hyphenated_folder(tmp_path):
+    # a duet's #ARTIST tag joins two names with " / " (e.g. "A / B"); "/"
+    # isn't allowed in a folder name, so the folder itself already has it
+    # as "A - B - Title", which looks like it has an extra "Artist - Title"
+    # split point but is actually the same song, correctly placed.
+    folder = tmp_path / "The Black Eyed Peas - Shakira + David Guetta - Don't You Worry"
+    folder.mkdir()
+    _write_song(folder, "song.txt", "The Black Eyed Peas / Shakira + David Guetta", "Don't You Worry")
+    assert misplaced_check.find_misplaced_songs(root=tmp_path) == []
+
+
+def test_trailing_dot_stripped_by_filesystem_is_not_flagged(tmp_path):
+    # Windows/exFAT silently strips a trailing "." from a folder name, so a
+    # title tag ending in one (common in abbreviations like "T.N.T.") must
+    # still match the folder it actually landed in.
+    folder = tmp_path / "AC-DC - T.N.T"
+    folder.mkdir()
+    _write_song(folder, "song.txt", "AC/DC", "T.N.T.")
+    assert misplaced_check.find_misplaced_songs(root=tmp_path) == []
+
+
+def test_genuinely_misplaced_song_with_trailing_dot_title_is_still_flagged(tmp_path):
+    folder = tmp_path / "Village People - Y.M.C.A"
+    folder.mkdir()
+    _write_song(folder, "song.txt", "Someone Else", "Totally Different Song.")
+    results = misplaced_check.find_misplaced_songs(root=tmp_path)
+    assert len(results) == 1

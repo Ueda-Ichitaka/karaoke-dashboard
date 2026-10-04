@@ -71,13 +71,39 @@ def test_admin_can_edit_genre_and_trait_on_a_pending_request(admin_client):
         f"/admin/requests/pending/{pid}/edit",
         data={
             "band_name": "Journey", "song_name": "Faithfully",
-            "genre": ["metal", "gothic"], "trait": "harsh_vocals",
+            "genre": ["metal", "gothic"], "trait": ["harsh_vocals"],
         },
     )
     with SessionLocal() as db:
         row = db.query(PendingSongRequest).one()
         assert row.genre == "metal,gothic"
         assert row.trait == "harsh_vocals"
+
+
+def test_admin_can_select_multiple_traits_on_a_pending_request(admin_client):
+    # a song can have more than one trait (e.g. both harsh vocals and a
+    # choir) - the trait field is a checkbox group, same as genre.
+    _submit_request(admin_client)
+    pid = _pending_request_id()
+    r = admin_client.get(f"/admin/requests/pending/{pid}/edit")
+    assert '<select name="trait"' not in r.text
+    assert 'type="checkbox" name="trait"' in r.text
+
+    admin_client.post(
+        f"/admin/requests/pending/{pid}/edit",
+        data={
+            "band_name": "Journey", "song_name": "Faithfully",
+            "genre": ["metal"], "trait": ["harsh_vocals", "choir"],
+        },
+    )
+    with SessionLocal() as db:
+        row = db.query(PendingSongRequest).one()
+        assert row.trait == "harsh_vocals,choir"
+
+    r = admin_client.get(f"/admin/requests/pending/{pid}/edit")
+    assert 'name="trait" value="harsh_vocals" checked' in r.text
+    assert 'name="trait" value="choir" checked' in r.text
+    assert 'name="trait" value="operatic_vocals" checked' not in r.text
 
 
 def test_genre_and_trait_carry_over_on_admit(admin_client):
@@ -89,7 +115,7 @@ def test_genre_and_trait_carry_over_on_admit(admin_client):
             "band_name": "Journey", "song_name": "Faithfully",
             "youtube_url": "https://www.youtube.com/watch?v=x",
             "language": "en", "lyrics_url": "https://genius.com/journey-faithfully-lyrics",
-            "genre": ["metal"], "trait": "choir",
+            "genre": ["metal"], "trait": ["choir"],
         },
     )
     admin_client.post(f"/admin/requests/pending/{pid}/admit")
@@ -107,7 +133,7 @@ def test_admin_can_edit_genre_and_trait_on_an_admitted_request(admin_client):
 
     admin_client.post(
         f"/admin/requests/{rid}/edit",
-        data={"band_name": "Journey", "song_name": "Faithfully", "genre": ["pop"], "trait": "none"},
+        data={"band_name": "Journey", "song_name": "Faithfully", "genre": ["pop"], "trait": ["none"]},
     )
     with SessionLocal() as db:
         assert db.get(SongRequest, rid).genre == "pop"
@@ -137,7 +163,7 @@ def test_admin_can_edit_genre_and_trait_on_a_pending_report(admin_client):
         data={
             "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
             "description": "no audio", "language": "de",
-            "genre": ["symphonic"], "trait": "operatic_vocals",
+            "genre": ["symphonic"], "trait": ["operatic_vocals"],
         },
     )
     with SessionLocal() as db:
@@ -160,7 +186,7 @@ def test_genre_and_trait_carry_over_on_report_admit(admin_client):
         data={
             "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
             "description": "no audio", "language": "de",
-            "genre": ["symphonic"], "trait": "operatic_vocals",
+            "genre": ["symphonic"], "trait": ["operatic_vocals"],
         },
     )
     admin_client.post(f"/admin/reports/pending/{pid}/admit")
@@ -185,6 +211,19 @@ def test_requests_csv_includes_genre_and_trait_columns(admin_client):
         "band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet,genre,trait\n"
     )
     assert 'Journey,Faithfully,,,,,,,"metal,gothic",choir\n' in body
+
+
+def test_requests_csv_quotes_multiple_traits(admin_client):
+    with SessionLocal() as db:
+        db.add(
+            SongRequest(
+                band_name="Journey", song_name="Faithfully", requester_username="admin",
+                genre="metal", trait="harsh_vocals,choir",
+            )
+        )
+        db.commit()
+    body = admin_client.get("/admin/requests.csv").text
+    assert 'Journey,Faithfully,,,,,,,metal,"harsh_vocals,choir"\n' in body
 
 
 def test_reports_csv_includes_genre_and_trait_columns(admin_client):

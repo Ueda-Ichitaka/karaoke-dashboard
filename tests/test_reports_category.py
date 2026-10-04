@@ -37,6 +37,13 @@ def test_description_required_when_category_is_other():
     assert broken_report_field_errors("other", "the whole track is silent", language="de") == []
 
 
+def test_cover_category_does_not_require_description_but_requires_cover_url():
+    errors = broken_report_field_errors("cover", "", language="de")
+    assert not any("describe" in e.lower() for e in errors)
+    assert any("cover" in e.lower() for e in errors)
+    assert broken_report_field_errors("cover", "", language="de", cover_url="https://x.org/c.png") == []
+
+
 def test_report_submit_requires_category(admin_client):
     r = admin_client.post(
         "/report",
@@ -65,6 +72,34 @@ def test_report_submit_other_category_requires_description(admin_client):
     )
     assert r.status_code == 422
     assert "describe" in r.text.lower()
+
+
+def test_report_submit_cover_category_requires_cover_url(admin_client):
+    r = admin_client.post(
+        "/report",
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "cover",
+            "description": "", "language": "de", "cover_url": "",
+        },
+    )
+    assert r.status_code == 422
+    assert "cover" in r.text.lower()
+
+
+def test_report_submit_cover_category_succeeds_without_description(admin_client):
+    r = admin_client.post(
+        "/report",
+        data={
+            "song_folder": "Queen - Bohemian Rhapsody", "category": "cover",
+            "description": "", "language": "de", "cover_url": "https://example.com/cover.jpg",
+        },
+    )
+    assert r.status_code == 200
+    assert "was submitted" in r.text
+
+
+def test_report_form_includes_cover_category_option(admin_client):
+    assert '<option value="cover"' in admin_client.get("/report").text
 
 
 def test_admin_reports_view_shows_category(admin_client):
@@ -100,10 +135,10 @@ def test_broken_csv_export(admin_client):
     # column names are "lyrics_url"/"language" (matching the UltraSinger-side
     # asks in UPSTREAM_REQUESTS.md), even though the lyrics field is named
     # genius_url here
-    assert body.startswith("band,song name,category,description,lyrics_url,language,cover_url\n")
+    assert body.startswith("band,song name,category,description,lyrics_url,language,cover_url,genre,trait\n")
     assert (
         "Queen,Bohemian Rhapsody,async,drifts after 1 minute,"
-        "https://genius.com/Queen-bohemian-rhapsody-lyrics,de,\n"
+        "https://genius.com/Queen-bohemian-rhapsody-lyrics,de,,default,none\n"
     ) in body
 
 
@@ -118,7 +153,7 @@ def test_broken_csv_lyrics_url_column_blank_when_not_set(admin_client):
     _admit_the_pending_report(admin_client)
     r = admin_client.get("/admin/reports.csv")
     body = r.text
-    assert "Queen,Bohemian Rhapsody,audio,no audio,,de,\n" in body
+    assert "Queen,Bohemian Rhapsody,audio,no audio,,de,,default,none\n" in body
 
 
 # --------------------------------------------------------- genius link
@@ -284,10 +319,10 @@ def test_broken_csv_includes_language_column(admin_client):
     _admit_the_pending_report(admin_client)
     r = admin_client.get("/admin/reports.csv")
     body = r.text
-    assert body.startswith("band,song name,category,description,lyrics_url,language,cover_url\n")
+    assert body.startswith("band,song name,category,description,lyrics_url,language,cover_url,genre,trait\n")
     assert (
         "Queen,Bohemian Rhapsody,async,drifts after 1 minute,"
-        "https://genius.com/Queen-bohemian-rhapsody-lyrics,de,\n"
+        "https://genius.com/Queen-bohemian-rhapsody-lyrics,de,,default,none\n"
     ) in body
 
 
@@ -338,9 +373,9 @@ def test_report_cover_url_is_shown_in_admin_and_exported(admin_client):
     _admit_the_pending_report(admin_client)
     body = admin_client.get("/admin/reports.csv").text
     assert body.startswith(
-        "band,song name,category,description,lyrics_url,language,cover_url\n"
+        "band,song name,category,description,lyrics_url,language,cover_url,genre,trait\n"
     )
-    assert "Queen,Bohemian Rhapsody,audio,no audio,,de,https://example.com/cover.jpg\n" in body
+    assert "Queen,Bohemian Rhapsody,audio,no audio,,de,https://example.com/cover.jpg,default,none\n" in body
 
 
 # -------------------------------------------------------- duplicate merging

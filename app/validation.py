@@ -98,7 +98,7 @@ def broken_report_field_errors(
         errors.append("Please choose a category.")
     elif not is_valid_category(category):
         errors.append("Unrecognized category.")
-    if not description:
+    if "description" in required and not description:
         errors.append("Please describe what's broken.")
     if "genius_url" in required and not genius_url:
         errors.append('Please provide a genius.com lyrics link for this category.')
@@ -108,6 +108,8 @@ def broken_report_field_errors(
         errors.append("Please choose the song's language.")
     elif language and not is_valid_language_code(language):
         errors.append("Unrecognized language.")
+    if "cover_url" in required and not cover_url:
+        errors.append("Please provide a cover image link for this category.")
     if cover_url and not is_http_url(cover_url):
         errors.append("The cover image link must start with http:// or https://")
     return errors

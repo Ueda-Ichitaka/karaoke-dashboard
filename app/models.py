@@ -51,6 +51,13 @@ class BrokenReport(Base):
     language: Mapped[str | None] = mapped_column(String(8), nullable=True)
     cover_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)  # optional cover image link
     status: Mapped[str] = mapped_column(String(16), default="open", nullable=False)  # open | resolved
+    # Admin-only, set when reviewing the report (app/genres.py, app/traits.py)
+    # - never on the public form. Nullable so _sync_schema can auto-add these
+    # to the already-existing table; a NULL row predates the fields and is
+    # treated the same as its default by every reader (app/routes/admin.py).
+    # Comma-joined - see app/genres.py.
+    genre: Mapped[str | None] = mapped_column(String(128), nullable=True, default="default")
+    trait: Mapped[str | None] = mapped_column(String(32), nullable=True, default="none")
 
     reporter_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reporter_username: Mapped[str] = mapped_column(String(64))  # snapshot, survives user deletion
@@ -77,6 +84,13 @@ class SongRequest(Base):
     lyrics_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)  # URL or admin-set filesystem path
     cover_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)  # optional cover image link
     duet: Mapped[str | None] = mapped_column(String(3), nullable=True)  # "yes" | "no" | NULL (not said)
+    # Admin-only, set when reviewing the request (app/genres.py, app/traits.py)
+    # - never on the public form. Nullable so _sync_schema can auto-add these
+    # to the already-existing table; a NULL row predates the fields and is
+    # treated the same as its default by every reader (app/routes/admin.py).
+    # Comma-joined - see app/genres.py.
+    genre: Mapped[str | None] = mapped_column(String(128), nullable=True, default="default")
+    trait: Mapped[str | None] = mapped_column(String(32), nullable=True, default="none")
 
     requester_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     requester_username: Mapped[str] = mapped_column(String(64))
@@ -86,9 +100,10 @@ class SongRequest(Base):
 
 
 class AppSettings(Base):
-    """Admin-editable app-wide settings - currently just the karaoke-night/
-    strict profile for each of the two public forms (see app/profiles.py,
-    app/app_settings.py). A singleton row, always id=1.
+    """Admin-editable app-wide settings - the karaoke-night/strict profile
+    for each of the two public forms (see app/profiles.py, app/app_settings.py)
+    and the production/debug mode (see app/app_mode.py). A singleton row,
+    always id=1.
     """
 
     __tablename__ = "app_settings"
@@ -96,6 +111,15 @@ class AppSettings(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     request_profile: Mapped[str] = mapped_column(String(16), default="karaoke_night", nullable=False)
     report_profile: Mapped[str] = mapped_column(String(16), default="strict", nullable=False)
+    # "production" | "debug" (app/app_mode.py). Nullable so _sync_schema can
+    # auto-add it to an already-existing app_settings table (see
+    # app/database.py); a NULL row is normalized to "production" by
+    # app/app_settings.py: get_app_settings().
+    mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # Independent of mode - silences all logging (app/app_logging.py) when
+    # False, regardless of level. Nullable for the same ALTER-TABLE reason
+    # as mode; a NULL row is normalized to True by get_app_settings().
+    logging_enabled: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
 class PendingSongRequest(Base):
@@ -116,6 +140,8 @@ class PendingSongRequest(Base):
     lyrics_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     cover_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     duet: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    genre: Mapped[str | None] = mapped_column(String(128), nullable=True, default="default")
+    trait: Mapped[str | None] = mapped_column(String(32), nullable=True, default="none")
 
     requester_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     requester_username: Mapped[str] = mapped_column(String(64))
@@ -139,6 +165,8 @@ class PendingBrokenReport(Base):
     genius_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     language: Mapped[str | None] = mapped_column(String(8), nullable=True)
     cover_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    genre: Mapped[str | None] = mapped_column(String(128), nullable=True, default="default")
+    trait: Mapped[str | None] = mapped_column(String(32), nullable=True, default="none")
 
     reporter_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reporter_username: Mapped[str] = mapped_column(String(64))

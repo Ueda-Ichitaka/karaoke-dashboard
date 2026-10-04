@@ -95,6 +95,32 @@ a:hover { text-decoration: underline; }
 .content.wide { max-width: none; }
 .page.narrow { max-width: 560px; margin: 0 auto; }
 .page-head { margin-bottom: 18px; }
+
+/* Slim fixed sidebar listing a page's own sections, so an admin can jump
+   to one instead of scrolling - opted into per page via {% block toc %}
+   (see app/templates/base.html and admin/integrity.html, requests.html,
+   reports.html). Hidden on narrow viewports, where it would overlap the
+   page content instead of sitting beside it. */
+.toc {
+  position: fixed;
+  top: 96px;
+  right: 16px;
+  width: 180px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 13px;
+}
+.toc-title { margin: 0 0 8px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; font-size: 11px; }
+.toc ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.toc a { color: var(--text-dim); text-decoration: none; }
+.toc a:hover { color: var(--text); }
+@media (max-width: 900px) {
+  .toc { display: none; }
+}
 h1 { font-size: 22px; margin: 0 0 4px; }
 .subtle { color: var(--text-dim); margin: 0; }
 .footer {
@@ -212,6 +238,11 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 }
 .stack-form textarea { resize: vertical; }
 .stack-form input:focus, .stack-form select:focus, .stack-form textarea:focus { outline: 2px solid var(--accent); }
+/* Admin-only genre picker (app/genres.py) - several boxes can be checked at
+   once, unlike the single-select trait field next to it. */
+.checkbox-group { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.checkbox-option { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; width: auto; }
+.checkbox-option input[type=checkbox] { width: auto; }
 
 /* Own tooltip, not the native title="" attribute - browsers render that
    inconsistently (some show it late, some not at all, none on touch). */

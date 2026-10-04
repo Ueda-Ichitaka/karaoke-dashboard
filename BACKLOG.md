@@ -17,3 +17,16 @@ renames, data backfills, or column drops.
 columns added in this change (and any added since), and run
 `alembic upgrade head` as a startup/deploy step in place of (or alongside)
 `create_all()`.
+
+## Full logging instrumentation
+
+**Raised:** 2026-10-03, while adding the admin Settings view's production/
+debug mode (`app/app_mode.py`, `app/app_logging.py`). What shipped is a
+minimal toggle: one app-wide Python logging level (INFO in production,
+DEBUG in debug) plus a handful of `logger.info()` calls at the existing
+notable points (startup, admit, discard).
+
+**Proposal:** systematically add logger calls across every admin/report/
+request route (every submit, admit, discard, edit, validation failure), so
+debug mode visibly floods logs with per-action detail instead of just the
+few points covered so far.

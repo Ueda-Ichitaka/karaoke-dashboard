@@ -32,6 +32,22 @@
         {% endfor %}
       </select>
     </label>
+    <label class="field">
+      <span class="field-label">
+        Mode
+        <span class="field-hint" tabindex="0" aria-label="Debug raises the app's log level and lets an admin admit a pending song request for a song that's already in the library."
+              data-tip="Debug raises the app's log level and lets an admin admit a pending song request for a song that's already in the library.">?</span>
+      </span>
+      <select name="mode">
+        {% for code, label in mode_choices %}
+          <option value="{{ code }}" {{ 'selected' if app_settings.mode == code }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="checkbox-option">
+      <input type="checkbox" name="logging_enabled" {{ 'checked' if app_settings.logging_enabled }}>
+      Enable logging
+    </label>
     <button type="submit" class="btn btn-primary">Save</button>
   </form>
 </section>

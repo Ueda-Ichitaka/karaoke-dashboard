@@ -5,14 +5,14 @@ A small web app for a home karaoke system:
 | Tab | Who | What |
 | --- | --- | --- |
 | **Songs** | everyone | Browse & search the library (one entry per folder in your songs directory). |
-| **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, other) and describe what's broken (both always required). Under the **strict** profile, the language and (for "lyrics broken"/"out of sync") a genius.com lyrics link are required too; under **karaoke night**, everything past the song/category/description is optional. Which profile applies is an admin setting - see Settings below. Submissions land in a review queue, not the exportable list directly - see **Requested**/**Reported** below. |
+| **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, wrong/missing cover image, other) and describe what's broken (both always required, **except** "wrong/missing cover image", which requires a cover image link instead - there's nothing to describe). Under the **strict** profile, the language and (for "lyrics broken"/"out of sync") a genius.com lyrics link are required too; under **karaoke night**, everything past the song/category/description is optional. Which profile applies is an admin setting - see Settings below. Submissions land in a review queue, not the exportable list directly - see **Requested**/**Reported** below. |
 | **Request song** | logged-in users | Ask for a new song: band + title always required. Under **strict**, YouTube link, language and lyrics link are required too, plus MusicBrainz ID, cover image link and Duet stay optional in both profiles; under **karaoke night**, only band + title are required. Duet - is a duet version wanted? - defaults to "No" (blank/"Unspecified" was removed as a choice). Rejected if the song already exists in the library *or* already has a request (pending review or already admitted) with the same Duet setting - a plain and a duet request for the same song are both allowed at once. Submissions land in a review queue - see **Requested** below. |
-| **Reported** | admins | A **"Needs review" section** lists newly submitted reports, not yet exportable: edit one to fill in anything missing, then **Admit** it (blocked until it meets the strict profile's full field list, regardless of which profile was live at submission) to move it into the exportable list below, or **Discard** it. The exportable list itself: review / edit / resolve broken-song reports, **export as CSV** (`broken.csv`). A second report for a song that's still pending review or already has an open admitted report merges into it instead of creating a duplicate row - see below. |
-| **Requested** | admins | Same **"Needs review"** / Edit / Admit / Discard flow as Reported, above, for song requests. The exportable list: review / edit / close / delete song requests, see whether one already matches the library, **export as CSV**. |
+| **Reported** | admins | A **"Needs review" section** lists newly submitted reports, not yet exportable: edit one to fill in anything missing - including an admin-only **genre**/**trait** tag, see CSV export below - then **Admit** it (blocked until it meets the strict profile's full field list, regardless of which profile was live at submission) to move it into the exportable list below, or **Discard** it. The exportable list itself: review / edit / resolve broken-song reports, **export as CSV** (`broken.csv`). A second report for a song that's still pending review or already has an open admitted report merges into it instead of creating a duplicate row - see below. |
+| **Requested** | admins | Same **"Needs review"** / Edit / Admit / Discard flow as Reported, above, for song requests. **Admit** is also blocked in production mode if the song already exists in the library (exact folder match) - switch to **debug** mode (see Settings) to admit it anyway. The exportable list: review / edit / close / delete song requests, see whether one already matches the library, **export as CSV**. |
 | **Duplicates** | admins | Review songs that appear more than once, compare their metadata, dismiss false positives. Results are cached (scanning is expensive) - rescan on demand or wait for the scheduled monthly rescan. |
-| **Integrity** | admins | Song files checked against the UltraStar format spec, the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder) - all three exportable as an UltraStar Manager playlist. Rescan on demand with the button at the top. |
+| **Integrity** | admins | Song files checked against the UltraStar format spec (exportable as an UltraStar Manager playlist), the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder). The latter two export a move list instead - a NUL-delimited file naming every file's current and correct path - for the standalone `scripts/apply_moves.sh` to actually move on disk, something UltraStar Manager itself can't do. A page with more than one section (like this one) gets a slim fixed sidebar so you can jump to a section instead of scrolling. Rescan on demand with the button at the top. |
 | **Users** | admins | Create users, reset passwords, grant/revoke admin, disable, delete. |
-| **Settings** | admins | Switch the Request song and Report broken forms between the **karaoke night** and **strict** profiles, independently of each other. |
+| **Settings** | admins | Switch the Request song and Report broken forms between the **karaoke night** and **strict** profiles, independently of each other; switch the app between **production** and **debug** mode (raises the log level; also lets an admin admit a song request for a song already in the library); and an **Enable logging** toggle that silences all logging outright, independently of mode. |
 
 Built with **FastAPI + Jinja2 + SQLAlchemy**, server-rendered, no JS framework.
 The song list is the set of sub-folders of a directory you mount into the
@@ -65,16 +65,29 @@ actually belongs there. The comparison ignores `()`/`[]` asides (e.g. a
 yt-dlp video ID or "(Official Audio)"), a known "Napalm Records"-style label
 suffix, and treats filename-unsafe characters like `:` and `/` - and the `-`
 or `|` that commonly replace them once they're part of a folder/file name -
-as interchangeable, so those don't read as a mismatch. Any of the three
-checks - format issues, non-conforming folders, or misplaced songs - can be
-exported as an [UltraStar Deluxe playlist](https://usdx.eu/) (`.upl`,
-matched by Artist + Title) scoped to just those songs - open it in
+as interchangeable, so those don't read as a mismatch. The format-issues
+check can be exported as an [UltraStar Deluxe playlist](https://usdx.eu/)
+(`.upl`, matched by Artist + Title) scoped to just those songs - open it in
 [UltraStar Manager](https://github.com/UltraStar-Deluxe/UltraStar-Manager)
 to jump straight to them instead of browsing the whole library. That
 project is vendored read-only at `third_party/ultrastar-manager` (a git
 submodule, not built or run by this app) purely as a reference for its
 `.upl` format (`src/playlist/QUPlaylistFile.cpp`); run
 `git submodule update --init` after cloning if you want it locally.
+The other two checks - non-conforming folders and misplaced songs - export
+a **move list** instead (`app/move_export.py`): UltraStar Manager has no
+way to move a file, only to point at one, so this project ships its own
+standalone script for that, **`scripts/apply_moves.sh`** (deliberately
+outside `app/`, never built into the container image). The export is a
+flat stream of NUL-terminated tokens, alternating a source path and its
+correct destination path - the same convention `find -print0` uses, so a
+filename with any character, including a literal `/` in a band name like
+"AC/DC" (sanitized to "AC-DC" in the destination folder name), needs no
+escaping. Run it by hand against the real `songs_dir` mount:
+`scripts/apply_moves.sh [--dry-run] <move-list-file>...` - it creates each
+destination folder as needed and never overwrites an existing file (it
+skips and reports that on stderr instead). A nested subfolder literally
+named `-` is left alone by the structure-moves export.
 
 ---
 
@@ -204,9 +217,9 @@ when scanning.
 ### CSV export
 
 `Requested` tab → **Export open CSV** / **Export all CSV**. Columns:
-`band name, song name, youtube link, language, musicbrainz_id, lyrics_url, cover_url, duet`,
+`band name, song name, youtube link, language, musicbrainz_id, lyrics_url, cover_url, duet, genre, trait`,
 comma-separated, `\n` row terminator, UTF-8. Header row unless
-`CSV_INCLUDE_HEADER=false`. The last five columns are optional/blank unless
+`CSV_INCLUDE_HEADER=false`. The middle five columns are optional/blank unless
 the requester filled them in on the request form (`duet` is `yes`, `no` or
 blank - the form defaults to "No", so blank is a leftover value from before
 that default existed, and both downstream and this project's own duplicate
@@ -219,21 +232,32 @@ actually work; anything else - including a filesystem path an admin may set -
 falls back silently, it's never an error). `musicbrainz_id` accepts either
 the bare ID or a pasted `musicbrainz.org` URL - the ID is extracted from the
 URL automatically (see `app/musicbrainz.py`), so the stored value always
-fits the column and matches what the downstream lookup expects.
+fits the column and matches what the downstream lookup expects. The last two
+columns, `genre` and `trait` (`app/genres.py`, `app/traits.py`), are never on
+either public form - an admin adds them while reviewing a pending request,
+before admitting it (or on an already-admitted one, via its own Edit). A
+song can carry several genres at once (comma-joined in the one cell, e.g.
+`metal,gothic`) but only one trait. Both default to `default`/`none` and are
+always present in the export, never blank. Both lists are still growing -
+expect more choices in `GENRE_CHOICES`/`TRAIT_CHOICES` over time.
 
 `Reported` tab → **Export open CSV** / **Export all CSV** (`broken.csv`).
-Columns: `band, song name, category, description, lyrics_url, language, cover_url`,
-same format as above. `category` is one of the fixed codes in
-`app/broken_categories.py` (`gap`, `async`, `lyrics`, `video`, `audio`,
-`other`) - `lyrics` and `async` also require a genius.com lyrics link on the
-report form (stored as `BrokenReport.genius_url`, exported here as
-`lyrics_url` to match the UltraSinger-side column name). `description` is
-sanitized at submission time (`app/validation.py: sanitize_free_text`):
+Columns: `band, song name, category, description, lyrics_url, language, cover_url, genre, trait`,
+same format as above (the last two: see the `Requested` tab's `genre`/`trait`
+columns above, same fields, same admin-only edit step). `category` is one of
+the fixed codes in `app/broken_categories.py` (`gap`, `async`, `lyrics`,
+`video`, `audio`, `cover`, `other`) - `lyrics` and `async` also require a
+genius.com lyrics link on the report form (stored as `BrokenReport.genius_url`,
+exported here as `lyrics_url` to match the UltraSinger-side column name);
+`cover` ("wrong/missing cover image") requires `cover_url` instead and leaves
+`description` optional, the only category where that's true. `description`
+is sanitized at submission time (`app/validation.py: sanitize_free_text`):
 collapsed to a single line and stripped of characters that could break a CSV
 row or trigger a spreadsheet formula (commas, semicolons, quotes, a leading
 `=`/`+`/`-`/`@`, ...). Unlike the request form, `language` is **mandatory**
-on the report form - a reporter of an "async"/"lyrics" report is usually
-exactly the person who'd know the song's language.
+on the report form (under the strict profile) - a reporter of an
+"async"/"lyrics" report is usually exactly the person who'd know the song's
+language.
 
 **Duplicate reports merge** (`app/report_matching.py`): submitting a report
 for a song that already has an open report doesn't create a second row.
@@ -384,7 +408,7 @@ app/
   config.py          env-based settings
   database.py        engine, session, wait-for-db, create tables
   models.py          User, BrokenReport, SongRequest, PendingBrokenReport, PendingSongRequest,
-                     AppSettings, DismissedDuplicate
+                     AppSettings (profiles + mode), DismissedDuplicate
   security.py        password hashing, admin seed
   songs.py           filesystem scan + cached search index
   ultrastar.py       UltraStar .txt metadata parsing (cover, length, duet, ...)
@@ -393,20 +417,27 @@ app/
   format_check.py    UltraStar format-spec conformity checks
   structure_check.py flat "Artist - Title" library structure checks
   misplaced_check.py wrong-song-in-folder checks
-  upl_export.py      UltraStar Manager (.upl) playlist export for both checks above
+  upl_export.py      UltraStar Manager (.upl) playlist export for the song-file-format check
+  move_export.py     NUL-delimited move-list export for structure/misplaced checks (scripts/apply_moves.sh)
   request_matching.py  does a song request already exist in the library, the pending queue, or the request queue?
   report_matching.py   finds/merges a duplicate broken-song report into a pending or already-open one
   duet.py            yes/no Duet choice for the request form (defaults to "No")
   languages.py       language choices shared by the request/report forms (ISO 639-1 + "Mixed")
   broken_categories.py  fixed category list for the broken-report form
+  genres.py          admin-only genre choice list + comma-joined storage helpers
+  traits.py          admin-only vocal/instrument trait choice list
   musicbrainz.py     extracts a bare MBID from a pasted musicbrainz.org URL
   validation.py      shared request-form / broken-report field validation
   profiles.py         karaoke-night/strict required-field rules for both forms and the admit check
-  app_settings.py     fetches/creates the AppSettings singleton (the two profile switches)
+  app_mode.py         production/debug app mode choices
+  app_logging.py      the one Python logging level knob, tied to app mode
+  app_settings.py     fetches/creates the AppSettings singleton (profile + mode switches)
   pending_migration.py  one-time startup move of pre-review "open" rows into the pending tables
   deps.py            current-user / auth guards / template helper
   routes/            songs, auth, reports, requests, admin
   templates/         Jinja2 templates
   static/            style.css, app.js (progressive enhancement)
+scripts/
+  apply_moves.sh     standalone - not built into the container - applies a move-list export on disk
 tests/               pytest end-to-end tests
 ```

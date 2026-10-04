@@ -47,3 +47,10 @@ def test_strict_report_also_requires_genius_url_for_specific_categories():
         assert "genius_url" in report_required_fields("strict", category=category)
     for category in ("gap", "video", "audio", "other"):
         assert "genius_url" not in report_required_fields("strict", category=category)
+
+
+def test_cover_category_requires_cover_url_instead_of_description():
+    for profile in ("karaoke_night", "strict"):
+        required = report_required_fields(profile, category="cover")
+        assert "cover_url" in required
+        assert "description" not in required

@@ -22,7 +22,8 @@ def _submit(admin_client, **overrides):
 
 def _set_report_profile_karaoke_night(admin_client) -> None:
     admin_client.post(
-        "/admin/settings", data={"request_profile": "karaoke_night", "report_profile": "karaoke_night"}
+        "/admin/settings",
+        data={"request_profile": "karaoke_night", "report_profile": "karaoke_night", "mode": "production"},
     )
 
 

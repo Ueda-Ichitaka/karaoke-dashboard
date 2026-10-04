@@ -138,15 +138,22 @@
   });
 
   // ---- broken-report form: a lyrics link is only mandatory for specific --
-  // ---- categories, and only under the strict profile (see app/profiles.py)
+  // ---- categories, and only under the strict profile (see app/profiles.py).
+  // The "cover" category swaps the usual description requirement for a
+  // cover-image-link one, in both profiles - see report_required_fields().
   document.querySelectorAll("[data-broken-category]").forEach((select) => {
     const form = select.closest("form");
     const genius = form.querySelector("[data-broken-genius]");
     const geniusHint = form.querySelector("[data-broken-genius-hint]");
+    const description = form.querySelector("[data-broken-description]");
+    const descriptionHint = form.querySelector("[data-broken-description-hint]");
+    const cover = form.querySelector("[data-broken-cover]");
+    const coverHint = form.querySelector("[data-broken-cover-hint]");
     const isStrict = form.dataset.reportProfile === "strict";
     const GENIUS_REQUIRED_CATEGORIES = ["lyrics", "async"];
 
     const update = () => {
+      const isCover = select.value === "cover";
       const geniusRequired = isStrict && GENIUS_REQUIRED_CATEGORIES.indexOf(select.value) !== -1;
       if (genius) {
         genius.required = geniusRequired;
@@ -155,6 +162,20 @@
         geniusHint.textContent = isStrict
           ? "(required for \"Lyrics broken\" / \"Song goes out of sync\")"
           : "(optional)";
+      }
+      if (description) {
+        description.required = !isCover;
+      }
+      if (descriptionHint) {
+        descriptionHint.textContent = isCover
+          ? "(not needed for \"Wrong or missing cover image\")"
+          : "(required)";
+      }
+      if (cover) {
+        cover.required = isCover;
+      }
+      if (coverHint) {
+        coverHint.textContent = isCover ? "(required for \"Wrong or missing cover image\")" : "(optional)";
       }
     };
     select.addEventListener("change", update);

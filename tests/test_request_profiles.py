@@ -12,7 +12,8 @@ from app.models import PendingSongRequest, SongRequest
 
 def _set_request_profile(admin_client, profile: str) -> None:
     admin_client.post(
-        "/admin/settings", data={"request_profile": profile, "report_profile": "strict"}
+        "/admin/settings",
+        data={"request_profile": profile, "report_profile": "strict", "mode": "production"},
     )
 
 

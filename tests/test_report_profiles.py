@@ -12,7 +12,8 @@ from app.models import BrokenReport, PendingBrokenReport
 
 def _set_report_profile(admin_client, profile: str) -> None:
     admin_client.post(
-        "/admin/settings", data={"request_profile": "karaoke_night", "report_profile": profile}
+        "/admin/settings",
+        data={"request_profile": "karaoke_night", "report_profile": profile, "mode": "production"},
     )
 
 

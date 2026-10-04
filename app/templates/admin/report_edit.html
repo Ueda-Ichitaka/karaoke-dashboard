@@ -51,8 +51,11 @@
     </label>
 
     <label class="field">
-      <span class="field-label">What's broken? <em>(required)</em></span>
-      <textarea name="description" rows="4" required>{{ form.description }}</textarea>
+      <span class="field-label">What's broken?
+        <em data-broken-description-hint>{{ '(not needed for "Wrong or missing cover image")' if form.category == 'cover' else '(required)' }}</em>
+      </span>
+      <textarea name="description" rows="4" {{ '' if form.category == 'cover' else 'required' }}
+                data-broken-description>{{ form.description }}</textarea>
     </label>
 
     <label class="field">
@@ -64,8 +67,31 @@
     </label>
 
     <label class="field">
-      <span class="field-label">Cover image link <em>(optional)</em></span>
-      <input type="url" name="cover_url" value="{{ form.cover_url }}" placeholder="https://…/cover.jpg">
+      <span class="field-label">Cover image link
+        <em data-broken-cover-hint>{{ '(required for "Wrong or missing cover image")' if form.category == 'cover' else '(optional)' }}</em>
+      </span>
+      <input type="url" name="cover_url" value="{{ form.cover_url }}" {{ 'required' if form.category == 'cover' }}
+             data-broken-cover placeholder="https://…/cover.jpg">
+    </label>
+
+    <div class="field">
+      <span class="field-label">Genre</span>
+      <div class="checkbox-group">
+        {% for code, label in genre_choices %}
+          <label class="checkbox-option">
+            <input type="checkbox" name="genre" value="{{ code }}" {{ 'checked' if code in form.genre }}>
+            {{ label }}
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+    <label class="field">
+      <span class="field-label">Trait</span>
+      <select name="trait">
+        {% for code, label in trait_choices %}
+          <option value="{{ code }}" {{ 'selected' if form.trait == code }}>{{ label }}</option>
+        {% endfor %}
+      </select>
     </label>
 
     <div class="inline-form">

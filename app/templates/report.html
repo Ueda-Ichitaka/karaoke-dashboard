@@ -57,8 +57,10 @@
       </label>
 
       <label class="field">
-        <span class="field-label">What's broken? <em>(required)</em></span>
-        <textarea name="description" rows="4" required
+        <span class="field-label">What's broken?
+          <em data-broken-description-hint>{{ '(required)' if 'description' in required_fields else '(not needed for "Wrong or missing cover image")' }}</em>
+        </span>
+        <textarea name="description" rows="4" {{ 'required' if 'description' in required_fields }} data-broken-description
                   placeholder="e.g. lyrics are out of sync, audio cuts out after the first chorus, wrong key…">{{ form.description or '' }}</textarea>
       </label>
 
@@ -72,8 +74,11 @@
       </label>
 
       <label class="field">
-        <span class="field-label">Cover image link <em>(optional)</em></span>
-        <input type="url" name="cover_url" value="{{ form.cover_url or '' }}" placeholder="https://…/cover.jpg">
+        <span class="field-label">Cover image link
+          <em data-broken-cover-hint>{{ '(required for "Wrong or missing cover image")' if 'cover_url' in required_fields else '(optional)' }}</em>
+        </span>
+        <input type="url" name="cover_url" value="{{ form.cover_url or '' }}" {{ 'required' if 'cover_url' in required_fields }}
+               data-broken-cover placeholder="https://…/cover.jpg">
       </label>
 
       <button type="submit" class="btn btn-primary">Submit report</button>

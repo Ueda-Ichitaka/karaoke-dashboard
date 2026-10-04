@@ -10,6 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import __version__
+from .app_logging import configure_logging, get_logger
+from .app_settings import get_app_settings
 from .config import settings
 from .csrf import FORM_FIELD as CSRF_FORM_FIELD
 from .csrf import is_valid_csrf_token
@@ -18,6 +20,8 @@ from .deps import AuthRedirect, render
 from .routes import admin, auth, reports, requests, songs
 from .scheduler import create_scheduler
 from .security import seed_admin
+
+logger = get_logger(__name__)
 
 _CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 
@@ -38,6 +42,9 @@ async def lifespan(app: FastAPI):
     init_db()
     with SessionLocal() as db:
         seed_admin(db)
+        app_settings = get_app_settings(db)
+        configure_logging(app_settings.mode, app_settings.logging_enabled)
+    logger.info("startup complete")
     scheduler = create_scheduler()
     scheduler.start()
     yield

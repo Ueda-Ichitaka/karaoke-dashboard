@@ -19,6 +19,11 @@ PROFILE_CODES: frozenset[str] = frozenset(code for code, _ in PROFILE_CHOICES)
 # same set app/validation.py's broken_report_field_errors already used.
 _GENIUS_REQUIRED_CATEGORIES = frozenset({"lyrics", "async"})
 
+# A "wrong/missing cover image" report has nothing to describe in free text -
+# the cover link itself is the fix - so it swaps the usual description
+# requirement for a cover_url one, in both profiles (app/broken_categories.py).
+_COVER_URL_CATEGORY = "cover"
+
 
 def request_required_fields(profile: str) -> set[str]:
     """Which request-form fields are mandatory under the given profile.
@@ -36,12 +41,18 @@ def request_required_fields(profile: str) -> set[str]:
 def report_required_fields(profile: str, category: str) -> set[str]:
     """Which report-form fields are mandatory under the given profile.
 
-    The song picker, category and "what's broken?" description are always
-    required, in both profiles. Strict additionally requires the language,
-    plus a lyrics link for the categories that already call for one
-    (app/broken_categories.py). Cover image link is never required.
+    The song picker and category are always required, in both profiles.
+    Every category also requires the "what's broken?" description, except
+    "cover" (_COVER_URL_CATEGORY), which requires a cover image link
+    instead - there's nothing to describe, the link itself is the fix.
+    Strict additionally requires the language, plus a lyrics link for the
+    categories that already call for one (app/broken_categories.py).
     """
-    required = {"song_folder", "category", "description"}
+    required = {"song_folder", "category"}
+    if category == _COVER_URL_CATEGORY:
+        required.add("cover_url")
+    else:
+        required.add("description")
     if profile == "strict":
         required.add("language")
         if category in _GENIUS_REQUIRED_CATEGORIES:

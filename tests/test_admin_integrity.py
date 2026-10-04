@@ -41,27 +41,26 @@ def test_integrity_requires_login(client):
     assert r.status_code == 303
 
 
-def test_integrity_view_links_to_upl_export(admin_client):
+def test_integrity_view_links_to_moves_export(admin_client):
     r = admin_client.get("/admin/integrity")
-    assert "/admin/integrity/non-conforming.upl" in r.text
+    assert "/admin/integrity/non-conforming.moves" in r.text
 
 
-def test_upl_export_downloads_playlist(admin_client):
-    r = admin_client.get("/admin/integrity/non-conforming.upl")
+def test_structure_moves_export_lists_the_nested_subfolder(admin_client):
+    r = admin_client.get("/admin/integrity/non-conforming.moves")
     assert r.status_code == 200
     assert "attachment" in r.headers["content-disposition"]
-    assert r.headers["content-type"].startswith("text/plain")
-    body = r.text
-    assert "#Ultrastar Deluxe Playlist Format v1.0" in body
-    # "Coverband - Import Batch" / CD1 / Track.txt from conftest.py
-    assert "Coverband : Track" in body
+    tokens = [t for t in r.content.split(b"\x00") if t]
+    # "Coverband - Import Batch" / CD1 from conftest.py, moved up to the base path
+    assert any(t.endswith(b"Coverband - Import Batch/CD1") for t in tokens)
+    assert any(t.endswith(b"/CD1") and b"Coverband" not in t for t in tokens)
 
 
-def test_upl_export_requires_admin(admin_client):
+def test_structure_moves_export_requires_admin(admin_client):
     admin_client.post("/admin/users", data={"username": "erin", "password": "erinerinerin"})
     admin_client.post("/logout")
     admin_client.post("/login", data={"username": "erin", "password": "erinerinerin"}, follow_redirects=False)
-    assert admin_client.get("/admin/integrity/non-conforming.upl").status_code == 403
+    assert admin_client.get("/admin/integrity/non-conforming.moves").status_code == 403
 
 
 # ----------------------------------------------------------- misplaced songs
@@ -73,17 +72,19 @@ def test_integrity_view_shows_misplaced_songs(admin_client):
     assert "30 Seconds to Mars - The Kill" in r.text  # expected folder
 
 
-def test_integrity_view_links_to_misplaced_upl_export(admin_client):
+def test_integrity_view_links_to_misplaced_moves_export(admin_client):
     r = admin_client.get("/admin/integrity")
-    assert "/admin/integrity/misplaced.upl" in r.text
+    assert "/admin/integrity/misplaced.moves" in r.text
 
 
-def test_misplaced_upl_export_downloads_playlist(admin_client):
-    r = admin_client.get("/admin/integrity/misplaced.upl")
+def test_misplaced_moves_export_lists_source_and_destination(admin_client):
+    r = admin_client.get("/admin/integrity/misplaced.moves")
     assert r.status_code == 200
     assert "attachment" in r.headers["content-disposition"]
-    assert r.headers["content-type"].startswith("text/plain")
-    assert "30 Seconds to Mars : The Kill" in r.text
+    tokens = [t for t in r.content.split(b"\x00") if t]
+    # "30 Seconds to Mars - Attack" / TheKill.txt from conftest.py
+    assert any(t.endswith(b"30 Seconds to Mars - Attack/TheKill.txt") for t in tokens)
+    assert any(t.endswith(b"30 Seconds to Mars - The Kill/TheKill.txt") for t in tokens)
 
 
 # ---------------------------------------------------- song file format .upl
@@ -110,8 +111,8 @@ def test_format_issues_upl_export_requires_admin(admin_client):
     assert admin_client.get("/admin/integrity/format-issues.upl").status_code == 403
 
 
-def test_misplaced_upl_export_requires_admin(admin_client):
+def test_misplaced_moves_export_requires_admin(admin_client):
     admin_client.post("/admin/users", data={"username": "fay", "password": "fayfayfayfay"})
     admin_client.post("/logout")
     admin_client.post("/login", data={"username": "fay", "password": "fayfayfayfay"}, follow_redirects=False)
-    assert admin_client.get("/admin/integrity/misplaced.upl").status_code == 403
+    assert admin_client.get("/admin/integrity/misplaced.moves").status_code == 403

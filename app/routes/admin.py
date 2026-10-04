@@ -10,25 +10,52 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .. import duplicates, format_check, misplaced_check, request_matching, structure_check, upl_export
+from .. import duplicates, format_check, misplaced_check, move_export, request_matching, structure_check, upl_export
 from .. import songs as song_index
+from ..app_logging import configure_logging, get_logger
+from ..app_mode import MODE_CHOICES, MODE_CODES
 from ..app_settings import get_app_settings
 from ..broken_categories import CATEGORY_CHOICES, CATEGORY_LABELS
 from ..config import settings
 from ..database import get_db
 from ..deps import render, require_admin
 from ..duet import DUET_CHOICES, DUET_LABELS
+from ..genres import DEFAULT_GENRE, GENRE_CHOICES, format_genres, is_valid_genre, parse_genres
 from ..languages import LANGUAGE_CHOICES, LANGUAGE_LABELS
 from ..models import BrokenReport, PendingBrokenReport, PendingSongRequest, SongRequest, User
 from ..musicbrainz import extract_musicbrainz_id
 from ..profiles import PROFILE_CHOICES, PROFILE_CODES
 from ..security import MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, hash_password
+from ..traits import DEFAULT_TRAIT, TRAIT_CHOICES, is_valid_trait
 from ..validation import broken_report_field_errors, neutralize_csv_formula, request_field_errors, sanitize_free_text
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/admin")
 
 _REPORT_STATES = {"open", "resolved"}
 _REQUEST_STATES = {"open", "done"}
+
+
+def _parse_genre_trait(genre: list[str], trait: str) -> tuple[str, str, list[str]]:
+    """Normalizes+validates the admin-only genre/trait fields shared by the
+    request and report edit forms (app/genres.py, app/traits.py). Returns
+    the comma-joined genre string, the normalized trait, and any errors.
+    """
+    errors: list[str] = []
+    codes: list[str] = []
+    for raw in genre:
+        code = raw.strip().lower()
+        if not code:
+            continue
+        if is_valid_genre(code):
+            codes.append(code)
+        else:
+            errors.append(f"Unrecognized genre: {code}.")
+    trait = trait.strip().lower() or DEFAULT_TRAIT
+    if not is_valid_trait(trait):
+        errors.append(f"Unrecognized trait: {trait}.")
+    return format_genres(codes), trait, errors
 
 
 @router.get("")
@@ -47,6 +74,7 @@ def settings_view(
     return render(
         request, "admin/settings.html", user,
         errors=[], app_settings=app_settings, profile_choices=PROFILE_CHOICES,
+        mode_choices=MODE_CHOICES,
     )
 
 
@@ -55,6 +83,8 @@ def settings_update(
     request: Request,
     request_profile: str = Form(""),
     report_profile: str = Form(""),
+    mode: str = Form(""),
+    logging_enabled: bool = Form(False),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -64,15 +94,21 @@ def settings_update(
         errors.append("Unrecognized request-song profile.")
     if report_profile not in PROFILE_CODES:
         errors.append("Unrecognized report-broken profile.")
+    if mode not in MODE_CODES:
+        errors.append("Unrecognized mode.")
     if errors:
         return render(
             request, "admin/settings.html", user, status_code=422,
             errors=errors, app_settings=app_settings, profile_choices=PROFILE_CHOICES,
+            mode_choices=MODE_CHOICES,
         )
 
     app_settings.request_profile = request_profile
     app_settings.report_profile = report_profile
+    app_settings.mode = mode
+    app_settings.logging_enabled = logging_enabled
     db.commit()
+    configure_logging(mode, logging_enabled)
     return RedirectResponse("/admin/settings", status_code=303)
 
 
@@ -128,10 +164,12 @@ def report_edit_form(
     return render(
         request, "admin/report_edit.html", user,
         errors=[], item=item, pending=False, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
+        genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
         form={
             "song_folder": item.song_folder, "category": item.category or "",
             "description": item.description or "", "genius_url": item.genius_url or "",
             "language": item.language or "", "cover_url": item.cover_url or "",
+            "genre": parse_genres(item.genre), "trait": item.trait or DEFAULT_TRAIT,
         },
     )
 
@@ -146,6 +184,8 @@ def report_edit_submit(
     genius_url: str = Form(""),
     language: str = Form(""),
     cover_url: str = Form(""),
+    genre: list[str] = Form([]),
+    trait: str = Form(DEFAULT_TRAIT),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -159,6 +199,7 @@ def report_edit_submit(
     genius_url = genius_url.strip()
     language = language.strip().lower()
     cover_url = cover_url.strip()
+    genre_value, trait_value, genre_trait_errors = _parse_genre_trait(genre, trait)
 
     errors: list[str] = []
     song = song_index.get_by_folder(song_folder) if song_folder else None
@@ -167,15 +208,17 @@ def report_edit_submit(
     elif song is None:
         errors.append("That song is no longer in the library - pick another.")
     errors.extend(broken_report_field_errors(category, description, genius_url, language, cover_url))
+    errors.extend(genre_trait_errors)
 
     if errors:
         return render(
             request, "admin/report_edit.html", user, status_code=422,
             errors=errors, item=item, pending=False, category_choices=CATEGORY_CHOICES,
-            language_choices=LANGUAGE_CHOICES,
+            language_choices=LANGUAGE_CHOICES, genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
             form={
                 "song_folder": song_folder, "category": category, "description": description,
                 "genius_url": genius_url, "language": language, "cover_url": cover_url,
+                "genre": genre, "trait": trait,
             },
         )
 
@@ -187,6 +230,8 @@ def report_edit_submit(
     item.genius_url = genius_url or None
     item.language = language or None
     item.cover_url = cover_url or None
+    item.genre = genre_value
+    item.trait = trait_value
     db.commit()
     return RedirectResponse("/admin/reports", status_code=303)
 
@@ -205,10 +250,12 @@ def pending_report_edit_form(
     return render(
         request, "admin/report_edit.html", user,
         errors=[], item=item, pending=True, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
+        genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
         form={
             "song_folder": item.song_folder, "category": item.category or "",
             "description": item.description or "", "genius_url": item.genius_url or "",
             "language": item.language or "", "cover_url": item.cover_url or "",
+            "genre": parse_genres(item.genre), "trait": item.trait or DEFAULT_TRAIT,
         },
     )
 
@@ -223,6 +270,8 @@ def pending_report_edit_submit(
     genius_url: str = Form(""),
     language: str = Form(""),
     cover_url: str = Form(""),
+    genre: list[str] = Form([]),
+    trait: str = Form(DEFAULT_TRAIT),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -236,6 +285,7 @@ def pending_report_edit_submit(
     genius_url = genius_url.strip()
     language = language.strip().lower()
     cover_url = cover_url.strip()
+    genre_value, trait_value, genre_trait_errors = _parse_genre_trait(genre, trait)
 
     errors: list[str] = []
     song = song_index.get_by_folder(song_folder) if song_folder else None
@@ -248,15 +298,17 @@ def pending_report_edit_submit(
     errors.extend(
         broken_report_field_errors(category, description, genius_url, language, cover_url, profile="karaoke_night")
     )
+    errors.extend(genre_trait_errors)
 
     if errors:
         return render(
             request, "admin/report_edit.html", user, status_code=422,
             errors=errors, item=item, pending=True, category_choices=CATEGORY_CHOICES,
-            language_choices=LANGUAGE_CHOICES,
+            language_choices=LANGUAGE_CHOICES, genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
             form={
                 "song_folder": song_folder, "category": category, "description": description,
                 "genius_url": genius_url, "language": language, "cover_url": cover_url,
+                "genre": genre, "trait": trait,
             },
         )
 
@@ -266,6 +318,8 @@ def pending_report_edit_submit(
     item.genius_url = genius_url or None
     item.language = language or None
     item.cover_url = cover_url or None
+    item.genre = genre_value
+    item.trait = trait_value
     db.commit()
     return RedirectResponse("/admin/reports", status_code=303)
 
@@ -289,11 +343,12 @@ def pending_report_admit(
         return render(
             request, "admin/report_edit.html", user, status_code=422,
             errors=errors, item=item, pending=True, category_choices=CATEGORY_CHOICES,
-            language_choices=LANGUAGE_CHOICES,
+            language_choices=LANGUAGE_CHOICES, genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
             form={
                 "song_folder": item.song_folder, "category": item.category or "",
                 "description": item.description or "", "genius_url": item.genius_url or "",
                 "language": item.language or "", "cover_url": item.cover_url or "",
+                "genre": parse_genres(item.genre), "trait": item.trait or DEFAULT_TRAIT,
             },
         )
 
@@ -308,10 +363,13 @@ def pending_report_admit(
             genius_url=item.genius_url,
             language=item.language,
             cover_url=item.cover_url,
+            genre=item.genre,
+            trait=item.trait,
             reporter_id=item.reporter_id,
             reporter_username=item.reporter_username,
         )
     )
+    logger.info("admitting broken report id=%s %s", item.id, item.song_folder)
     db.delete(item)
     db.commit()
     return RedirectResponse("/admin/reports", status_code=303)
@@ -326,6 +384,7 @@ def pending_report_discard(
     item = db.get(PendingBrokenReport, pending_id)
     if item is None:
         raise HTTPException(status_code=404)
+    logger.info("discarding pending broken report id=%s %s", item.id, item.song_folder)
     db.delete(item)
     db.commit()
     return RedirectResponse("/admin/reports", status_code=303)
@@ -345,12 +404,15 @@ def reports_csv(
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
     if settings.csv_include_header:
-        writer.writerow(["band", "song name", "category", "description", "lyrics_url", "language", "cover_url"])
+        writer.writerow(
+            ["band", "song name", "category", "description", "lyrics_url", "language", "cover_url", "genre", "trait"]
+        )
     for r in rows:
         writer.writerow(
             [
                 r.song_artist or "", r.song_title or "", r.category or "", r.description,
                 r.genius_url or "", r.language or "", r.cover_url or "",
+                r.genre or DEFAULT_GENRE, r.trait or DEFAULT_TRAIT,
             ]
         )
 
@@ -430,11 +492,13 @@ def request_edit_form(
     return render(
         request, "admin/request_edit.html", user,
         errors=[], item=item, pending=False, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
+        genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
         form={
             "band_name": item.band_name, "song_name": item.song_name,
             "youtube_url": item.youtube_url or "", "language": item.language or "",
             "musicbrainz_id": item.musicbrainz_id or "", "lyrics_url": item.lyrics_url or "",
             "cover_url": item.cover_url or "", "duet": item.duet or "",
+            "genre": parse_genres(item.genre), "trait": item.trait or DEFAULT_TRAIT,
         },
     )
 
@@ -451,6 +515,8 @@ def request_edit_submit(
     lyrics_url: str = Form(""),
     cover_url: str = Form(""),
     duet: str = Form(""),
+    genre: list[str] = Form([]),
+    trait: str = Form(DEFAULT_TRAIT),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -466,18 +532,21 @@ def request_edit_submit(
     lyrics_url = lyrics_url.strip()
     cover_url = cover_url.strip()
     duet = duet.strip().lower()
+    genre_value, trait_value, genre_trait_errors = _parse_genre_trait(genre, trait)
 
     errors = request_field_errors(
         band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet, lyrics_url=lyrics_url
     )
+    errors.extend(genre_trait_errors)
     if errors:
         return render(
             request, "admin/request_edit.html", user, status_code=422,
             errors=errors, item=item, pending=False, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
+            genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
             form={
                 "band_name": band_name, "song_name": song_name, "youtube_url": youtube_url,
                 "language": language, "musicbrainz_id": musicbrainz_id, "lyrics_url": lyrics_url,
-                "cover_url": cover_url, "duet": duet,
+                "cover_url": cover_url, "duet": duet, "genre": genre, "trait": trait,
             },
         )
 
@@ -489,6 +558,8 @@ def request_edit_submit(
     item.lyrics_url = lyrics_url or None
     item.cover_url = cover_url or None
     item.duet = duet or None
+    item.genre = genre_value
+    item.trait = trait_value
     db.commit()
     return RedirectResponse("/admin/requests", status_code=303)
 
@@ -507,11 +578,13 @@ def pending_request_edit_form(
     return render(
         request, "admin/request_edit.html", user,
         errors=[], item=item, pending=True, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
+        genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
         form={
             "band_name": item.band_name, "song_name": item.song_name,
             "youtube_url": item.youtube_url or "", "language": item.language or "",
             "musicbrainz_id": item.musicbrainz_id or "", "lyrics_url": item.lyrics_url or "",
             "cover_url": item.cover_url or "", "duet": item.duet or "",
+            "genre": parse_genres(item.genre), "trait": item.trait or DEFAULT_TRAIT,
         },
     )
 
@@ -528,6 +601,8 @@ def pending_request_edit_submit(
     lyrics_url: str = Form(""),
     cover_url: str = Form(""),
     duet: str = Form(""),
+    genre: list[str] = Form([]),
+    trait: str = Form(DEFAULT_TRAIT),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -543,18 +618,21 @@ def pending_request_edit_submit(
     lyrics_url = lyrics_url.strip()
     cover_url = cover_url.strip()
     duet = duet.strip().lower()
+    genre_value, trait_value, genre_trait_errors = _parse_genre_trait(genre, trait)
 
     errors = request_field_errors(
         band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet, lyrics_url=lyrics_url
     )
+    errors.extend(genre_trait_errors)
     if errors:
         return render(
             request, "admin/request_edit.html", user, status_code=422,
             errors=errors, item=item, pending=True, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
+            genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
             form={
                 "band_name": band_name, "song_name": song_name, "youtube_url": youtube_url,
                 "language": language, "musicbrainz_id": musicbrainz_id, "lyrics_url": lyrics_url,
-                "cover_url": cover_url, "duet": duet,
+                "cover_url": cover_url, "duet": duet, "genre": genre, "trait": trait,
             },
         )
 
@@ -566,6 +644,8 @@ def pending_request_edit_submit(
     item.lyrics_url = lyrics_url or None
     item.cover_url = cover_url or None
     item.duet = duet or None
+    item.genre = genre_value
+    item.trait = trait_value
     db.commit()
     return RedirectResponse("/admin/requests", status_code=303)
 
@@ -586,15 +666,24 @@ def pending_request_admit(
         item.musicbrainz_id or "", item.cover_url or "", item.duet or "",
         lyrics_url=item.lyrics_url or "", profile="strict",
     )
+    app_settings = get_app_settings(db)
+    library_match = request_matching.find_library_match(item.band_name, item.song_name)
+    if library_match and library_match.exact_folder and app_settings.mode != "debug":
+        errors.append(
+            f'"{item.band_name} - {item.song_name}" is already in the library '
+            f'(folder: "{library_match.folder}") - switch to debug mode to admit it anyway.'
+        )
     if errors:
         return render(
             request, "admin/request_edit.html", user, status_code=422,
             errors=errors, item=item, pending=True, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
+            genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
             form={
                 "band_name": item.band_name, "song_name": item.song_name,
                 "youtube_url": item.youtube_url or "", "language": item.language or "",
                 "musicbrainz_id": item.musicbrainz_id or "", "lyrics_url": item.lyrics_url or "",
                 "cover_url": item.cover_url or "", "duet": item.duet or "",
+                "genre": parse_genres(item.genre), "trait": item.trait or DEFAULT_TRAIT,
             },
         )
 
@@ -608,10 +697,13 @@ def pending_request_admit(
             lyrics_url=item.lyrics_url,
             cover_url=item.cover_url,
             duet=item.duet,
+            genre=item.genre,
+            trait=item.trait,
             requester_id=item.requester_id,
             requester_username=item.requester_username,
         )
     )
+    logger.info("admitting song request id=%s %s - %s", item.id, item.band_name, item.song_name)
     db.delete(item)
     db.commit()
     return RedirectResponse("/admin/requests", status_code=303)
@@ -626,6 +718,7 @@ def pending_request_discard(
     item = db.get(PendingSongRequest, pending_id)
     if item is None:
         raise HTTPException(status_code=404)
+    logger.info("discarding pending song request id=%s %s - %s", item.id, item.band_name, item.song_name)
     db.delete(item)
     db.commit()
     return RedirectResponse("/admin/requests", status_code=303)
@@ -648,7 +741,7 @@ def requests_csv(
         writer.writerow(
             [
                 "band name", "song name", "youtube link", "language", "musicbrainz_id",
-                "lyrics_url", "cover_url", "duet",
+                "lyrics_url", "cover_url", "duet", "genre", "trait",
             ]
         )
     for r in rows:
@@ -657,7 +750,7 @@ def requests_csv(
                 neutralize_csv_formula(r.band_name), neutralize_csv_formula(r.song_name),
                 r.youtube_url or "", r.language or "",
                 neutralize_csv_formula(r.musicbrainz_id or ""), r.lyrics_url or "",
-                r.cover_url or "", r.duet or "",
+                r.cover_url or "", r.duet or "", r.genre or DEFAULT_GENRE, r.trait or DEFAULT_TRAIT,
             ]
         )
 
@@ -858,21 +951,21 @@ def integrity_format_issues_upl_export(user: User = Depends(require_admin)):
     )
 
 
-@router.get("/integrity/non-conforming.upl")
-def integrity_upl_export(user: User = Depends(require_admin)):
-    content = upl_export.build_upl(structure_check.check_structure())
+@router.get("/integrity/non-conforming.moves")
+def integrity_structure_moves_export(user: User = Depends(require_admin)):
+    content = move_export.build_structure_moves(structure_check.check_structure())
     return StreamingResponse(
         iter([content]),
-        media_type="text/plain; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="non-conforming.upl"'},
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": 'attachment; filename="non-conforming.moves"'},
     )
 
 
-@router.get("/integrity/misplaced.upl")
-def integrity_misplaced_upl_export(user: User = Depends(require_admin)):
-    content = upl_export.build_misplaced_upl(misplaced_check.find_misplaced_songs())
+@router.get("/integrity/misplaced.moves")
+def integrity_misplaced_moves_export(user: User = Depends(require_admin)):
+    content = move_export.build_misplaced_moves(misplaced_check.find_misplaced_songs())
     return StreamingResponse(
         iter([content]),
-        media_type="text/plain; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="misplaced.upl"'},
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": 'attachment; filename="misplaced.moves"'},
     )

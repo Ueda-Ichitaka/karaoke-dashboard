@@ -9,7 +9,7 @@
   </div>
 
   {% if pending_requests %}
-    <section class="page-head">
+    <section class="page-head" id="needs-review">
       <h2>Needs review</h2>
       <p class="subtle">{{ pending_requests|length }} awaiting admission to the exportable list.</p>
     </section>
@@ -60,7 +60,7 @@
     </div>
   {% endif %}
 
-  <div class="toolbar">
+  <div class="toolbar" id="all-requests">
     <div class="segmented">
       <a href="/admin/requests?show=open" class="{{ 'active' if show == 'open' }}">Open</a>
       <a href="/admin/requests?show=all" class="{{ 'active' if show == 'all' }}">All</a>
@@ -136,4 +136,15 @@
     </div>
   {% endif %}
 </section>
+{% endblock %}
+{% block toc %}
+{% if pending_requests %}
+<nav class="toc" aria-label="Section navigation">
+  <p class="toc-title">On this page</p>
+  <ul>
+    <li><a href="#needs-review">Needs review</a></li>
+    <li><a href="#all-requests">All requests</a></li>
+  </ul>
+</nav>
+{% endif %}
 {% endblock %}

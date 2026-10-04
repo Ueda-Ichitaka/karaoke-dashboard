@@ -12,7 +12,7 @@
     <a class="btn btn-small" href="/admin/integrity">Rescan</a>
   </div>
 
-  <div class="page-head">
+  <div class="page-head" id="format">
     <h2>Song file format</h2>
     {% if format_reports %}
       <a class="btn btn-small" href="/admin/integrity/format-issues.upl">Export as UltraStar Manager playlist (.upl)</a>
@@ -45,10 +45,10 @@
     </div>
   {% endif %}
 
-  <div class="page-head">
+  <div class="page-head" id="structure">
     <h2>Library structure</h2>
     {% if structure_issues %}
-      <a class="btn btn-small" href="/admin/integrity/non-conforming.upl">Export as UltraStar Manager playlist (.upl)</a>
+      <a class="btn btn-small" href="/admin/integrity/non-conforming.moves">Export move list (for scripts/apply_moves.sh)</a>
     {% endif %}
   </div>
   {% if not structure_issues %}
@@ -76,10 +76,10 @@
     </ul>
   {% endif %}
 
-  <div class="page-head">
+  <div class="page-head" id="misplaced">
     <h2>Misplaced songs</h2>
     {% if misplaced_songs %}
-      <a class="btn btn-small" href="/admin/integrity/misplaced.upl">Export as UltraStar Manager playlist (.upl)</a>
+      <a class="btn btn-small" href="/admin/integrity/misplaced.moves">Export move list (for scripts/apply_moves.sh)</a>
     {% endif %}
   </div>
   <p class="subtle">
@@ -111,4 +111,14 @@
     </div>
   {% endif %}
 </section>
+{% endblock %}
+{% block toc %}
+<nav class="toc" aria-label="Section navigation">
+  <p class="toc-title">On this page</p>
+  <ul>
+    <li><a href="#format">Song file format</a></li>
+    <li><a href="#structure">Library structure</a></li>
+    <li><a href="#misplaced">Misplaced songs</a></li>
+  </ul>
+</nav>
 {% endblock %}

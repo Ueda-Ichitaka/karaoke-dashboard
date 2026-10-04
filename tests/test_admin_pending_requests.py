@@ -7,6 +7,7 @@ check, app/profiles.py), or discard it outright.
 
 from __future__ import annotations
 
+from app.app_settings import get_app_settings
 from app.database import SessionLocal
 from app.models import PendingSongRequest, SongRequest
 
@@ -21,6 +22,22 @@ def _pending_id() -> int:
     with SessionLocal() as db:
         row = db.query(PendingSongRequest).one()
         return row.id
+
+
+def _set_mode(mode: str) -> None:
+    with SessionLocal() as db:
+        get_app_settings(db).mode = mode
+        db.commit()
+
+
+def _fill_in_strict_fields(admin_client, pid: int, **overrides) -> None:
+    data = {
+        "band_name": "Queen", "song_name": "Bohemian Rhapsody",
+        "youtube_url": "https://www.youtube.com/watch?v=x",
+        "language": "en", "lyrics_url": "https://genius.com/queen-bohemian-rhapsody-lyrics",
+    }
+    data.update(overrides)
+    admin_client.post(f"/admin/requests/pending/{pid}/edit", data=data)
 
 
 def test_pending_section_shown_on_admin_requests_page(admin_client):
@@ -109,6 +126,35 @@ def test_pending_duplicate_check_still_blocks_a_second_karaoke_night_submission(
     r = admin_client.post("/request", data={"band_name": "Journey", "song_name": "Faithfully"})
     assert r.status_code == 422
     assert "already" in r.text.lower()
+
+
+def test_admit_blocked_in_production_when_song_already_in_library(admin_client):
+    # Submitting a request for a song that's already in the library (exact
+    # folder match) is already refused up front (app/routes/requests.py) -
+    # this test is about a pending request that only *later* comes to match
+    # one, e.g. after an edit, which isn't caught until admit time.
+    _submit(admin_client, band_name="Queen", song_name="Bohemian Rhapsodyyy")
+    pid = _pending_id()
+    _fill_in_strict_fields(admin_client, pid)
+
+    r = admin_client.post(f"/admin/requests/pending/{pid}/admit")
+    assert r.status_code == 422
+    assert "already in the library" in r.text.lower()
+    with SessionLocal() as db:
+        assert db.query(PendingSongRequest).count() == 1
+        assert db.query(SongRequest).count() == 0
+
+
+def test_admit_allowed_in_debug_mode_when_song_already_in_library(admin_client):
+    _set_mode("debug")
+    _submit(admin_client, band_name="Queen", song_name="Bohemian Rhapsodyyy")
+    pid = _pending_id()
+    _fill_in_strict_fields(admin_client, pid)
+
+    r = admin_client.post(f"/admin/requests/pending/{pid}/admit", follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as db:
+        assert db.query(SongRequest).count() == 1
 
 
 def test_pending_discard_button_present_in_listing(admin_client):

@@ -255,3 +255,89 @@ admin edit step on the request rather than the public request form.
 
 **Possibly later:** the same optional column on `broken.csv`, if repairs
 turn out to need it too. Not asked for now.
+
+## New broken.csv category: cover (wrong cover image)
+
+**Requested:** 2026-10-02. **Status: implemented 2026-10-03.** The song
+factory side was already implemented and reading the category
+(USDX-Song-Factory, `stack/orchestrator/broken_report.py` / `orchestrator.py:
+prepare_cover_repair()`); the dashboard now offers it too.
+
+**Ask 1 - a new category code.** Add `cover` to `CATEGORY_CHOICES` in
+`app/broken_categories.py`, for example:
+
+```python
+("cover", "Wrong or missing cover image"),
+```
+
+The code must be exactly `cover` (lower case). The song factory treats any
+code it does not know as "needs review".
+
+**Ask 2 - `cover_url` is mandatory for this category.** For every other
+category the cover link stays optional, as it is today ("Cover image link is
+never required", `app/profiles.py`). For a `cover` report the form should
+refuse an empty `cover_url`, the same way `other` already requires the
+description. The description stays optional for `cover`.
+
+No change to the export shape - `broken.csv` keeps its columns:
+
+```csv
+band,song name,category,description,lyrics_url,language,cover_url
+Queen,I Want To Break Free,cover,,,,https://example.org/right-cover.jpg
+```
+
+**What the song factory does with it:**
+
+- Only the cover is replaced. The song is copied to the repaired output
+  unchanged otherwise: no alignment, no lyrics lookup, no romanisation.
+  `lyrics_url` and `language` on such a row are ignored.
+- The image is saved next to the song file as `<song> [CO].jpg` or `.png`
+  (other image formats are converted to JPEG); `#COVER` points at it and
+  `#COVERURL` holds the link.
+- A row without `cover_url` is not processed and is listed as "needs
+  review" in the report.
+- A link that cannot be downloaded or is not an image fails the job (it is
+  retried, up to three attempts). This differs from the other categories,
+  where a bad cover link is ignored and the repair still succeeds.
+- Only the scheme and the image content are checked, so the link has to
+  point at the image file itself, not at a web page showing it.
+
+**Unchanged:** the optional `cover_url` on all other categories and on
+`song-requests.csv` (see "Added on this side" above) keeps working as before.
+
+## Added on this side (not requested): genre and trait columns
+
+**Added 2026-10-03.** Both `song-requests.csv` and `broken.csv` gained two
+more trailing columns: `genre` and `trait`. Nothing is required of the
+UltraSinger side - existing parsers that ignore unknown trailing columns
+keep working unchanged, same as every other "added on this side" column
+above.
+
+```csv
+band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet,genre,trait
+Cypecore,Identity,https://www.youtube.com/watch?v=_AzMxjumRys,en,,,,no,metal,harsh_vocals
+```
+
+- `genre` (`app/genres.py`): `default`, `metal`, `medieval`, `folk`,
+  `gothic`, `symphonic`, `punk`, `pop`, `rap`, `kpop`, or `jpop` - several
+  at once, comma-joined in the one cell (e.g. `metal,gothic`). `default`
+  means none was set.
+- `trait` (`app/traits.py`): `none`, `harsh_vocals`, `operatic_vocals`,
+  `loud_high_instruments`, or `choir` - one at a time.
+
+**Who fills it in:** not the requester/reporter - like the "style" column
+proposed above, this is information an admin adds when reviewing a pending
+request/report, before admitting it (or afterwards, via its normal Edit).
+Neither field is ever on the public request/report form.
+
+**Relationship to the "style" column proposal above:** `trait`'s
+`harsh_vocals`/`operatic_vocals` values cover similar ground to that
+proposal's `harsh`/`operatic` styles, but the two were not reconciled - this
+project needed the admin-tagging workflow now, while the song factory's
+"style" column is still unconfirmed ("do not implement yet"). If/when that
+side firms up its own values, these two may end up merged or mapped onto
+each other; until then, treat `trait` as this project's own field, not an
+implementation of the "style" ask.
+
+Both choice lists are expected to keep growing - only the lists themselves,
+not the columns or their meaning.

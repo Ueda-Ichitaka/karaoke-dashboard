@@ -20,4 +20,12 @@ def get_app_settings(db: Session) -> AppSettings:
         settings = AppSettings(id=_SINGLETON_ID)
         db.add(settings)
         db.commit()
+    if settings.mode is None:
+        # Backfills a row created before AppSettings.mode existed (nullable
+        # only so _sync_schema could auto-add it to the existing table).
+        settings.mode = "production"
+        db.commit()
+    if settings.logging_enabled is None:
+        settings.logging_enabled = True
+        db.commit()
     return settings

@@ -142,13 +142,15 @@ def test_requests_csv_includes_upstream_columns(admin_client):
     r = admin_client.get("/admin/requests.csv", params={"scope": "all"})
     assert r.status_code == 200
     body = r.text
-    assert body.startswith("band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet\n")
+    assert body.startswith(
+        "band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet,genre,trait\n"
+    )
     assert (
-        "Lacrimosa,Lichtgestalt,,de,mbid-123,https://genius.com/Lacrimosa-lichtgestalt-lyrics,,\n"
+        "Lacrimosa,Lichtgestalt,,de,mbid-123,https://genius.com/Lacrimosa-lichtgestalt-lyrics,,,default,none\n"
         in body
     )
     # optional columns stay blank, not "None", when unset
-    assert "Journey,Faithfully,,,,,,\n" in body
+    assert "Journey,Faithfully,,,,,,,default,none\n" in body
 
 
 # ------------------------------------------------------- cover image + duet
@@ -207,10 +209,10 @@ def test_requests_csv_exports_cover_url_and_duet_columns(admin_client):
         db.commit()
     body = admin_client.get("/admin/requests.csv", params={"scope": "all"}).text
     assert body.startswith(
-        "band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet\n"
+        "band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet,genre,trait\n"
     )
-    assert "Lacrimosa,Lichtgestalt,,,,,https://example.com/cover.jpg,yes\n" in body
-    assert "Journey,Faithfully,,,,,,no\n" in body
+    assert "Lacrimosa,Lichtgestalt,,,,,https://example.com/cover.jpg,yes,default,none\n" in body
+    assert "Journey,Faithfully,,,,,,no,default,none\n" in body
 
 
 # --------------------------------------------------------- duet default

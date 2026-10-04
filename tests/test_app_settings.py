@@ -14,6 +14,8 @@ def test_get_app_settings_creates_a_default_row_on_first_use(fresh_db):
         settings = get_app_settings(db)
         assert settings.request_profile == "karaoke_night"
         assert settings.report_profile == "strict"
+        assert settings.mode == "production"
+        assert settings.logging_enabled is True
 
 
 def test_get_app_settings_returns_the_same_row_on_later_calls(fresh_db):
@@ -43,7 +45,7 @@ def test_settings_view_shows_current_profiles(admin_client):
 def test_settings_view_updates_request_profile(admin_client):
     r = admin_client.post(
         "/admin/settings",
-        data={"request_profile": "strict", "report_profile": "strict"},
+        data={"request_profile": "strict", "report_profile": "strict", "mode": "production"},
         follow_redirects=False,
     )
     assert r.status_code == 303
@@ -56,7 +58,7 @@ def test_settings_view_updates_request_profile(admin_client):
 def test_settings_view_updates_report_profile_independently(admin_client):
     admin_client.post(
         "/admin/settings",
-        data={"request_profile": "karaoke_night", "report_profile": "karaoke_night"},
+        data={"request_profile": "karaoke_night", "report_profile": "karaoke_night", "mode": "production"},
     )
     with SessionLocal() as db:
         settings = get_app_settings(db)
@@ -75,3 +77,67 @@ def test_settings_view_rejects_an_unknown_profile(admin_client):
 def test_settings_nav_link_shown_to_admin(admin_client):
     r = admin_client.get("/admin/reports")
     assert 'href="/admin/settings"' in r.text
+
+
+# ------------------------------------------------------------------- app mode
+def test_settings_view_shows_current_mode(admin_client):
+    r = admin_client.get("/admin/settings")
+    assert "Production" in r.text
+    assert "Debug" in r.text
+
+
+def test_settings_view_updates_mode(admin_client):
+    r = admin_client.post(
+        "/admin/settings",
+        data={"request_profile": "strict", "report_profile": "strict", "mode": "debug"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    with SessionLocal() as db:
+        assert get_app_settings(db).mode == "debug"
+
+
+def test_settings_view_rejects_an_unknown_mode(admin_client):
+    r = admin_client.post(
+        "/admin/settings",
+        data={"request_profile": "strict", "report_profile": "strict", "mode": "not-a-mode"},
+    )
+    assert r.status_code == 422
+
+
+# -------------------------------------------------------------- logging toggle
+def test_settings_view_shows_the_logging_toggle(admin_client):
+    r = admin_client.get("/admin/settings")
+    assert 'name="logging_enabled"' in r.text
+
+
+def test_logging_toggle_is_checked_by_default(admin_client):
+    r = admin_client.get("/admin/settings")
+    assert "checked" in r.text.split('name="logging_enabled"')[1].split(">")[0]
+
+
+def test_settings_view_can_disable_logging(admin_client):
+    r = admin_client.post(
+        "/admin/settings",
+        data={"request_profile": "strict", "report_profile": "strict", "mode": "production"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    with SessionLocal() as db:
+        assert get_app_settings(db).logging_enabled is False
+
+
+def test_settings_view_can_re_enable_logging(admin_client):
+    admin_client.post(
+        "/admin/settings",
+        data={"request_profile": "strict", "report_profile": "strict", "mode": "production"},
+    )
+    admin_client.post(
+        "/admin/settings",
+        data={
+            "request_profile": "strict", "report_profile": "strict", "mode": "production",
+            "logging_enabled": "on",
+        },
+    )
+    with SessionLocal() as db:
+        assert get_app_settings(db).logging_enabled is True

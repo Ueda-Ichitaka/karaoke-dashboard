@@ -126,6 +126,7 @@ def test_request_flow_validation_and_csv(admin_client):
             "youtube_url": "https://youtu.be/abc",
             "language": "en",
             "lyrics_url": "https://genius.com/journey-faithfully-lyrics",
+            "musicbrainz_id": "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d",
         },
     )
     assert r.status_code == 200
@@ -141,7 +142,7 @@ def test_request_flow_validation_and_csv(admin_client):
     assert body.endswith("\n")
     assert "band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet,genre,trait\n" in body
     assert (
-        "Journey,Faithfully,https://youtu.be/abc,en,,"
+        "Journey,Faithfully,https://youtu.be/abc,en,b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d,"
         "https://genius.com/journey-faithfully-lyrics,,,default,none\n"
     ) in body
 

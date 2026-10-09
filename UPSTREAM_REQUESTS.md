@@ -215,11 +215,10 @@ as skipped with that reason until it does.
 
 ## Optional song-requests.csv column: style (announced, not final)
 
-**Announced:** 2026-10-01. **Status: do not implement yet** - the song
-factory does not read this column, and the list of values below is a
-proposal that still has to be confirmed by measurements on that side. This
-entry exists so the dependency is known early. It will be updated to
-"requested" with the final values once they are fixed.
+**Announced:** 2026-10-01. **Status: superseded (2026-10-04)** by the
+`genre` and `trait` columns this side added on 2026-10-03 - see "genre and
+trait columns: used by the song factory, trait with several values" below.
+Do not implement a separate `style` column.
 
 Background: the song factory's results are clearly worse for some vocal
 styles (growled or screamed metal vocals, operatic singing, songs with a
@@ -323,7 +322,8 @@ Cypecore,Identity,https://www.youtube.com/watch?v=_AzMxjumRys,en,,,,no,metal,har
   at once, comma-joined in the one cell (e.g. `metal,gothic`). `default`
   means none was set.
 - `trait` (`app/traits.py`): `none`, `harsh_vocals`, `operatic_vocals`,
-  `loud_high_instruments`, or `choir` - one at a time.
+  `loud_high_instruments`, or `choir` - several at once, comma-joined
+  like `genre` (e.g. `harsh_vocals,loud_high_instruments`).
 
 **Who fills it in:** not the requester/reporter - like the "style" column
 proposed above, this is information an admin adds when reviewing a pending
@@ -341,3 +341,44 @@ implementation of the "style" ask.
 
 Both choice lists are expected to keep growing - only the lists themselves,
 not the columns or their meaning.
+
+## genre and trait columns: used by the song factory, trait with several values
+
+**Requested:** 2026-10-04. Replaces the "style" proposal above. The song
+factory will read the `genre` and `trait` columns added on this side on
+2026-10-03 (see "Added on this side (not requested): genre and trait
+columns") and switch single steps on them - first the note pitch handling
+for `harsh_vocals`. Measurements on that side showed the vocal style
+cannot be detected reliably from the audio, so these admin-set values
+become the input for it.
+
+**Ask 1 - `trait` with several values. Status: already implemented on
+this side** (`app/traits.py`: `parse_traits()`/`format_traits()`,
+comma-joined like `genre`). A song can have several traits at once
+(examples from the factory's manual tests: Arkona and Eluveitie have harsh
+vocals and loud folk instruments; Therion songs have operatic vocals and a
+choir). The factory reads it in this form:
+
+```csv
+band name,song name,youtube link,language,musicbrainz_id,lyrics_url,cover_url,duet,genre,trait
+Arkona,"Goi, Rode, Goi!",https://www.youtube.com/watch?v=A7fuuDc2hH0,ru,,,,no,"metal,folk","harsh_vocals,loud_high_instruments"
+```
+
+(The comma-joined cells need CSV quoting, as Python's `csv` module writes
+them; the factory reads them with `csv.DictReader`.) `none` stays the value
+for "no special trait"; it is not combined with other values.
+
+**Ask 2 - more genre labels. Status: implemented 2026-10-09** (`app/genres.py`:
+`rock`, `industrial`, `ebm` added to `GENRE_CHOICES`). The list is expected
+to keep growing.
+
+**Meaning the factory relies on:**
+
+- Order inside a cell means nothing (`metal,gothic` = `gothic,metal`).
+- Values are per song, not per band - songs of the same band may differ.
+- Blank or `default` genre, and blank or `none` trait, mean "no special
+  handling" and stay valid for every existing row.
+- A value the factory does not know is ignored (logged), never an error,
+  so new labels can be added on this side at any time.
+- Same columns on `broken.csv` (already there) - the factory will read them
+  for repairs too.

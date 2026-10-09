@@ -59,8 +59,13 @@ def is_http_url(value: str) -> bool:
 def request_field_errors(
     band_name: str, song_name: str, youtube_url: str, language: str, musicbrainz_id: str = "",
     cover_url: str = "", duet: str = "", lyrics_url: str = "", profile: str = "karaoke_night",
+    required: set[str] | None = None,
 ) -> list[str]:
-    required = request_required_fields(profile)
+    """`required` overrides the profile lookup entirely when given - used by
+    the admit-time check (app/routes/admin.py), which has its own fixed set
+    of required fields independent of the request-form profile switch.
+    """
+    required = required if required is not None else request_required_fields(profile)
     errors: list[str] = []
     if not band_name:
         errors.append("Band name is required.")
@@ -74,6 +79,8 @@ def request_field_errors(
         errors.append("Please choose the song's language.")
     if language and not is_valid_language_code(language):
         errors.append("Unrecognized language.")
+    if "musicbrainz_id" in required and not musicbrainz_id:
+        errors.append("MusicBrainz ID is required.")
     if len(musicbrainz_id) > MUSICBRAINZ_ID_MAX_LENGTH:
         errors.append(
             f"Unrecognized MusicBrainz ID - paste the ID itself or a musicbrainz.org "

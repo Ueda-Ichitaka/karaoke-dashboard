@@ -36,6 +36,11 @@ router = APIRouter(prefix="/admin")
 _REPORT_STATES = {"open", "resolved"}
 _REQUEST_STATES = {"open", "done"}
 
+# Fields a song request must have before it can be admitted - fixed on
+# purpose, independent of the request-form profile switch in Settings
+# (app/profiles.py), which governs the public form only.
+_ADMIT_REQUIRED_FIELDS: frozenset[str] = frozenset({"youtube_url", "language", "musicbrainz_id", "lyrics_url"})
+
 
 def _parse_genre_trait(genre: list[str], trait: list[str]) -> tuple[str, str, list[str]]:
     """Normalizes+validates the admin-only genre/trait fields shared by the
@@ -668,7 +673,7 @@ def pending_request_admit(
     errors = request_field_errors(
         item.band_name, item.song_name, item.youtube_url or "", item.language or "",
         item.musicbrainz_id or "", item.cover_url or "", item.duet or "",
-        lyrics_url=item.lyrics_url or "", profile="strict",
+        lyrics_url=item.lyrics_url or "", required=_ADMIT_REQUIRED_FIELDS,
     )
     app_settings = get_app_settings(db)
     library_match = request_matching.find_library_match(item.band_name, item.song_name)

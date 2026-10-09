@@ -56,3 +56,5 @@ pgdata/
 *~
 .DS_Store
 Thumbs.db
+scripts/misplaced.moves
+scripts/non-conforming.moves

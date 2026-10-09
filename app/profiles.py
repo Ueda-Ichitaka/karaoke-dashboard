@@ -1,9 +1,11 @@
 """About me: the "karaoke night" vs "strict" required-field rules for the
 public request-song and report-broken forms, and for the strict admission
-check a pending entry must pass before an admin can move it into the
-exportable list (see app/routes/admin.py's admit routes). The two views
-switch independently - each has its own profile, set in the admin Settings
-view (app/routes/admin.py, app/models.py: AppSettings).
+check a pending broken report must pass before an admin can move it into
+the exportable list (see app/routes/admin.py's pending_report_admit). A
+pending song request's own admit gate is deliberately independent of this
+module - see app/routes/admin.py's _ADMIT_REQUIRED_FIELDS. The two public
+forms switch independently - each has its own profile, set in the admin
+Settings view (app/routes/admin.py, app/models.py: AppSettings).
 """
 
 from __future__ import annotations

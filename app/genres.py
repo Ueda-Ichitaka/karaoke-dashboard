@@ -21,6 +21,9 @@ GENRE_CHOICES: tuple[tuple[str, str], ...] = (
     ("rap", "Rap"),
     ("kpop", "K-pop"),
     ("jpop", "J-pop"),
+    ("rock", "Rock"),
+    ("industrial", "Industrial"),
+    ("ebm", "EBM"),
 )
 
 GENRE_CODES: frozenset[str] = frozenset(code for code, _ in GENRE_CHOICES)

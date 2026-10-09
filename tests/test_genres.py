@@ -20,7 +20,16 @@ def test_genre_choices_include_the_requested_list():
     assert codes == [
         "default", "metal", "medieval", "folk", "gothic",
         "symphonic", "punk", "pop", "rap", "kpop", "jpop",
+        "rock", "industrial", "ebm",
     ]
+
+
+def test_is_valid_genre_includes_the_2026_10_09_upstream_additions():
+    # UPSTREAM_REQUESTS.md "Ask 2 - more genre labels": used in the song
+    # factory's manual tests but missing here until now.
+    assert is_valid_genre("rock")
+    assert is_valid_genre("industrial")
+    assert is_valid_genre("ebm")
 
 
 def test_is_valid_genre():

@@ -115,6 +115,7 @@ def test_genre_and_trait_carry_over_on_admit(admin_client):
             "band_name": "Journey", "song_name": "Faithfully",
             "youtube_url": "https://www.youtube.com/watch?v=x",
             "language": "en", "lyrics_url": "https://genius.com/journey-faithfully-lyrics",
+            "musicbrainz_id": "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d",
             "genre": ["metal"], "trait": ["choir"],
         },
     )

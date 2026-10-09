@@ -1,8 +1,10 @@
 """Tests for the admin "pending review" section on /admin/requests: a newly
 submitted request now lands in PendingSongRequest, shown in a section above
 the existing admitted-list table. An admin can edit it in place, admit it
-(moved into SongRequest once it passes the strict-profile completeness
-check, app/profiles.py), or discard it outright.
+(moved into SongRequest once it passes the admit gate's own fixed set of
+required fields, app/routes/admin.py: _ADMIT_REQUIRED_FIELDS - independent
+of the request-form profile switch in Settings, app/profiles.py), or
+discard it outright.
 """
 
 from __future__ import annotations
@@ -35,6 +37,7 @@ def _fill_in_strict_fields(admin_client, pid: int, **overrides) -> None:
         "band_name": "Queen", "song_name": "Bohemian Rhapsody",
         "youtube_url": "https://www.youtube.com/watch?v=x",
         "language": "en", "lyrics_url": "https://genius.com/queen-bohemian-rhapsody-lyrics",
+        "musicbrainz_id": "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d",
     }
     data.update(overrides)
     admin_client.post(f"/admin/requests/pending/{pid}/edit", data=data)
@@ -72,19 +75,36 @@ def test_edit_pending_request_saves_changes(admin_client):
         assert row.song_name == "Faithfully (Live)"
 
 
-def test_admit_blocked_until_strict_fields_are_filled_in(admin_client):
+def test_admit_blocked_until_admit_fields_are_filled_in(admin_client):
     _submit(admin_client)  # karaoke-night default: only band/song present
     pid = _pending_id()
 
     r = admin_client.post(f"/admin/requests/pending/{pid}/admit")
     assert r.status_code == 422
-    assert "youtube" in r.text.lower()
-    assert "language" in r.text.lower()
-    assert "lyrics" in r.text.lower()
+    assert "YouTube link is required." in r.text
+    assert "Please choose the song&#39;s language." in r.text or "Please choose the song's language." in r.text
+    assert "Lyrics link is required." in r.text
+    assert "MusicBrainz ID is required." in r.text
 
     with SessionLocal() as db:
         assert db.query(PendingSongRequest).count() == 1
         assert db.query(SongRequest).count() == 0
+
+
+def test_admit_fields_required_regardless_of_the_request_profile_setting(admin_client):
+    # the admit gate is its own fixed set of required fields, independent of
+    # the request-form profile switch in Settings (app/profiles.py) - even
+    # under the lenient "karaoke_night" profile (the default), admit must
+    # still demand youtube/language/musicbrainz/lyrics.
+    with SessionLocal() as db:
+        app_settings = get_app_settings(db)
+        assert app_settings.request_profile == "karaoke_night"
+    _submit(admin_client)
+    pid = _pending_id()
+
+    r = admin_client.post(f"/admin/requests/pending/{pid}/admit")
+    assert r.status_code == 422
+    assert "MusicBrainz ID is required." in r.text
 
 
 def test_admit_succeeds_once_complete_and_moves_the_row(admin_client):
@@ -96,6 +116,7 @@ def test_admit_succeeds_once_complete_and_moves_the_row(admin_client):
             "band_name": "Journey", "song_name": "Faithfully",
             "youtube_url": "https://www.youtube.com/watch?v=x",
             "language": "en", "lyrics_url": "https://genius.com/journey-faithfully-lyrics",
+            "musicbrainz_id": "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d",
         },
     )
 

@@ -97,9 +97,13 @@ def request_field_errors(
 
 def broken_report_field_errors(
     category: str, description: str, genius_url: str = "", language: str = "", cover_url: str = "",
-    profile: str = "strict",
+    profile: str = "strict", required: set[str] | None = None,
 ) -> list[str]:
-    required = report_required_fields(profile, category)
+    """`required` overrides the profile lookup entirely when given - used by
+    the admin edit form and admit gate (app/routes/admin.py), which have
+    their own fixed set of required fields independent of the profile.
+    """
+    required = required if required is not None else report_required_fields(profile, category)
     errors: list[str] = []
     if not category:
         errors.append("Please choose a category.")
@@ -108,7 +112,7 @@ def broken_report_field_errors(
     if "description" in required and not description:
         errors.append("Please describe what's broken.")
     if "genius_url" in required and not genius_url:
-        errors.append('Please provide a genius.com lyrics link for this category.')
+        errors.append("Please provide a genius.com lyrics link.")
     if genius_url and not is_http_url(genius_url):
         errors.append("The lyrics link must start with http:// or https://")
     if "language" in required and not language:

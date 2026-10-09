@@ -7,10 +7,10 @@ A small web app for a home karaoke system:
 | **Songs** | everyone | Browse & search the library (one entry per folder in your songs directory). |
 | **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, wrong/missing cover image, other) and describe what's broken (both always required, **except** "wrong/missing cover image", which requires a cover image link instead - there's nothing to describe). Under the **strict** profile, the language and (for "lyrics broken"/"out of sync") a genius.com lyrics link are required too; under **karaoke night**, everything past the song/category/description is optional. Which profile applies is an admin setting - see Settings below. Submissions land in a review queue, not the exportable list directly - see **Requested**/**Reported** below. |
 | **Request song** | logged-in users | Ask for a new song: band + title always required. Under **strict**, YouTube link, language and lyrics link are required too, plus MusicBrainz ID, cover image link and Duet stay optional in both profiles; under **karaoke night**, only band + title are required. Duet - is a duet version wanted? - defaults to "No" (blank/"Unspecified" was removed as a choice). Rejected if the song already exists in the library *or* already has a request (pending review or already admitted) with the same Duet setting - a plain and a duet request for the same song are both allowed at once. Submissions land in a review queue - see **Requested** below. |
-| **Reported** | admins | A **"Needs review" section** lists newly submitted reports, not yet exportable: edit one to fill in anything missing - including an admin-only **genre**/**trait** tag, see CSV export below - then **Admit** it (blocked until it meets the strict profile's full field list, regardless of which profile was live at submission) to move it into the exportable list below, or **Discard** it. The exportable list itself: review / edit / resolve broken-song reports, **export as CSV** (`broken.csv`). A second report for a song that's still pending review or already has an open admitted report merges into it instead of creating a duplicate row - see below. |
-| **Requested** | admins | Same **"Needs review"** / Edit / Admit / Discard flow as Reported, above, for song requests. **Admit** has its own fixed required-field list - YouTube link, language, MusicBrainz ID and lyrics link - independent of whichever Request song profile is currently live (so switching that profile later never changes what admit demands). Admit is also blocked in production mode if the song already exists in the library (exact folder match) - switch to **debug** mode (see Settings) to admit it anyway. The exportable list: review / edit / close / delete song requests, see whether one already matches the library, **export as CSV**. |
+| **Reported** | admins | A **"Needs review" section** lists newly submitted reports, not yet exportable: edit one to fill in anything missing - including an admin-only **genre**/**trait** tag, see CSV export below - then **Admit** it to move it into the exportable list below, or **Discard** it. The admin **Edit** form (pending and admitted alike) and **Admit** always require a language and a genius.com lyrics link, for every category and independent of whichever Report broken profile is live, on top of the category's own rule (a description, or a cover image link for "wrong/missing cover image"). The exportable list itself: review / edit / resolve broken-song reports, **export as CSV** (`broken.csv`). A second report for a song that's still pending review or already has an open admitted report merges into it instead of creating a duplicate row - see below. |
+| **Requested** | admins | Same **"Needs review"** / Edit / Admit / Discard flow as Reported, above, for song requests. The admin **Edit** form (pending and admitted alike) and **Admit** share their own fixed required-field list - YouTube link, language, MusicBrainz ID and lyrics link - independent of whichever Request song profile is currently live (so switching that profile later never changes what an admin must fill in). Admit is also blocked in production mode if the song already exists in the library (exact folder match) - switch to **debug** mode (see Settings) to admit it anyway. The exportable list: review / edit / close / delete song requests, see whether one already matches the library, **export as CSV**. |
 | **Duplicates** | admins | Review songs that appear more than once, compare their metadata, dismiss false positives. Results are cached (scanning is expensive) - rescan on demand or wait for the scheduled monthly rescan. |
-| **Integrity** | admins | Song files checked against the UltraStar format spec (exportable as an UltraStar Manager playlist), the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder). The latter two export a move list instead - a NUL-delimited file naming every file's current and correct path - for the standalone `scripts/apply_moves.sh` to actually move on disk, something UltraStar Manager itself can't do. A page with more than one section (like this one) gets a slim fixed sidebar so you can jump to a section instead of scrolling. Rescan on demand with the button at the top. |
+| **Integrity** | admins | Song files checked against the UltraStar format spec (with a count of affected song files and a filter by issue type, e.g. only "#VIDEO file not found"; exportable as an UltraStar Manager playlist), the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder). The latter two export a move list instead - a NUL-delimited file naming every file's current and correct path - for the standalone `scripts/apply_moves.sh` to actually move on disk, something UltraStar Manager itself can't do. A page with more than one section (like this one) gets a slim fixed sidebar so you can jump to a section instead of scrolling. Rescan on demand with the button at the top. |
 | **Users** | admins | Create users, reset passwords, grant/revoke admin, disable, delete. |
 | **Settings** | admins | Switch the Request song and Report broken forms between the **karaoke night** and **strict** profiles, independently of each other; switch the app between **production** and **debug** mode (raises the log level; also lets an admin admit a song request for a song already in the library); and an **Enable logging** toggle that silences all logging outright, independently of mode. |
 
@@ -88,6 +88,49 @@ escaping. Run it by hand against the real `songs_dir` mount:
 destination folder as needed and never overwrites an existing file (it
 skips and reports that on stderr instead). A nested subfolder literally
 named `-` is left alone by the structure-moves export.
+
+**Case-only mismatches.** Over an SMB mount without Unix extensions (e.g.
+`vers=3.0`), the NAS's Samba matches filenames case-insensitively. When
+UltraStar Manager's rename only changes letter case ("abba - i have a
+dream.mp3" -> "ABBA - I Have A Dream.mp3"), it rewrites the tag in the .txt,
+but the share reports the new name as already existing and the file rename
+is refused. Players over that mount still find the file; the integrity
+check, reading the NAS's own case-sensitive disk, does not. The standalone
+**`scripts/fix_case_mismatches.py [--dry-run] [--root <songs-dir>]`**
+(stdlib Python, also outside `app/`) renames each such file to the tag's
+spelling via a temporary name, which the share accepts. It never edits a
+.txt, skips anything ambiguous, and never overwrites a file. Safe to rerun.
+
+**Missing audio/video sources.** The standalone
+**`scripts/repair_library.py [--dry-run] [--root <songs-dir>] [--csv <file>]`**
+(stdlib Python, outside `app/`) repairs song .txt files without a working
+audio/video source and lists what it can't repair as report rows, in the
+`broken.csv` format, for the **Import CSV** on the `Reported` tab:
+
+- A duet without audio next to a solo whose `#BPM` is at most 0.1% and
+  `#GAP` at most 0.6 s apart gets the solo's `#MP3`/`#VIDEO` - it's a duet
+  version of the same recording.
+- Any other such duet moves to its own `<folder> [DUET]` folder (with its
+  `.usdb` marker and own images), gets copies of the solo's media, and a
+  report row (category `other`) asking for re-timing and a `#GAP`
+  recalculation, with the intended video from its `.usdb` marker. Its own
+  folder is what lets the song factory, which repairs one folder at a time
+  using its first song .txt, work on it.
+- A missing or dangling `#MP3`/`#VIDEO` (or an absent `#VIDEO` with a video
+  file present) is set to the file it can only mean: the one named with
+  the song's USDB video ID, else the only such file in the folder. A linked
+  file starting with `_` loses that `_` unless the plain name is taken.
+- Anything else - no such file, or several and none identifiable - becomes
+  a report row (category `audio`/`video`).
+
+Each song gets one row only, since the dashboard reports a song once: the
+first repair found sets the category, every further one is appended to the
+description as "Also (<category>): ...". Report rows carry what the files state: language (`#LANGUAGE`, mapped to
+the dashboard's codes), genre (`#GENRE`, exact code matches only), cover
+link (`.usdb`). A dry run writes no CSV unless `--csv` is given. Before
+editing a .txt it keeps a `<name>.txt.bak` copy (an existing one is never
+overwritten), and it preserves the file's encoding and line endings. Run
+`fix_case_mismatches.py` first - letter-case mismatches are left to it.
 
 ---
 
@@ -271,6 +314,18 @@ status are left as they are. A report against a song whose earlier report has
 already been marked resolved is treated as a new occurrence, not a
 duplicate, and gets its own row.
 
+**Importing reports** (`app/report_import.py`): `Reported` tab → **Import
+CSV** accepts a file in the same format as the `broken.csv` export (header
+row optional, older exports with fewer trailing columns work too, UTF-8 or
+Windows-1252, up to 256 KB). Each row's song is found by an exact
+`band - song name` folder match (case-insensitive) and becomes a report in
+**Needs review** - never directly exportable - or merges into the song's
+existing open/pending report, the same way as above. A row is skipped, with
+its line number and reason shown, if no such folder exists or a value isn't
+valid (category, language, genre, trait codes; links must be http(s)); the
+other rows still import. Imported reports still need a language and lyrics
+link before they can be admitted, like any other.
+
 ---
 
 ## Security
@@ -422,6 +477,7 @@ app/
   move_export.py     NUL-delimited move-list export for structure/misplaced checks (scripts/apply_moves.sh)
   request_matching.py  does a song request already exist in the library, the pending queue, or the request queue?
   report_matching.py   finds/merges a duplicate broken-song report into a pending or already-open one
+  report_import.py     imports broken reports from a broken.csv-format file into Needs review
   duet.py            yes/no Duet choice for the request form (defaults to "No")
   languages.py       language choices shared by the request/report forms (ISO 639-1 + "Mixed")
   broken_categories.py  fixed category list for the broken-report form
@@ -440,5 +496,7 @@ app/
   static/            style.css, app.js (progressive enhancement)
 scripts/
   apply_moves.sh     standalone - not built into the container - applies a move-list export on disk
+  fix_case_mismatches.py  standalone - renames files whose name differs from their tag only in letter case
+  repair_library.py  standalone - links missing audio/video sources, moves re-timing duets, writes report CSV
 tests/               pytest end-to-end tests
 ```

@@ -1,9 +1,9 @@
 """About me: the "karaoke night" vs "strict" required-field rules for the
-public request-song and report-broken forms, and for the strict admission
-check a pending broken report must pass before an admin can move it into
-the exportable list (see app/routes/admin.py's pending_report_admit). A
-pending song request's own admit gate is deliberately independent of this
-module - see app/routes/admin.py's _ADMIT_REQUIRED_FIELDS. The two public
+public request-song and report-broken forms, plus the per-category report
+rules both profiles share (report_category_required_fields). The admin
+edit forms and admit gates use their own fixed field lists instead,
+independent of the profiles - see app/routes/admin.py's
+_ADMIN_REQUIRED_FIELDS and _ADMIN_REPORT_REQUIRED_FIELDS. The two public
 forms switch independently - each has its own profile, set in the admin
 Settings view (app/routes/admin.py, app/models.py: AppSettings).
 """
@@ -40,21 +40,30 @@ def request_required_fields(profile: str) -> set[str]:
     return required
 
 
-def report_required_fields(profile: str, category: str) -> set[str]:
-    """Which report-form fields are mandatory under the given profile.
+def report_category_required_fields(category: str) -> set[str]:
+    """The report fields every category requires, whatever the profile.
 
-    The song picker and category are always required, in both profiles.
-    Every category also requires the "what's broken?" description, except
-    "cover" (_COVER_URL_CATEGORY), which requires a cover image link
-    instead - there's nothing to describe, the link itself is the fix.
-    Strict additionally requires the language, plus a lyrics link for the
-    categories that already call for one (app/broken_categories.py).
+    The song picker and category are always required. Every category also
+    requires the "what's broken?" description, except "cover"
+    (_COVER_URL_CATEGORY), which requires a cover image link instead -
+    there's nothing to describe, the link itself is the fix.
     """
     required = {"song_folder", "category"}
     if category == _COVER_URL_CATEGORY:
         required.add("cover_url")
     else:
         required.add("description")
+    return required
+
+
+def report_required_fields(profile: str, category: str) -> set[str]:
+    """Which report-form fields are mandatory under the given profile.
+
+    The category's own fields (report_category_required_fields) in both
+    profiles. Strict additionally requires the language, plus a lyrics link
+    for the categories that already call for one (app/broken_categories.py).
+    """
+    required = report_category_required_fields(category)
     if profile == "strict":
         required.add("language")
         if category in _GENIUS_REQUIRED_CATEGORIES:

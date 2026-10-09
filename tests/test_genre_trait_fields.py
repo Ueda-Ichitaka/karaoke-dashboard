@@ -11,6 +11,14 @@ from __future__ import annotations
 from app.database import SessionLocal
 from app.models import BrokenReport, PendingBrokenReport, PendingSongRequest, SongRequest
 
+# The admin request edit form always requires these (app/routes/admin.py:
+# _ADMIN_REQUIRED_FIELDS).
+_ADMIN_FIELDS = {
+    "youtube_url": "https://www.youtube.com/watch?v=x", "language": "en",
+    "musicbrainz_id": "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d",
+    "lyrics_url": "https://genius.com/journey-faithfully-lyrics",
+}
+
 
 def test_new_song_request_defaults_genre_and_trait(fresh_db):
     with SessionLocal() as db:
@@ -70,7 +78,7 @@ def test_admin_can_edit_genre_and_trait_on_a_pending_request(admin_client):
     admin_client.post(
         f"/admin/requests/pending/{pid}/edit",
         data={
-            "band_name": "Journey", "song_name": "Faithfully",
+            "band_name": "Journey", "song_name": "Faithfully", **_ADMIN_FIELDS,
             "genre": ["metal", "gothic"], "trait": ["harsh_vocals"],
         },
     )
@@ -92,7 +100,7 @@ def test_admin_can_select_multiple_traits_on_a_pending_request(admin_client):
     admin_client.post(
         f"/admin/requests/pending/{pid}/edit",
         data={
-            "band_name": "Journey", "song_name": "Faithfully",
+            "band_name": "Journey", "song_name": "Faithfully", **_ADMIN_FIELDS,
             "genre": ["metal"], "trait": ["harsh_vocals", "choir"],
         },
     )
@@ -134,7 +142,10 @@ def test_admin_can_edit_genre_and_trait_on_an_admitted_request(admin_client):
 
     admin_client.post(
         f"/admin/requests/{rid}/edit",
-        data={"band_name": "Journey", "song_name": "Faithfully", "genre": ["pop"], "trait": ["none"]},
+        data={
+            "band_name": "Journey", "song_name": "Faithfully", **_ADMIN_FIELDS,
+            "genre": ["pop"], "trait": ["none"],
+        },
     )
     with SessionLocal() as db:
         assert db.get(SongRequest, rid).genre == "pop"
@@ -164,6 +175,7 @@ def test_admin_can_edit_genre_and_trait_on_a_pending_report(admin_client):
         data={
             "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
             "description": "no audio", "language": "de",
+            "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
             "genre": ["symphonic"], "trait": ["operatic_vocals"],
         },
     )
@@ -187,6 +199,7 @@ def test_genre_and_trait_carry_over_on_report_admit(admin_client):
         data={
             "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
             "description": "no audio", "language": "de",
+            "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
             "genre": ["symphonic"], "trait": ["operatic_vocals"],
         },
     )

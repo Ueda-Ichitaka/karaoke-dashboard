@@ -59,10 +59,8 @@
     </label>
 
     <label class="field">
-      <span class="field-label">
-        Genius lyrics link <em data-broken-genius-hint>(required for "Lyrics broken" / "Song goes out of sync")</em>
-      </span>
-      <input type="url" name="genius_url" value="{{ form.genius_url }}" data-broken-genius
+      <span class="field-label">Genius lyrics link <em>(required)</em></span>
+      <input type="url" name="genius_url" required value="{{ form.genius_url }}"
              placeholder="https://genius.com/…">
     </label>
 

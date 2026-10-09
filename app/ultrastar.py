@@ -123,8 +123,10 @@ def parse_song_file(path: Path) -> SongMeta | None:
     if not all(tag in tags for tag in _MANDATORY_TAGS):
         return None
 
-    duet_p1 = tags.get("DUETSINGERP1") or None
-    duet_p2 = tags.get("DUETSINGERP2") or None
+    # #P1/#P2 is the modern, short tag name for the duet singers; #DUETSINGERP1/
+    # #DUETSINGERP2 is the older, legacy name - real-world files use either.
+    duet_p1 = tags.get("DUETSINGERP1") or tags.get("P1") or None
+    duet_p2 = tags.get("DUETSINGERP2") or tags.get("P2") or None
 
     return SongMeta(
         source_file=path.name,

@@ -141,6 +141,22 @@ _DUP_DUET_DIR.mkdir(exist_ok=True)
     encoding="utf-8",
 )
 
+# A solo song plus a duet arrangement of it tagged with #P1/#P2 - the
+# modern, short UltraStar tag name for the duet singers that real-world
+# libraries actually use (as opposed to the legacy #DUETSINGERP1/P2 tags
+# above). Must NOT be grouped together, same as the pair above.
+_SHORTTAG_SOLO_DIR = _SONGS_DIR / "Duo - Shared Mic"
+_SHORTTAG_SOLO_DIR.mkdir(exist_ok=True)
+(_SHORTTAG_SOLO_DIR / "Shared Mic.txt").write_text(
+    "#TITLE:Shared Mic\n#ARTIST:Duo\n#BPM:120\n#GAP:0\nE\n", encoding="utf-8"
+)
+_SHORTTAG_DUET_DIR = _SONGS_DIR / "Duo - Shared Mic (Duet)"
+_SHORTTAG_DUET_DIR.mkdir(exist_ok=True)
+(_SHORTTAG_DUET_DIR / "Shared Mic.txt").write_text(
+    "#TITLE:Shared Mic\n#ARTIST:Duo\n#P1:Alice\n#P2:Bob\n#BPM:120\n#GAP:0\nE\n",
+    encoding="utf-8",
+)
+
 os.environ.update(
     DATABASE_URL=f"sqlite:///{_TMP / 'test.db'}",
     SECRET_KEY="test-secret",

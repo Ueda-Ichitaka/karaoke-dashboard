@@ -18,9 +18,26 @@
       <a class="btn btn-small" href="/admin/integrity/format-issues.upl">Export as UltraStar Manager playlist (.upl)</a>
     {% endif %}
   </div>
-  {% if not format_reports %}
+  {% if not format_total %}
     <p class="empty">No format issues found.</p>
   {% else %}
+    <form class="inline-form" method="get" action="/admin/integrity#format">
+      <label>
+        <span>Issue type</span>
+        <select name="issue">
+          <option value="" {{ 'selected' if not format_issue }}>All issues ({{ format_total }})</option>
+          {% for kind, count in format_kinds %}
+            <option value="{{ kind }}" {{ 'selected' if kind == format_issue }}>{{ kind }} ({{ count }})</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="btn btn-small">Filter</button>
+    </form>
+    <p class="subtle">{% if format_issue %}{{ format_reports|length }} of {% endif %}{{ format_total }} song files affected</p>
+  {% endif %}
+  {% if format_total and not format_reports %}
+    <p class="empty">No song files with this issue.</p>
+  {% elif format_reports %}
     <div class="table-wrap">
       <table class="data-table">
         <thead>

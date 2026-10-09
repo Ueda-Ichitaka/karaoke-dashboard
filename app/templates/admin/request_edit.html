@@ -23,12 +23,12 @@
       <input type="text" name="song_name" required value="{{ form.song_name }}">
     </label>
     <label class="field">
-      <span class="field-label">YouTube link <em>(optional)</em></span>
-      <input type="url" name="youtube_url" value="{{ form.youtube_url }}">
+      <span class="field-label">YouTube link <em>(required)</em></span>
+      <input type="url" name="youtube_url" required value="{{ form.youtube_url }}">
     </label>
     <label class="field">
-      <span class="field-label">Language <em>(optional)</em></span>
-      <select name="language">
+      <span class="field-label">Language <em>(required)</em></span>
+      <select name="language" required>
         {% for code, label in language_choices %}
           <option value="{{ code }}" {{ 'selected' if form.language == code }}>{{ label }}</option>
         {% endfor %}
@@ -36,17 +36,17 @@
     </label>
     <label class="field">
       <span class="field-label">
-        MusicBrainz ID <em>(optional)</em>
+        MusicBrainz ID <em>(required)</em>
         <span class="field-hint" tabindex="0" aria-label="A MusicBrainz recording or release ID - either works, it's auto-detected." data-tip="A MusicBrainz recording or release ID - either works, it's auto-detected.">?</span>
       </span>
-      <input type="text" name="musicbrainz_id" value="{{ form.musicbrainz_id }}">
+      <input type="text" name="musicbrainz_id" required value="{{ form.musicbrainz_id }}">
     </label>
     <label class="field">
       <span class="field-label">
-        Lyrics link <em>(optional)</em>
+        Lyrics link <em>(required)</em>
         <span class="field-hint" tabindex="0" aria-label="A genius.com song page, a direct link to a .txt/.lrc file, or a filesystem path to a lyrics file you've prepared yourself." data-tip="A genius.com song page, a direct link to a .txt/.lrc file, or a filesystem path to a lyrics file you've prepared yourself.">?</span>
       </span>
-      <input type="text" name="lyrics_url" value="{{ form.lyrics_url }}" placeholder="URL or a filesystem path">
+      <input type="text" name="lyrics_url" required value="{{ form.lyrics_url }}" placeholder="URL or a filesystem path">
     </label>
     <label class="field">
       <span class="field-label">Cover image link <em>(optional)</em></span>

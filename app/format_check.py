@@ -1,6 +1,7 @@
 """About me: checks UltraStar .txt song files for conformity to the format
 spec (https://github.com/UltraStar-Deluxe/format), for the admin integrity
-view. Not a full grammar validator - it catches the deviations that matter
+view (which can filter its table by issue kind - issue_kind_counts,
+filter_reports). Not a full grammar validator - it catches the deviations that matter
 in practice: missing mandatory tags, broken media references, malformed
 numeric fields, and body lines that don't parse as notes/phrase-breaks/voice
 changes. A .txt with no "#KEY:VALUE" header lines at all is assumed not to
@@ -27,6 +28,7 @@ _NOTE_TYPES = (":", "*", "F", "R", "G")
 class FormatIssue:
     severity: str  # "error" | "warning"
     message: str
+    kind: str  # the issue's type without file/line details, e.g. "#VIDEO file not found"
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,11 +46,11 @@ def _check_mandatory_tags(tags: dict[str, str]) -> list[FormatIssue]:
     issues = []
     for tag in _MANDATORY_TAGS:
         if not tags.get(tag):
-            issues.append(FormatIssue("error", f"Missing mandatory #{tag} tag."))
+            issues.append(FormatIssue("error", f"Missing mandatory #{tag} tag.", f"Missing #{tag}"))
     if not tags.get("MP3") and not tags.get("AUDIO"):
-        issues.append(FormatIssue("error", "No audio reference (#MP3 or #AUDIO)."))
+        issues.append(FormatIssue("error", "No audio reference (#MP3 or #AUDIO).", "No audio reference"))
     if not tags.get("VERSION"):
-        issues.append(FormatIssue("warning", "Missing #VERSION tag."))
+        issues.append(FormatIssue("warning", "Missing #VERSION tag.", "Missing #VERSION"))
     return issues
 
 
@@ -57,7 +59,7 @@ def _check_numeric_tags(tags: dict[str, str]) -> list[FormatIssue]:
     for tag in _NUMERIC_TAGS:
         value = tags.get(tag)
         if value and not _NUMERIC_RE.match(value):
-            issues.append(FormatIssue("warning", f"Malformed #{tag} value: {value!r}."))
+            issues.append(FormatIssue("warning", f"Malformed #{tag} value: {value!r}.", f"Malformed #{tag}"))
     return issues
 
 
@@ -68,7 +70,9 @@ def _check_file_references(tags: dict[str, str], folder: Path) -> list[FormatIss
         if not name:
             continue
         if not (folder / name).is_file():
-            issues.append(FormatIssue("error", f"Referenced #{tag} file not found: {name!r}."))
+            issues.append(
+                FormatIssue("error", f"Referenced #{tag} file not found: {name!r}.", f"#{tag} file not found")
+            )
     return issues
 
 
@@ -93,13 +97,17 @@ def _check_body(text: str, tags: dict[str, str]) -> list[FormatIssue]:
         elif re.fullmatch(r"P[1-9]", stripped):
             used_voices.add(stripped)
         else:
-            issues.append(FormatIssue("warning", f"Unrecognized line in body: {stripped[:40]!r}."))
+            issues.append(
+                FormatIssue("warning", f"Unrecognized line in body: {stripped[:40]!r}.", "Unrecognized body line")
+            )
 
     for voice in sorted(used_voices - declared_voices):
-        issues.append(FormatIssue("warning", f"Voice change {voice} used without a matching #{voice} header."))
+        issues.append(FormatIssue(
+            "warning", f"Voice change {voice} used without a matching #{voice} header.", "Voice change without header"
+        ))
 
     if note_lines == 0:
-        issues.append(FormatIssue("error", "No note lines found - the song has no notes."))
+        issues.append(FormatIssue("error", "No note lines found - the song has no notes.", "No note lines"))
     return issues
 
 
@@ -148,3 +156,19 @@ def check_library(root: str | Path | None = None) -> list[FileReport]:
                 rel_name = str(txt_file.relative_to(folder))
                 reports.append(FileReport(folder=folder.name, filename=rel_name, issues=report.issues))
     return reports
+
+
+def issue_kind_counts(reports: list[FileReport]) -> list[tuple[str, int]]:
+    """Each issue kind with how many files have it, most common first."""
+    counts: dict[str, int] = {}
+    for report in reports:
+        for kind in {i.kind for i in report.issues}:
+            counts[kind] = counts.get(kind, 0) + 1
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+
+
+def filter_reports(reports: list[FileReport], kind: str) -> list[FileReport]:
+    """The files that have an issue of this kind - all of them for ""."""
+    if not kind:
+        return reports
+    return [r for r in reports if any(i.kind == kind for i in r.issues)]

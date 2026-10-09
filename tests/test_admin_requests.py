@@ -10,6 +10,13 @@ from __future__ import annotations
 from app.database import SessionLocal
 from app.models import SongRequest
 
+# The admin edit form always requires these (app/routes/admin.py:
+# _ADMIN_REQUIRED_FIELDS), independent of the request-form profile.
+_ADMIN_FIELDS = {
+    "youtube_url": "https://www.youtube.com/watch?v=x", "language": "en",
+    "musicbrainz_id": "mbid-1", "lyrics_url": "https://genius.com/some-song-lyrics",
+}
+
 
 def _insert_request(band: str, song: str, **kwargs) -> int:
     with SessionLocal() as db:
@@ -109,7 +116,7 @@ def test_edit_saves_changes(admin_client):
         f"/admin/requests/{rid}/edit",
         data={
             "band_name": "Journey", "song_name": "Faithfully",
-            "youtube_url": "", "language": "en", "musicbrainz_id": "mbid-9",
+            "youtube_url": "https://www.youtube.com/watch?v=x", "language": "en", "musicbrainz_id": "mbid-9",
             "lyrics_url": "/songs/Journey - Faithfully/lyrics.txt",
         },
         follow_redirects=False,
@@ -180,7 +187,7 @@ def test_edit_form_shows_and_saves_cover_url_and_duet(admin_client):
     r = admin_client.post(
         f"/admin/requests/{rid}/edit",
         data={
-            "band_name": "Journey", "song_name": "Faithfully",
+            "band_name": "Journey", "song_name": "Faithfully", **_ADMIN_FIELDS,
             "cover_url": "https://example.com/b.jpg", "duet": "yes",
         },
         follow_redirects=False,
@@ -193,7 +200,7 @@ def test_edit_form_shows_and_saves_cover_url_and_duet(admin_client):
 
 def test_edit_rejects_invalid_cover_url_and_duet(admin_client):
     rid = _insert_request("Journey", "Faithfully")
-    base = {"band_name": "Journey", "song_name": "Faithfully"}
+    base = {"band_name": "Journey", "song_name": "Faithfully", **_ADMIN_FIELDS}
     assert admin_client.post(
         f"/admin/requests/{rid}/edit", data={**base, "cover_url": "nope"}
     ).status_code == 422

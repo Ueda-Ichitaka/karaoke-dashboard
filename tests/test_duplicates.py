@@ -36,6 +36,19 @@ def test_duet_variant_is_not_grouped_with_solo_copies(fresh_db):
     assert duet_groups == []  # only one duet copy exists - nothing to duplicate it
 
 
+def test_short_tag_duet_variant_is_not_grouped_with_its_solo_copy(fresh_db):
+    # #P1/#P2 (the modern, short duet-singer tag name - see app/ultrastar.py)
+    # must be recognized too, or this duet is misread as is_duet=False and
+    # wrongly grouped with its solo counterpart as a plain duplicate.
+    from app.database import SessionLocal
+
+    with SessionLocal() as db:
+        groups = duplicates.find_duplicate_groups(db)
+
+    matches = [g for g in groups if g.title_key == "shared mic"]
+    assert matches == []
+
+
 def test_unique_songs_are_not_reported_as_duplicates(fresh_db):
     from app.database import SessionLocal
 

@@ -94,6 +94,23 @@ def test_non_duet_has_no_singers(tmp_path):
     assert meta.duet_singers is None
 
 
+def test_duet_detected_from_the_short_p1_p2_tags(tmp_path):
+    # #P1/#P2 is the modern UltraStar tag name for the duet singers (the
+    # real-world convention real libraries actually use) - #DUETSINGERP1/
+    # #DUETSINGERP2 above is the older/legacy name. Both must be recognized,
+    # or a real duet with only the short tags filled in gets is_duet=False
+    # and is then wrongly treated as a plain-duplicate of its solo version
+    # (app/duplicates.py groups by (artist, title, is_duet)).
+    path = _write(
+        tmp_path,
+        "duet.txt",
+        "#TITLE:Two Voices\n#ARTIST:Duo\n#P1:Alice\n#P2:Bob\n#BPM:100\n#GAP:0\n",
+    )
+    meta = ultrastar.parse_song_file(path)
+    assert meta.is_duet is True
+    assert meta.duet_singers == ("Alice", "Bob")
+
+
 def test_cover_resolved_only_if_file_exists(tmp_path):
     (tmp_path / "cover.jpg").write_bytes(b"fake")
     path = _write(tmp_path, "song.txt", "#TITLE:X\n#ARTIST:Y\n#COVER:cover.jpg\n#BPM:100\n#GAP:0\n")

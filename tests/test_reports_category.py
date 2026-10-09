@@ -6,7 +6,7 @@ every category), plus the admin broken.csv export.
 from __future__ import annotations
 
 from app.database import SessionLocal
-from app.models import PendingBrokenReport
+from app.models import BrokenReport, PendingBrokenReport
 from app.validation import broken_report_field_errors
 
 
@@ -143,14 +143,14 @@ def test_broken_csv_export(admin_client):
 
 
 def test_broken_csv_lyrics_url_column_blank_when_not_set(admin_client):
-    admin_client.post(
-        "/report",
-        data={
-            "song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": "no audio",
-            "language": "de",
-        },
-    )
-    _admit_the_pending_report(admin_client)
+    # Admit now always requires a lyrics link, but rows admitted before that
+    # rule can still lack one - inserted directly to stand in for them.
+    with SessionLocal() as db:
+        db.add(BrokenReport(
+            song_folder="Queen - Bohemian Rhapsody", song_artist="Queen", song_title="Bohemian Rhapsody",
+            category="audio", description="no audio", language="de", reporter_username="admin",
+        ))
+        db.commit()
     r = admin_client.get("/admin/reports.csv")
     body = r.text
     assert "Queen,Bohemian Rhapsody,audio,no audio,,de,,default,none\n" in body
@@ -365,7 +365,7 @@ def test_report_cover_url_is_shown_in_admin_and_exported(admin_client):
         "/report",
         data={
             "song_folder": "Queen - Bohemian Rhapsody", "category": "audio", "description": "no audio",
-            "language": "de", "cover_url": "https://example.com/cover.jpg",
+            "language": "de", "cover_url": "https://example.com/cover.jpg", "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
         },
     )
     assert r.status_code == 200
@@ -375,7 +375,10 @@ def test_report_cover_url_is_shown_in_admin_and_exported(admin_client):
     assert body.startswith(
         "band,song name,category,description,lyrics_url,language,cover_url,genre,trait\n"
     )
-    assert "Queen,Bohemian Rhapsody,audio,no audio,,de,https://example.com/cover.jpg,default,none\n" in body
+    assert (
+        "Queen,Bohemian Rhapsody,audio,no audio,https://genius.com/Queen-bohemian-rhapsody-lyrics,"
+        "de,https://example.com/cover.jpg,default,none\n"
+    ) in body
 
 
 # -------------------------------------------------------- duplicate merging
@@ -433,7 +436,7 @@ def test_a_new_report_after_the_old_one_is_resolved_is_not_merged(admin_client):
         "/report",
         data={
             "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
-            "description": "no audio", "language": "de",
+            "description": "no audio", "language": "de", "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
         },
     )
     _admit_the_pending_report(admin_client)
@@ -448,7 +451,7 @@ def test_a_new_report_after_the_old_one_is_resolved_is_not_merged(admin_client):
         "/report",
         data={
             "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
-            "description": "no audio again", "language": "de",
+            "description": "no audio again", "language": "de", "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
         },
     )
     _admit_the_pending_report(admin_client)

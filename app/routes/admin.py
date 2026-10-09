@@ -5,12 +5,21 @@ from __future__ import annotations
 import csv
 import io
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .. import duplicates, format_check, misplaced_check, move_export, request_matching, structure_check, upl_export
+from .. import (
+    duplicates,
+    format_check,
+    misplaced_check,
+    move_export,
+    report_import,
+    request_matching,
+    structure_check,
+    upl_export,
+)
 from .. import songs as song_index
 from ..app_logging import configure_logging, get_logger
 from ..app_mode import MODE_CHOICES, MODE_CODES
@@ -24,7 +33,7 @@ from ..genres import DEFAULT_GENRE, GENRE_CHOICES, format_genres, is_valid_genre
 from ..languages import LANGUAGE_CHOICES, LANGUAGE_LABELS
 from ..models import BrokenReport, PendingBrokenReport, PendingSongRequest, SongRequest, User
 from ..musicbrainz import extract_musicbrainz_id
-from ..profiles import PROFILE_CHOICES, PROFILE_CODES
+from ..profiles import PROFILE_CHOICES, PROFILE_CODES, report_category_required_fields
 from ..security import MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, hash_password
 from ..traits import DEFAULT_TRAIT, TRAIT_CHOICES, format_traits, is_valid_trait, parse_traits
 from ..validation import broken_report_field_errors, neutralize_csv_formula, request_field_errors, sanitize_free_text
@@ -36,10 +45,21 @@ router = APIRouter(prefix="/admin")
 _REPORT_STATES = {"open", "resolved"}
 _REQUEST_STATES = {"open", "done"}
 
-# Fields a song request must have before it can be admitted - fixed on
-# purpose, independent of the request-form profile switch in Settings
-# (app/profiles.py), which governs the public form only.
-_ADMIT_REQUIRED_FIELDS: frozenset[str] = frozenset({"youtube_url", "language", "musicbrainz_id", "lyrics_url"})
+# Fields the admin request edit form (pending and admitted) and the admit
+# gate always require - fixed on purpose, independent of the request-form
+# profile switch in Settings (app/profiles.py), which governs the public
+# form only.
+_ADMIN_REQUIRED_FIELDS: frozenset[str] = frozenset({"youtube_url", "language", "musicbrainz_id", "lyrics_url"})
+
+# Fields the admin broken-report edit form (pending and admitted) and its
+# admit gate always require on top of the category's own fields
+# (app/profiles.py: report_category_required_fields) - independent of the
+# report-form profile switch in Settings, same as _ADMIN_REQUIRED_FIELDS.
+_ADMIN_REPORT_REQUIRED_FIELDS: frozenset[str] = frozenset({"language", "genius_url"})
+
+
+def _admin_report_required(category: str) -> set[str]:
+    return report_category_required_fields(category) | _ADMIN_REPORT_REQUIRED_FIELDS
 
 
 def _parse_genre_trait(genre: list[str], trait: list[str]) -> tuple[str, str, list[str]]:
@@ -216,7 +236,9 @@ def report_edit_submit(
         errors.append("Please pick the song that is broken.")
     elif song is None:
         errors.append("That song is no longer in the library - pick another.")
-    errors.extend(broken_report_field_errors(category, description, genius_url, language, cover_url))
+    errors.extend(broken_report_field_errors(
+        category, description, genius_url, language, cover_url, required=_admin_report_required(category),
+    ))
     errors.extend(genre_trait_errors)
 
     if errors:
@@ -305,7 +327,9 @@ def pending_report_edit_submit(
     # a pending entry can be saved incrementally - the strict completeness
     # check only applies when actually admitting it (see pending_report_admit)
     errors.extend(
-        broken_report_field_errors(category, description, genius_url, language, cover_url, profile="karaoke_night")
+        broken_report_field_errors(
+            category, description, genius_url, language, cover_url, required=_admin_report_required(category),
+        )
     )
     errors.extend(genre_trait_errors)
 
@@ -346,7 +370,7 @@ def pending_report_admit(
 
     errors = broken_report_field_errors(
         item.category or "", item.description, item.genius_url or "", item.language or "",
-        item.cover_url or "", profile="strict",
+        item.cover_url or "", required=_admin_report_required(item.category or ""),
     )
     if errors:
         return render(
@@ -397,6 +421,27 @@ def pending_report_discard(
     db.delete(item)
     db.commit()
     return RedirectResponse("/admin/reports", status_code=303)
+
+
+@router.get("/reports/import")
+def reports_import_form(request: Request, user: User = Depends(require_admin)):
+    return render(request, "admin/report_import.html", user, result=None, columns=report_import.COLUMNS)
+
+
+@router.post("/reports/import")
+async def reports_import_submit(
+    request: Request,
+    file: UploadFile = File(...),
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    text = report_import.decode_csv(await file.read())
+    result = report_import.import_reports(db, text, user)
+    logger.info(
+        "imported broken reports: %s new, %s merged, %s skipped",
+        result.imported, result.merged, len(result.skipped),
+    )
+    return render(request, "admin/report_import.html", user, result=result, columns=report_import.COLUMNS)
 
 
 @router.get("/reports.csv")
@@ -544,7 +589,8 @@ def request_edit_submit(
     genre_value, trait_value, genre_trait_errors = _parse_genre_trait(genre, trait)
 
     errors = request_field_errors(
-        band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet, lyrics_url=lyrics_url
+        band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet,
+        lyrics_url=lyrics_url, required=_ADMIN_REQUIRED_FIELDS,
     )
     errors.extend(genre_trait_errors)
     if errors:
@@ -630,7 +676,8 @@ def pending_request_edit_submit(
     genre_value, trait_value, genre_trait_errors = _parse_genre_trait(genre, trait)
 
     errors = request_field_errors(
-        band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet, lyrics_url=lyrics_url
+        band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet,
+        lyrics_url=lyrics_url, required=_ADMIN_REQUIRED_FIELDS,
     )
     errors.extend(genre_trait_errors)
     if errors:
@@ -673,7 +720,7 @@ def pending_request_admit(
     errors = request_field_errors(
         item.band_name, item.song_name, item.youtube_url or "", item.language or "",
         item.musicbrainz_id or "", item.cover_url or "", item.duet or "",
-        lyrics_url=item.lyrics_url or "", required=_ADMIT_REQUIRED_FIELDS,
+        lyrics_url=item.lyrics_url or "", required=_ADMIN_REQUIRED_FIELDS,
     )
     app_settings = get_app_settings(db)
     library_match = request_matching.find_library_match(item.band_name, item.song_name)
@@ -937,13 +984,18 @@ def users_delete(
 @router.get("/integrity")
 def integrity_view(
     request: Request,
+    issue: str = "",
     user: User = Depends(require_admin),
 ):
     structure_issues = structure_check.check_structure()
-    trees = {issue.folder: structure_check.folder_tree(issue.folder) for issue in structure_issues}
+    trees = {s.folder: structure_check.folder_tree(s.folder) for s in structure_issues}
+    all_format_reports = format_check.check_library()
     return render(
         request, "admin/integrity.html", user,
-        format_reports=format_check.check_library(),
+        format_reports=format_check.filter_reports(all_format_reports, issue),
+        format_total=len(all_format_reports),
+        format_kinds=format_check.issue_kind_counts(all_format_reports),
+        format_issue=issue,
         structure_issues=structure_issues,
         trees=trees,
         misplaced_songs=misplaced_check.find_misplaced_songs(),

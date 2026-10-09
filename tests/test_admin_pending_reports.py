@@ -1,8 +1,8 @@
 """Tests for the admin "pending review" section on /admin/reports: a newly
 submitted report now lands in PendingBrokenReport, shown in a section above
 the existing admitted-list table. An admin can edit it in place, admit it
-(moved into BrokenReport once it passes the strict-profile completeness
-check, app/profiles.py), or discard it outright.
+(moved into BrokenReport once it passes the admin report field check,
+app/routes/admin.py: _ADMIN_REPORT_REQUIRED_FIELDS), or discard it outright.
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ def test_edit_pending_report_saves_changes(admin_client):
         f"/admin/reports/pending/{pid}/edit",
         data={
             "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
-            "description": "cuts out completely",
+            "description": "cuts out completely", "language": "en", "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
         },
         follow_redirects=False,
     )
@@ -89,7 +89,7 @@ def test_admit_succeeds_once_complete_and_moves_the_row(admin_client):
         f"/admin/reports/pending/{pid}/edit",
         data={
             "song_folder": "Queen - Bohemian Rhapsody", "category": "audio",
-            "description": "cuts out at the start", "language": "en",
+            "description": "cuts out at the start", "language": "en", "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
         },
     )
 

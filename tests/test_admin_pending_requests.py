@@ -2,7 +2,7 @@
 submitted request now lands in PendingSongRequest, shown in a section above
 the existing admitted-list table. An admin can edit it in place, admit it
 (moved into SongRequest once it passes the admit gate's own fixed set of
-required fields, app/routes/admin.py: _ADMIT_REQUIRED_FIELDS - independent
+required fields, app/routes/admin.py: _ADMIN_REQUIRED_FIELDS - independent
 of the request-form profile switch in Settings, app/profiles.py), or
 discard it outright.
 """
@@ -32,13 +32,15 @@ def _set_mode(mode: str) -> None:
         db.commit()
 
 
+_ADMIN_FIELDS = {
+    "youtube_url": "https://www.youtube.com/watch?v=x",
+    "language": "en", "lyrics_url": "https://genius.com/some-song-lyrics",
+    "musicbrainz_id": "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d",
+}
+
+
 def _fill_in_strict_fields(admin_client, pid: int, **overrides) -> None:
-    data = {
-        "band_name": "Queen", "song_name": "Bohemian Rhapsody",
-        "youtube_url": "https://www.youtube.com/watch?v=x",
-        "language": "en", "lyrics_url": "https://genius.com/queen-bohemian-rhapsody-lyrics",
-        "musicbrainz_id": "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d",
-    }
+    data = {"band_name": "Queen", "song_name": "Bohemian Rhapsody", **_ADMIN_FIELDS}
     data.update(overrides)
     admin_client.post(f"/admin/requests/pending/{pid}/edit", data=data)
 
@@ -66,13 +68,55 @@ def test_edit_pending_request_saves_changes(admin_client):
 
     r = admin_client.post(
         f"/admin/requests/pending/{pid}/edit",
-        data={"band_name": "Journey", "song_name": "Faithfully (Live)"},
+        data={"band_name": "Journey", "song_name": "Faithfully (Live)", **_ADMIN_FIELDS},
         follow_redirects=False,
     )
     assert r.status_code == 303
     with SessionLocal() as db:
         row = db.get(PendingSongRequest, pid)
         assert row.song_name == "Faithfully (Live)"
+
+
+def test_edit_form_marks_admin_fields_required(admin_client):
+    _submit(admin_client)
+    pid = _pending_id()
+    r = admin_client.get(f"/admin/requests/pending/{pid}/edit")
+    for label in ("YouTube link", "Language", "MusicBrainz ID", "Lyrics link"):
+        assert f"{label} <em>(required)</em>" in r.text
+    assert 'name="youtube_url" required' in r.text
+    assert 'name="language" required' in r.text
+    assert 'name="musicbrainz_id" required' in r.text
+    assert 'name="lyrics_url" required' in r.text
+
+
+def test_pending_edit_save_rejected_without_admin_fields(admin_client):
+    _submit(admin_client)
+    pid = _pending_id()
+    r = admin_client.post(
+        f"/admin/requests/pending/{pid}/edit",
+        data={"band_name": "Journey", "song_name": "Faithfully (Live)"},
+    )
+    assert r.status_code == 422
+    assert "YouTube link is required." in r.text
+    assert "Lyrics link is required." in r.text
+    assert "MusicBrainz ID is required." in r.text
+    with SessionLocal() as db:
+        assert db.get(PendingSongRequest, pid).song_name == "Faithfully"
+
+
+def test_admitted_edit_save_rejected_without_admin_fields(admin_client):
+    with SessionLocal() as db:
+        db.add(SongRequest(band_name="Journey", song_name="Faithfully", requester_username="admin"))
+        db.commit()
+        rid = db.query(SongRequest).one().id
+    r = admin_client.post(
+        f"/admin/requests/{rid}/edit",
+        data={"band_name": "Journey", "song_name": "Faithfully (Live)"},
+    )
+    assert r.status_code == 422
+    assert "MusicBrainz ID is required." in r.text
+    with SessionLocal() as db:
+        assert db.get(SongRequest, rid).song_name == "Faithfully"
 
 
 def test_admit_blocked_until_admit_fields_are_filled_in(admin_client):

@@ -46,7 +46,7 @@ def test_edit_saves_changes(admin_client):
         f"/admin/reports/{rid}/edit",
         data={
             "song_folder": "Queen - Bohemian Rhapsody", "category": "video",
-            "description": "no video at all", "language": "en",
+            "description": "no video at all", "language": "en", "genius_url": "https://genius.com/Queen-bohemian-rhapsody-lyrics",
             "cover_url": "https://example.com/new.jpg",
         },
         follow_redirects=False,

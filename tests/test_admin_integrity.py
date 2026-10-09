@@ -117,3 +117,37 @@ def test_misplaced_moves_export_requires_admin(admin_client):
     admin_client.post("/logout")
     admin_client.post("/login", data={"username": "fay", "password": "fayfayfayfay"}, follow_redirects=False)
     assert admin_client.get("/admin/integrity/misplaced.moves").status_code == 403
+
+
+# ------------------------------------------- format table: counter + filter
+def test_format_table_shows_how_many_song_files_are_affected(admin_client):
+    from app import format_check
+
+    total = len(format_check.check_library())
+    r = admin_client.get("/admin/integrity")
+    assert f"{total} song files affected" in r.text
+
+
+def test_format_table_offers_a_filter_by_issue_type_with_counts(admin_client):
+    from app import format_check
+
+    counts = dict(format_check.issue_kind_counts(format_check.check_library()))
+    r = admin_client.get("/admin/integrity")
+    assert 'name="issue"' in r.text
+    assert f"No audio reference ({counts['No audio reference']})" in r.text
+
+
+def test_format_table_filtered_by_issue_type(admin_client):
+    from app import format_check
+
+    reports = format_check.check_library()
+    wanted = format_check.filter_reports(reports, "No audio reference")
+    r = admin_client.get("/admin/integrity", params={"issue": "No audio reference"})
+    assert f"{len(wanted)} of {len(reports)} song files affected" in r.text
+    assert '<option value="No audio reference" selected>' in r.text
+
+
+def test_format_table_filter_with_no_matches(admin_client):
+    r = admin_client.get("/admin/integrity", params={"issue": "Malformed #YEAR"})
+    assert "0 of" in r.text
+    assert "No song files with this issue." in r.text

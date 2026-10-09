@@ -238,8 +238,8 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 }
 .stack-form textarea { resize: vertical; }
 .stack-form input:focus, .stack-form select:focus, .stack-form textarea:focus { outline: 2px solid var(--accent); }
-/* Admin-only genre picker (app/genres.py) - several boxes can be checked at
-   once, unlike the single-select trait field next to it. */
+/* Admin-only genre and trait pickers (app/genres.py, app/traits.py) -
+   several boxes can be checked at once. */
 .checkbox-group { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .checkbox-option { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; width: auto; }
 .checkbox-option input[type=checkbox] { width: auto; }
@@ -372,7 +372,7 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .inline-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 12px; }
 .inline-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .inline-form label.check { flex-direction: row; align-items: center; gap: 6px; }
-.inline-form input[type=text] {
+.inline-form input[type=text], .inline-form select {
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
   padding: 6px 10px; color: var(--text); font: inherit;
 }

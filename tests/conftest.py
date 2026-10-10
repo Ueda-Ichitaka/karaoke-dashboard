@@ -141,6 +141,27 @@ _DUP_DUET_DIR.mkdir(exist_ok=True)
     encoding="utf-8",
 )
 
+# A live version of that same song: its title differs only by a "(Live)"
+# aside, so it's not an exact duplicate of the two solo copies above, but it
+# belongs in the "possible duplicates (versions)" group with them.
+_DUP_LIVE_DIR = _SONGS_DIR / "Coverband - Copycat Song (Live)"
+_DUP_LIVE_DIR.mkdir(exist_ok=True)
+(_DUP_LIVE_DIR / "Copycat Song (Live).txt").write_text(
+    "#TITLE:Copycat Song (Live)\n#ARTIST:Coverband\n#BPM:130\n#GAP:0\nE\n", encoding="utf-8"
+)
+
+# Folders without any UltraStar song file: one empty, one with only media.
+(_SONGS_DIR / "Emptyband - Nothing Here").mkdir(exist_ok=True)
+_MEDIA_ONLY_DIR = _SONGS_DIR / "Mediaband - Only Audio"
+_MEDIA_ONLY_DIR.mkdir(exist_ok=True)
+(_MEDIA_ONLY_DIR / "Only Audio.mp3").write_bytes(b"fake")
+
+# The library's set-aside folder, literally named "-": left alone by every
+# check (here: never listed as a folder without a song).
+_SET_ASIDE_DIR = _SONGS_DIR / "-"
+_SET_ASIDE_DIR.mkdir(exist_ok=True)
+(_SET_ASIDE_DIR / "parked.mp3").write_bytes(b"fake")
+
 # A solo song plus a duet arrangement of it tagged with #P1/#P2 - the
 # modern, short UltraStar tag name for the duet singers that real-world
 # libraries actually use (as opposed to the legacy #DUETSINGERP1/P2 tags

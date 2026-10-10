@@ -825,10 +825,12 @@ def duplicates_view(
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    groups = duplicates.find_duplicate_groups(db)
     return render(
         request, "admin/duplicates.html", user,
-        groups=groups, last_scanned_at=duplicates.last_scanned_at(),
+        groups=duplicates.find_duplicate_groups(db),
+        version_groups=duplicates.find_version_groups(db),
+        empty_folders=duplicates.find_empty_folders(),
+        last_scanned_at=duplicates.last_scanned_at(),
     )
 
 
@@ -866,7 +868,7 @@ def duplicate_dismiss(
     if group is None:
         raise HTTPException(status_code=404)
     duplicates.dismiss_group(db, group, dismissed_by=user.username)
-    return RedirectResponse("/admin/duplicates", status_code=303)
+    return RedirectResponse("/admin/duplicates#versions" if group.is_version else "/admin/duplicates", status_code=303)
 
 
 # --------------------------------------------------------------------------- users

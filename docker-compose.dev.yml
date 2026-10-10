@@ -43,5 +43,5 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./songs-sample:/songs:ro
+      - /dhuaddan/media/ultrastar/songs/:/songs:ro
       - ./app:/app/app:ro

@@ -131,3 +131,61 @@ def test_last_scanned_at_updates_after_refresh(fresh_db):
     duplicates.refresh_cache()
     second = duplicates.last_scanned_at()
     assert second >= first
+
+
+# ----------------------------------------- possible duplicates (versions)
+# A looser comparison (ignoring "(...)"/"[...]" asides, treating -, / and :
+# alike) finds versions of a song - "Skyfall" vs "Skyfall (Full Length)" -
+# listed apart from the exact duplicates above.
+def _version_group(db, title_key_part: str):
+    return next(g for g in duplicates.find_version_groups(db) if title_key_part in g.title_key)
+
+
+def test_version_group_joins_a_differently_titled_version(fresh_db):
+    from app.database import SessionLocal
+
+    with SessionLocal() as db:
+        group = _version_group(db, "copycat song")
+    folders = {e.folder for e in group.entries}
+    assert folders == {
+        "Coverband - Copycat Song", "Coverband - Copycat Song (Reupload)", "Coverband - Copycat Song (Live)",
+    }
+    assert group.is_duet is False
+
+
+def test_only_buckets_spanning_different_titles_are_version_groups(fresh_db):
+    from app.database import SessionLocal
+
+    with SessionLocal() as db:
+        groups = duplicates.find_version_groups(db)
+    for group in groups:
+        assert len({duplicates.normalize_key(e.meta.title) for e in group.entries}) > 1
+
+
+def test_version_and_exact_dismissals_are_independent(fresh_db):
+    from app.database import SessionLocal
+
+    with SessionLocal() as db:
+        version = _version_group(db, "copycat song")
+        assert duplicates.get_duplicate_group(db, version.group_id) is not None
+        duplicates.dismiss_group(db, version, dismissed_by="admin")
+    with SessionLocal() as db:
+        assert all("copycat song" not in g.title_key for g in duplicates.find_version_groups(db))
+        assert any(g.title_key == "copycat song" for g in duplicates.find_duplicate_groups(db))
+
+
+def test_loose_key_ignores_asides_and_filename_unsafe_characters():
+    assert duplicates.loose_key("Skyfall (Full Length)") == duplicates.loose_key("skyfall")
+    assert duplicates.loose_key("AC/DC") == duplicates.loose_key("AC-DC")
+    assert duplicates.loose_key("T.N.T.") == duplicates.loose_key("T.N.T")
+
+
+# ------------------------------------------------- folders without a song
+def test_folders_without_a_song_are_listed_with_their_file_count(fresh_db):
+    folders = {f.folder: f.file_count for f in duplicates.find_empty_folders()}
+    assert folders["Emptyband - Nothing Here"] == 0
+    assert folders["Mediaband - Only Audio"] == 1
+    assert "Testband - Junk Text" in folders  # only a readme, no song file
+    assert "Coverband - Import Batch" not in folders  # nested songs: the structure check's concern
+    assert "Coverband - Copycat Song" not in folders
+    assert "-" not in folders  # the set-aside folder is left alone

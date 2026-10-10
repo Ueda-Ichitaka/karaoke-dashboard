@@ -9,6 +9,11 @@ from dataclasses import dataclass
 
 from .config import settings
 
+# The library's set-aside folder: a folder literally named "-" (at the top
+# level or nested inside a song folder) is deliberately left alone by the
+# library checks and move exports.
+SET_ASIDE_FOLDER = "-"
+
 
 @dataclass(frozen=True, slots=True)
 class Song:

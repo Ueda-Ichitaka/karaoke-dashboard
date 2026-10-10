@@ -1,5 +1,32 @@
 {% extends "base.html" %}
 {% block title %}Duplicate songs · {{ app_title }}{% endblock %}
+{% macro group_list(groups) %}
+  <ul class="dup-list">
+    {% for g in groups %}
+      <li class="dup-row">
+        <div class="dup-info">
+          <a class="dup-title" href="/admin/duplicates/{{ g.group_id }}">
+            {% if g.display_artist %}{{ g.display_artist }} - {% endif %}{{ g.display_title }}
+          </a>
+          {% if g.is_duet %}<span class="pill">duet</span>{% endif %}
+          <span class="pill pill-count">{{ g.entries|length }} {{ 'versions' if g.is_version else 'copies' }}</span>
+        </div>
+        <ul class="dup-paths">
+          {% for e in g.entries %}
+            <li class="mono">{{ e.folder }}/{{ e.meta.source_file }}{% if g.is_version %} <span class="subtle">({{ e.meta.title }})</span>{% endif %}</li>
+          {% endfor %}
+        </ul>
+        <div class="actions">
+          <a class="btn btn-small" href="/admin/duplicates/{{ g.group_id }}">Review</a>
+          <form class="inline" method="post" action="/admin/duplicates/{{ g.group_id }}/dismiss">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="btn btn-small btn-ghost" type="submit">Dismiss</button>
+          </form>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+{% endmacro %}
 {% block content %}
 <section class="page">
   <div class="page-head">
@@ -14,34 +41,63 @@
     </form>
   </div>
 
+  <div class="page-head" id="exact">
+    <h2>Duplicates</h2>
+    <p class="subtle">Same artist and title (ignoring letter case and spacing).</p>
+  </div>
   {% if not groups %}
     <p class="empty">No duplicates found.</p>
   {% else %}
-    <ul class="dup-list">
-      {% for g in groups %}
-        <li class="dup-row">
-          <div class="dup-info">
-            <a class="dup-title" href="/admin/duplicates/{{ g.group_id }}">
-              {% if g.display_artist %}{{ g.display_artist }} - {% endif %}{{ g.display_title }}
-            </a>
-            {% if g.is_duet %}<span class="pill">duet</span>{% endif %}
-            <span class="pill pill-count">{{ g.entries|length }} copies</span>
-          </div>
-          <ul class="dup-paths">
-            {% for e in g.entries %}
-              <li class="mono">{{ e.folder }}/{{ e.meta.source_file }}</li>
-            {% endfor %}
-          </ul>
-          <div class="actions">
-            <a class="btn btn-small" href="/admin/duplicates/{{ g.group_id }}">Review</a>
-            <form class="inline" method="post" action="/admin/duplicates/{{ g.group_id }}/dismiss">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <button class="btn btn-small btn-ghost" type="submit">Dismiss</button>
-            </form>
-          </div>
-        </li>
-      {% endfor %}
-    </ul>
+    {{ group_list(groups) }}
+  {% endif %}
+
+  <div class="page-head" id="versions">
+    <h2>Possible duplicates (versions)</h2>
+    <p class="subtle">
+      {{ version_groups|length }} group{{ 's' if version_groups|length != 1 else '' }} &middot;
+      titles that only differ in a "(...)"/"[...]" aside or punctuation, e.g. "Skyfall" vs "Skyfall (Full Length)".
+      Dismiss the versions you keep on purpose.
+    </p>
+  </div>
+  {% if not version_groups %}
+    <p class="empty">No possible duplicates found.</p>
+  {% else %}
+    {{ group_list(version_groups) }}
+  {% endif %}
+
+  <div class="page-head" id="empty">
+    <h2>Folders without a song</h2>
+    <p class="subtle">
+      {{ empty_folders|length }} folder{{ 's' if empty_folders|length != 1 else '' }} without any UltraStar song file -
+      empty, or media only. Folders with subfolders are in the integrity view's library structure check instead.
+    </p>
+  </div>
+  {% if not empty_folders %}
+    <p class="empty">Every folder has a song.</p>
+  {% else %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Folder</th><th>Contents</th></tr></thead>
+        <tbody>
+          {% for f in empty_folders %}
+            <tr>
+              <td class="mono">{{ f.folder }}</td>
+              <td>{% if f.file_count == 0 %}empty{% else %}{{ f.file_count }} file{{ 's' if f.file_count != 1 else '' }}, no song file{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   {% endif %}
 </section>
+{% endblock %}
+{% block toc %}
+<nav class="toc" aria-label="Section navigation">
+  <p class="toc-title">On this page</p>
+  <ul>
+    <li><a href="#exact">Duplicates</a></li>
+    <li><a href="#versions">Possible duplicates (versions)</a></li>
+    <li><a href="#empty">Folders without a song</a></li>
+  </ul>
+</nav>
 {% endblock %}

@@ -43,7 +43,8 @@ def test_dismiss_removes_group_from_list_and_persists(admin_client):
     assert r.headers["location"] == "/admin/duplicates"
 
     listing = admin_client.get("/admin/duplicates")
-    assert "Coverband - Copycat Song (Reupload)" not in listing.text
+    exact_section = listing.text.split('id="versions"')[0]
+    assert "Coverband - Copycat Song (Reupload)" not in exact_section
 
     # visiting the dismissed group directly still works (e.g. to double check)
     detail = admin_client.get(f"/admin/duplicates/{group_id}")
@@ -79,3 +80,41 @@ def test_non_admin_blocked_from_duplicates(admin_client):
     assert admin_client.get("/admin/duplicates").status_code == 403
     assert admin_client.get(f"/admin/duplicates/{group_id}").status_code == 403
     assert admin_client.post(f"/admin/duplicates/{group_id}/dismiss").status_code == 403
+
+
+# ------------------------------------- sections: versions, empty folders, ToC
+def _section(html: str, section_id: str) -> str:
+    return html.split(f'id="{section_id}"', 1)[1].split('<div class="page-head" id=', 1)[0]
+
+
+def test_duplicates_view_has_three_sections_and_a_toc(admin_client):
+    r = admin_client.get("/admin/duplicates")
+    for section_id in ("exact", "versions", "empty"):
+        assert f'id="{section_id}"' in r.text
+        assert f'href="#{section_id}"' in r.text
+    assert 'class="toc"' in r.text
+
+
+def test_versions_section_lists_the_live_version_with_its_siblings(admin_client):
+    versions = _section(admin_client.get("/admin/duplicates").text, "versions")
+    assert "Coverband - Copycat Song (Live)" in versions
+    assert "Coverband - Copycat Song (Reupload)" in versions
+    exact = admin_client.get("/admin/duplicates").text.split('id="versions"')[0]
+    assert "Coverband - Copycat Song (Live)" not in exact
+
+
+def test_version_group_can_be_reviewed_and_dismissed(admin_client):
+    with SessionLocal() as db:
+        group = next(g for g in duplicates.find_version_groups(db) if "copycat song" in g.title_key)
+    assert admin_client.get(f"/admin/duplicates/{group.group_id}").status_code == 200
+    admin_client.post(f"/admin/duplicates/{group.group_id}/dismiss")
+    r = admin_client.get("/admin/duplicates")
+    assert "Coverband - Copycat Song (Live)" not in _section(r.text, "versions")
+    assert "Coverband - Copycat Song (Reupload)" in r.text.split('id="versions"')[0]  # exact group untouched
+
+
+def test_empty_section_lists_folders_without_a_song(admin_client):
+    empty = _section(admin_client.get("/admin/duplicates").text, "empty")
+    assert "Emptyband - Nothing Here" in empty
+    assert "Mediaband - Only Audio" in empty
+    assert "1 file" in empty

@@ -28,6 +28,7 @@ from pathlib import Path
 
 from .config import settings
 from .misplaced_check import MisplacedSong
+from .songs import SET_ASIDE_FOLDER
 from .structure_check import StructureIssue
 from .ultrastar import parse_header_tags, read_song_text
 
@@ -35,9 +36,6 @@ from .ultrastar import parse_header_tags, read_song_text
 # same media tags app/ultrastar.py checks, plus the cover image.
 _OWN_FILE_TAGS = ("AUDIO", "MP3", "VIDEO", "COVER")
 
-# A nested subfolder exactly named "-" is deliberately left alone, never
-# moved - see app/move_export.py callers (app/routes/admin.py).
-IGNORED_NESTED_FOLDER = "-"
 
 
 def sanitize_folder_component(name: str) -> str:
@@ -82,7 +80,7 @@ def build_misplaced_moves(songs: list[MisplacedSong], root: str | Path | None = 
 
 def build_structure_moves(issues: list[StructureIssue], root: str | Path | None = None) -> bytes:
     base = Path(root if root is not None else settings.songs_dir)
-    ignore = set(settings.song_ignore_names) | {IGNORED_NESTED_FOLDER}
+    ignore = set(settings.song_ignore_names) | {SET_ASIDE_FOLDER}  # never moved
     tokens: list[str] = []
     for issue in issues:
         folder = base / issue.folder

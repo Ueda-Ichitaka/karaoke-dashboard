@@ -1,7 +1,7 @@
 """Tests for the slim fixed table-of-contents sidebar shown on admin pages
 that have more than one section (app/templates/base.html's toc block), so
 an admin can jump to a section instead of scrolling - see
-app/templates/admin/integrity.html, requests.html, reports.html.
+app/templates/admin/integrity.html, duplicates.html, requests.html, reports.html.
 """
 
 from __future__ import annotations

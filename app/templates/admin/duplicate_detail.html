@@ -5,7 +5,7 @@
   <div class="page-head">
     <h1>{% if group.display_artist %}{{ group.display_artist }} - {% endif %}{{ group.display_title }}</h1>
     <p class="subtle">
-      {{ group.entries|length }} copies{% if group.is_duet %} · duet{% endif %}{% if dismissed %} · dismissed{% endif %}
+      {{ group.entries|length }} {{ 'versions (possible duplicate)' if group.is_version else 'copies' }}{% if group.is_duet %} · duet{% endif %}{% if dismissed %} · dismissed{% endif %}
     </p>
   </div>
 

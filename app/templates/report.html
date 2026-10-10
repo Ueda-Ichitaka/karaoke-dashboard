@@ -66,11 +66,11 @@
 
       <label class="field">
         <span class="field-label">
-          Genius lyrics link <em data-broken-genius-hint>{{ '(required for "Lyrics broken" / "Song goes out of sync")' if profile == 'strict' else '(optional)' }}</em>
-          <span class="field-hint" tabindex="0" aria-label="A genius.com song page for this song - gives the admin a reference for the correct lyrics/timing when fixing the issue." data-tip="A genius.com song page for this song - gives the admin a reference for the correct lyrics/timing when fixing the issue.">?</span>
+          Lyrics link <em data-broken-genius-hint>{{ '(required for "Lyrics broken" / "Song goes out of sync")' if profile == 'strict' else '(optional)' }}</em>
+          <span class="field-hint" tabindex="0" aria-label="A genius.com song page or an lrclib.net track page (lrclib.net/tracks/...) for this song - gives the admin a reference for the correct lyrics/timing when fixing the issue." data-tip="A genius.com song page or an lrclib.net track page (lrclib.net/tracks/...) for this song - gives the admin a reference for the correct lyrics/timing when fixing the issue.">?</span>
         </span>
         <input type="url" name="genius_url" value="{{ form.genius_url or '' }}" data-broken-genius
-               placeholder="https://genius.com/…">
+               placeholder="https://genius.com/… or https://lrclib.net/tracks/…">
       </label>
 
       <label class="field">

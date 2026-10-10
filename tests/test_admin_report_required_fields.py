@@ -43,7 +43,7 @@ def test_edit_form_marks_language_and_lyrics_link_required(admin_client):
     pid = _pending_report(admin_client)
     r = admin_client.get(f"/admin/reports/pending/{pid}/edit")
     assert "Language <em>(required)</em>" in r.text
-    assert "Genius lyrics link <em>(required)</em>" in r.text
+    assert "Lyrics link <em>(required)</em>" in r.text
     assert 'name="genius_url" required' in r.text
     # no category-driven JS hook that could switch the requirement off again
     assert "data-broken-genius" not in r.text
@@ -56,7 +56,7 @@ def test_pending_edit_save_rejected_without_lyrics_link_or_language(admin_client
         data={"song_folder": _FOLDER, "category": "audio", "description": "changed"},
     )
     assert r.status_code == 422
-    assert "Please provide a genius.com lyrics link." in r.text
+    assert "Please provide a genius.com or lrclib.net lyrics link." in r.text
     assert "Please choose the song" in r.text
     with SessionLocal() as db:
         assert db.get(PendingBrokenReport, pid).description == "cuts out"
@@ -84,7 +84,7 @@ def test_admitted_edit_save_rejected_without_lyrics_link(admin_client):
         data={"song_folder": _FOLDER, "category": "audio", "description": "changed", "language": "en"},
     )
     assert r.status_code == 422
-    assert "Please provide a genius.com lyrics link." in r.text
+    assert "Please provide a genius.com or lrclib.net lyrics link." in r.text
     with SessionLocal() as db:
         assert db.get(BrokenReport, rid).description == "cuts out"
 
@@ -94,7 +94,7 @@ def test_admit_requires_lyrics_link_for_every_category(admin_client):
     pid = _pending_report(admin_client, language="en")
     r = admin_client.post(f"/admin/reports/pending/{pid}/admit")
     assert r.status_code == 422
-    assert "Please provide a genius.com lyrics link." in r.text
+    assert "Please provide a genius.com or lrclib.net lyrics link." in r.text
     with SessionLocal() as db:
         assert db.query(BrokenReport).count() == 0
 

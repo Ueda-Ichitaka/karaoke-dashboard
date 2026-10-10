@@ -112,7 +112,7 @@ def broken_report_field_errors(
     if "description" in required and not description:
         errors.append("Please describe what's broken.")
     if "genius_url" in required and not genius_url:
-        errors.append("Please provide a genius.com lyrics link.")
+        errors.append("Please provide a genius.com or lrclib.net lyrics link.")
     if genius_url and not is_http_url(genius_url):
         errors.append("The lyrics link must start with http:// or https://")
     if "language" in required and not language:

@@ -59,9 +59,12 @@
     </label>
 
     <label class="field">
-      <span class="field-label">Genius lyrics link <em>(required)</em></span>
+      <span class="field-label">
+        Lyrics link <em>(required)</em>
+        <span class="field-hint" tabindex="0" aria-label="A genius.com song page or an lrclib.net track page (lrclib.net/tracks/...) for this song." data-tip="A genius.com song page or an lrclib.net track page (lrclib.net/tracks/...) for this song.">?</span>
+      </span>
       <input type="url" name="genius_url" required value="{{ form.genius_url }}"
-             placeholder="https://genius.com/…">
+             placeholder="https://genius.com/… or https://lrclib.net/tracks/…">
     </label>
 
     <label class="field">

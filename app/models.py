@@ -41,7 +41,7 @@ class BrokenReport(Base):
     # always requires it on a new submission.
     category: Mapped[str | None] = mapped_column(String(16), nullable=True)
     description: Mapped[str] = mapped_column(Text)
-    # A genius.com lyrics link, required (at the app level) for the "lyrics
+    # A genius.com or lrclib.net lyrics link, required (at the app level) for the "lyrics
     # broken" / "song goes out of sync" categories so the admin has a
     # reference for what the correct lyrics/timing should be.
     genius_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)

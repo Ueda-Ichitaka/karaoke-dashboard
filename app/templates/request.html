@@ -50,9 +50,9 @@
       <label class="field">
         <span class="field-label">
           Lyrics link <em>({{ 'required' if 'lyrics_url' in required_fields else 'optional' }})</em>
-          <span class="field-hint" tabindex="0" aria-label="Only a genius.com song page, or a direct link to a .txt/.lrc file, actually gets used - anything else (AZLyrics, Musixmatch, a lyrics wiki, ...) is ignored, not an error, and falls back to an online search instead." data-tip="Only a genius.com song page, or a direct link to a .txt/.lrc file, actually gets used - anything else (AZLyrics, Musixmatch, a lyrics wiki, ...) is ignored, not an error, and falls back to an online search instead.">?</span>
+          <span class="field-hint" tabindex="0" aria-label="Only a genius.com song page, an lrclib.net track page (lrclib.net/tracks/...), or a direct link to a .txt/.lrc file actually gets used - anything else (AZLyrics, Musixmatch, a lyrics wiki, ...) is ignored, not an error, and falls back to an online search instead." data-tip="Only a genius.com song page, an lrclib.net track page (lrclib.net/tracks/...), or a direct link to a .txt/.lrc file actually gets used - anything else (AZLyrics, Musixmatch, a lyrics wiki, ...) is ignored, not an error, and falls back to an online search instead.">?</span>
         </span>
-        <input type="text" name="lyrics_url" {{ 'required' if 'lyrics_url' in required_fields }} value="{{ form.lyrics_url or '' }}" placeholder="https://genius.com/… or a direct .txt/.lrc link">
+        <input type="text" name="lyrics_url" {{ 'required' if 'lyrics_url' in required_fields }} value="{{ form.lyrics_url or '' }}" placeholder="https://genius.com/…, https://lrclib.net/tracks/… or a direct .txt/.lrc link">
       </label>
       <label class="field">
         <span class="field-label">Cover image link <em>(optional)</em></span>

@@ -43,6 +43,7 @@
 
 <footer class="footer">
   <span>{{ app_title }}</span>
+  {% if current_user and current_user.is_admin %}<span class="footer-version">v{{ app_version }}</span>{% endif %}
 </footer>
 
 <button id="to-top" class="to-top" type="button" aria-label="Scroll to top" hidden>Top</button>

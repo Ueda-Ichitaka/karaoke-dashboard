@@ -1,7 +1,8 @@
 name: GHCR cleanup
 
-# Deletes stale package versions the publish workflow leaves behind: old
-# sha-tagged builds beyond keep-n-tagged, and (once a tag is old enough to
+# Deletes stale package versions the publish workflow leaves behind: tagged
+# builds beyond the newest keep-n-tagged (10, so that many recent versions
+# stay available to pin and roll back to), and (once a tag is old enough to
 # be pruned) the per-platform manifests that only that tag referenced. A
 # tag's own platform manifests are never deleted while the tag is kept -
 # doing so would break that still-live multi-arch image - so keep-n-tagged
@@ -26,4 +27,4 @@ jobs:
           owner: ${{ github.repository_owner }}
           package: ${{ github.event.repository.name }}
           delete-untagged: true
-          keep-n-tagged: 3
+          keep-n-tagged: 10

@@ -127,6 +127,7 @@ h1 { font-size: 22px; margin: 0 0 4px; }
   text-align: center; color: var(--text-dim); font-size: 12px;
   padding: 20px; border-top: 1px solid var(--border);
 }
+.footer-version { margin-left: 8px; font-variant-numeric: tabular-nums; }
 
 /* ---------------------------------------------------------------- buttons */
 .btn {

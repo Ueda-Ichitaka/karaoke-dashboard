@@ -31,6 +31,8 @@ services:
     restart: on-failure:5
 
   karaoke-dashboard:
+    # "latest" is the newest build; replace it with a version tag such as
+    # 2026.10.11-42 (listed on the GHCR package page) to run an older build.
     image: ghcr.io/ueda-ichitaka/karaoke-dashboard:latest
     container_name: Karaoke-Dashboard
     hostname: karaoke-dashboard

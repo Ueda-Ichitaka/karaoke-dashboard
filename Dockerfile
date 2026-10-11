@@ -13,6 +13,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
+# The build version (app/__init__.py), passed in by the publish workflow as
+# the image's GHCR version tag. Declared after the dependency and code
+# layers, since its value changes on every build.
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
+
 # Run as an unprivileged user.
 RUN useradd --create-home --uid 10001 appuser
 USER appuser

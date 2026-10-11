@@ -1,5 +1,7 @@
 [project]
 name = "karaoke-dashboard"
+# Required by the [project] table, not used: the app's version is the build
+# version from the container image (see app/__init__.py).
 version = "1.0.0"
 description = "Browse the karaoke library, report broken songs and request new ones."
 requires-python = ">=3.11"

@@ -191,6 +191,12 @@ LAN access without a proxy:
 `docker-compose.yml` and `.env`, and start it. The image is pulled from
 `ghcr.io/ueda-ichitaka/karaoke-dashboard:latest`.
 
+To run an older build instead, pick a version from the package page
+(<https://github.com/Ueda-Ichitaka/karaoke-dashboard/pkgs/container/karaoke-dashboard>,
+"View and manage all versions") and replace `latest` in `docker-compose.yml`
+with its version tag, e.g. `ghcr.io/ueda-ichitaka/karaoke-dashboard:2026.10.11-42`.
+The 10 newest builds are kept - see "How images are published" below.
+
 Set up the Synology **reverse proxy** (Control Panel → Login Portal →
 Advanced → Reverse Proxy) pointing your chosen hostname at
 `127.0.0.1:9713` (or your `WEB_PORT`), and log in through that hostname -
@@ -442,14 +448,22 @@ song directory, so it needs nothing there.
    attestations turned off (they add extra manifest entries per platform that
    Portainer and older Docker clients don't filter out, so a single `:latest`
    pull would fetch 4 "images" instead of 2),
-3. push to `ghcr.io/<owner>/<repo>` tagged `latest`, `sha-<short>`, and - on a
-   `v*.*.*` git tag - the semver.
+3. push to `ghcr.io/<owner>/<repo>` tagged `latest`, `main`, `sha-<short>`,
+   a date-based version `YYYY.MM.DD-<run number>` (UTC build date plus the
+   workflow's run number, e.g. `2026.10.11-42` - unique per build and
+   sortable), and - on a `v*.*.*` git tag - the semver. The date-based
+   version is also the image's `org.opencontainers.image.version` label,
+   unless a semver tag outranks it. The same version is baked into the
+   image as `APP_VERSION` (`app/__init__.py`) and shown to admins in the
+   page footer (e.g. `v2026.10.11-42`), so you can tell which build is
+   running; a run outside the image shows `vdev`.
 
 No secrets to configure; it uses the repo's built-in `GITHUB_TOKEN`. Make the
 GHCR package public (or log the NAS in with a PAT) so Container Manager can pull.
 
 `.github/workflows/ghcr-cleanup.yml` runs weekly (and on manual dispatch) to
-keep only the 3 newest tagged builds and delete their now-unreferenced
+keep only the 10 newest tagged builds (the versions available to pin, see
+"Start" above) and delete their now-unreferenced
 per-platform manifests, so the package page doesn't accumulate clutter from
 old builds. A tagged build's own manifests are only eligible for deletion
 once that tag itself falls out of the kept set - a still-kept tag's manifests

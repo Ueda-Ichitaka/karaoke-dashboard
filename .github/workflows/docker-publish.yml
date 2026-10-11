@@ -1,5 +1,6 @@
 # About me: lints, tests, and publishes the app's multi-arch container image
-# to GHCR on every push to main and on v*.*.* tags. See also
+# to GHCR on every push to main and on v*.*.* tags. Each main build carries
+# a date-based version tag (see "Docker metadata" below). See also
 # ghcr-cleanup.yml, which removes the old/untagged package versions this
 # workflow leaves behind.
 name: Publish container image
@@ -46,6 +47,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Every push to main also gets a date-based version tag,
+      # YYYY.MM.DD-<workflow run number> (UTC), e.g. 2026.10.11-42: unique
+      # per build, sortable, and pinnable in docker-compose.yml to run an
+      # older build. Its priority sits above the branch tag (600) and below
+      # a semver release tag (900), so it becomes the image's
+      # org.opencontainers.image.version label unless a release tag exists.
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -53,6 +60,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value={{date 'YYYY.MM.DD'}}-${{ github.run_number }},enable={{is_default_branch}},priority=800
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
@@ -69,6 +77,10 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # The same version as the image's version label (the highest
+          # priority tag above), shown to admins in the app's footer.
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.version }}
           platforms: linux/amd64,linux/arm64
           # Provenance/SBOM attestations add extra manifest entries per platform
           # to the multi-arch index. Portainer/older Docker clients don't filter

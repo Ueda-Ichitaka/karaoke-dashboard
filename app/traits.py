@@ -4,7 +4,8 @@ edit/admit routes) - not shown on the public request/report forms. A song
 can carry several traits at once, stored as a comma-joined string on
 SongRequest.trait / BrokenReport.trait (and their Pending* counterparts,
 app/models.py), the same convention app/genres.py uses; parse_traits()/
-format_traits() convert between that and a code list. The list is still
+format_traits() convert between that and a code list, trait_text() turns it
+into display labels for the admin tables. The list is still
 growing - only the choices themselves are expected to change.
 """
 
@@ -35,5 +36,12 @@ def parse_traits(value: str | None) -> list[str]:
 
 
 def format_traits(codes: list[str]) -> str:
-    codes = [c for c in codes if c]
+    """Comma-joins the codes; "none" only stands alone, never next to a trait."""
+    codes = [c for c in codes if c and c != DEFAULT_TRAIT]
     return ",".join(codes) if codes else DEFAULT_TRAIT
+
+
+def trait_text(value: str | None) -> str:
+    """The stored value as display labels, e.g. "Metal, Gothic" - the same
+    codes the CSV export carries (an unknown code shows as itself)."""
+    return ", ".join(TRAIT_LABELS.get(code, code) for code in parse_traits(value))

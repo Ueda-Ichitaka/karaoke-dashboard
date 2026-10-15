@@ -13,9 +13,11 @@ from sqlalchemy.orm import Session
 from .. import (
     duplicates,
     format_check,
+    import_merge,
     misplaced_check,
     move_export,
     report_import,
+    request_import,
     request_matching,
     structure_check,
     upl_export,
@@ -278,9 +280,15 @@ def pending_report_edit_form(
     item = db.get(PendingBrokenReport, pending_id)
     if item is None:
         raise HTTPException(status_code=404)
+    return _render_pending_report_form(request, user, item, errors=[])
+
+
+def _render_pending_report_form(request: Request, user: User, item: PendingBrokenReport, errors: list[str]):
+    """The pending report's edit form filled from its stored values - with
+    `errors`, the admit gate's answer (status 422)."""
     return render(
-        request, "admin/report_edit.html", user,
-        errors=[], item=item, pending=True, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
+        request, "admin/report_edit.html", user, status_code=422 if errors else 200,
+        errors=errors, item=item, pending=True, category_choices=CATEGORY_CHOICES, language_choices=LANGUAGE_CHOICES,
         genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
         form={
             "song_folder": item.song_folder, "category": item.category or "",
@@ -303,9 +311,13 @@ def pending_report_edit_submit(
     cover_url: str = Form(""),
     genre: list[str] = Form([]),
     trait: list[str] = Form([]),
+    after_save: str = Form(""),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    """Saves the pending report; with after_save="admit" (the form's "Save
+    and admit" button) it then admits it, or stays on the form with the
+    admit gate's errors."""
     item = db.get(PendingBrokenReport, pending_id)
     if item is None:
         raise HTTPException(status_code=404)
@@ -324,8 +336,6 @@ def pending_report_edit_submit(
         errors.append("Please pick the song that is broken.")
     elif song is None:
         errors.append("That song is no longer in the library - pick another.")
-    # a pending entry can be saved incrementally - the strict completeness
-    # check only applies when actually admitting it (see pending_report_admit)
     errors.extend(
         broken_report_field_errors(
             category, description, genius_url, language, cover_url, required=_admin_report_required(category),
@@ -354,6 +364,11 @@ def pending_report_edit_submit(
     item.genre = genre_value
     item.trait = trait_value
     db.commit()
+    if after_save == "admit":
+        admit_errors = _pending_report_admit_errors(item)
+        if admit_errors:
+            return _render_pending_report_form(request, user, item, admit_errors)
+        _admit_pending_report(db, item)
     return RedirectResponse("/admin/reports", status_code=303)
 
 
@@ -368,23 +383,23 @@ def pending_report_admit(
     if item is None:
         raise HTTPException(status_code=404)
 
-    errors = broken_report_field_errors(
+    errors = _pending_report_admit_errors(item)
+    if errors:
+        return _render_pending_report_form(request, user, item, errors)
+    _admit_pending_report(db, item)
+    return RedirectResponse("/admin/reports", status_code=303)
+
+
+def _pending_report_admit_errors(item: PendingBrokenReport) -> list[str]:
+    return broken_report_field_errors(
         item.category or "", item.description, item.genius_url or "", item.language or "",
         item.cover_url or "", required=_admin_report_required(item.category or ""),
     )
-    if errors:
-        return render(
-            request, "admin/report_edit.html", user, status_code=422,
-            errors=errors, item=item, pending=True, category_choices=CATEGORY_CHOICES,
-            language_choices=LANGUAGE_CHOICES, genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
-            form={
-                "song_folder": item.song_folder, "category": item.category or "",
-                "description": item.description or "", "genius_url": item.genius_url or "",
-                "language": item.language or "", "cover_url": item.cover_url or "",
-                "genre": parse_genres(item.genre), "trait": parse_traits(item.trait),
-            },
-        )
 
+
+def _admit_pending_report(db: Session, item: PendingBrokenReport) -> None:
+    """Moves a pending report that passed _pending_report_admit_errors into
+    the exportable list."""
     song = song_index.get_by_folder(item.song_folder)
     db.add(
         BrokenReport(
@@ -405,7 +420,6 @@ def pending_report_admit(
     logger.info("admitting broken report id=%s %s", item.id, item.song_folder)
     db.delete(item)
     db.commit()
-    return RedirectResponse("/admin/reports", status_code=303)
 
 
 @router.post("/reports/pending/{pending_id}/discard")
@@ -435,7 +449,7 @@ async def reports_import_submit(
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    text = report_import.decode_csv(await file.read())
+    text = import_merge.decode_csv(await file.read())
     result = report_import.import_reports(db, text, user)
     logger.info(
         "imported broken reports: %s new, %s merged, %s skipped",
@@ -630,9 +644,15 @@ def pending_request_edit_form(
     item = db.get(PendingSongRequest, pending_id)
     if item is None:
         raise HTTPException(status_code=404)
+    return _render_pending_request_form(request, user, item, errors=[])
+
+
+def _render_pending_request_form(request: Request, user: User, item: PendingSongRequest, errors: list[str]):
+    """The pending request's edit form filled from its stored values - with
+    `errors`, the admit gate's answer (status 422)."""
     return render(
-        request, "admin/request_edit.html", user,
-        errors=[], item=item, pending=True, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
+        request, "admin/request_edit.html", user, status_code=422 if errors else 200,
+        errors=errors, item=item, pending=True, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
         genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
         form={
             "band_name": item.band_name, "song_name": item.song_name,
@@ -658,9 +678,13 @@ def pending_request_edit_submit(
     duet: str = Form(""),
     genre: list[str] = Form([]),
     trait: list[str] = Form([]),
+    after_save: str = Form(""),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    """Saves the pending request; with after_save="admit" (the form's "Save
+    and admit" button) it then admits it, or stays on the form with the
+    admit gate's errors."""
     item = db.get(PendingSongRequest, pending_id)
     if item is None:
         raise HTTPException(status_code=404)
@@ -703,6 +727,11 @@ def pending_request_edit_submit(
     item.genre = genre_value
     item.trait = trait_value
     db.commit()
+    if after_save == "admit":
+        admit_errors = _pending_request_admit_errors(db, item)
+        if admit_errors:
+            return _render_pending_request_form(request, user, item, admit_errors)
+        _admit_pending_request(db, item)
     return RedirectResponse("/admin/requests", status_code=303)
 
 
@@ -717,6 +746,14 @@ def pending_request_admit(
     if item is None:
         raise HTTPException(status_code=404)
 
+    errors = _pending_request_admit_errors(db, item)
+    if errors:
+        return _render_pending_request_form(request, user, item, errors)
+    _admit_pending_request(db, item)
+    return RedirectResponse("/admin/requests", status_code=303)
+
+
+def _pending_request_admit_errors(db: Session, item: PendingSongRequest) -> list[str]:
     errors = request_field_errors(
         item.band_name, item.song_name, item.youtube_url or "", item.language or "",
         item.musicbrainz_id or "", item.cover_url or "", item.duet or "",
@@ -729,20 +766,12 @@ def pending_request_admit(
             f'"{item.band_name} - {item.song_name}" is already in the library '
             f'(folder: "{library_match.folder}") - switch to debug mode to admit it anyway.'
         )
-    if errors:
-        return render(
-            request, "admin/request_edit.html", user, status_code=422,
-            errors=errors, item=item, pending=True, language_choices=LANGUAGE_CHOICES, duet_choices=DUET_CHOICES,
-            genre_choices=GENRE_CHOICES, trait_choices=TRAIT_CHOICES,
-            form={
-                "band_name": item.band_name, "song_name": item.song_name,
-                "youtube_url": item.youtube_url or "", "language": item.language or "",
-                "musicbrainz_id": item.musicbrainz_id or "", "lyrics_url": item.lyrics_url or "",
-                "cover_url": item.cover_url or "", "duet": item.duet or "",
-                "genre": parse_genres(item.genre), "trait": parse_traits(item.trait),
-            },
-        )
+    return errors
 
+
+def _admit_pending_request(db: Session, item: PendingSongRequest) -> None:
+    """Moves a pending request that passed _pending_request_admit_errors
+    into the exportable list."""
     db.add(
         SongRequest(
             band_name=item.band_name,
@@ -762,7 +791,6 @@ def pending_request_admit(
     logger.info("admitting song request id=%s %s - %s", item.id, item.band_name, item.song_name)
     db.delete(item)
     db.commit()
-    return RedirectResponse("/admin/requests", status_code=303)
 
 
 @router.post("/requests/pending/{pending_id}/discard")
@@ -778,6 +806,27 @@ def pending_request_discard(
     db.delete(item)
     db.commit()
     return RedirectResponse("/admin/requests", status_code=303)
+
+
+@router.get("/requests/import")
+def requests_import_form(request: Request, user: User = Depends(require_admin)):
+    return render(request, "admin/request_import.html", user, result=None, columns=request_import.COLUMNS)
+
+
+@router.post("/requests/import")
+async def requests_import_submit(
+    request: Request,
+    file: UploadFile = File(...),
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    text = import_merge.decode_csv(await file.read())
+    result = request_import.import_requests(db, text, user)
+    logger.info(
+        "imported song requests: %s new, %s merged, %s skipped",
+        result.imported, result.merged, len(result.skipped),
+    )
+    return render(request, "admin/request_import.html", user, result=result, columns=request_import.COLUMNS)
 
 
 @router.get("/requests.csv")

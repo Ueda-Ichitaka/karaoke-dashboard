@@ -3,7 +3,8 @@ broken report when reviewing it (app/routes/admin.py's edit/admit routes) -
 not shown on the public request/report forms. A song can carry several
 genres at once, stored as a comma-joined string on SongRequest.genre /
 BrokenReport.genre (and their Pending* counterparts, app/models.py); parse_
-genres()/format_genres() convert between that and a code list. The list is
+genres()/format_genres() convert between that and a code list, genre_text()
+turns it into display labels for the admin tables. The list is
 still growing - only the choices themselves are expected to change.
 """
 
@@ -45,3 +46,9 @@ def parse_genres(value: str | None) -> list[str]:
 def format_genres(codes: list[str]) -> str:
     codes = [c for c in codes if c]
     return ",".join(codes) if codes else DEFAULT_GENRE
+
+
+def genre_text(value: str | None) -> str:
+    """The stored value as display labels, e.g. "Metal, Gothic" - the same
+    codes the CSV export carries (an unknown code shows as itself)."""
+    return ", ".join(GENRE_LABELS.get(code, code) for code in parse_genres(value))

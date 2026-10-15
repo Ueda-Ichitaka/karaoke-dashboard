@@ -10,9 +10,13 @@ from . import __version__
 from .config import settings
 from .csrf import get_csrf_token
 from .database import get_db
+from .genres import genre_text
 from .models import User
+from .traits import trait_text
 
 templates = Jinja2Templates(directory="app/templates")
+templates.env.filters["genre_text"] = genre_text
+templates.env.filters["trait_text"] = trait_text
 
 
 class AuthRedirect(Exception):

@@ -1,37 +1,15 @@
-{% extends "base.html" %}
+{% extends "admin/csv_import.html" %}
+{% set list_url = "/admin/reports" %}
 {% block title %}Import reports · {{ app_title }}{% endblock %}
-{% block content %}
-<section class="page narrow">
-  <h1>Import broken-song reports</h1>
-  <p class="subtle">
+{% block heading %}Import broken-song reports{% endblock %}
+{% block intro %}
     Upload a CSV in the same format as the broken.csv export:
     <span class="mono">{{ columns|join(',') }}</span>. A header row is optional.
     Each row becomes a report in <a href="/admin/reports#needs-review">Needs review</a> - or is
-    merged into the song's existing open or pending report. The song is found by its
-    "band - song name" folder.
-  </p>
-
-  {% if result is not none %}
-    <div class="alert {{ 'alert-error' if result.skipped else 'alert-ok' }}">
-      <p>{{ result.imported }} imported, {{ result.merged }} merged, {{ result.skipped|length }} skipped.</p>
-      {% if result.skipped %}
-        <ul>
-          {% for s in result.skipped %}<li>Line {{ s.line }}: {{ s.reason }}</li>{% endfor %}
-        </ul>
-      {% endif %}
-    </div>
-  {% endif %}
-
-  <form class="stack-form" method="post" action="/admin/reports/import" enctype="multipart/form-data">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label class="field">
-      <span class="field-label">CSV file <em>(required, up to 256 KB)</em></span>
-      <input type="file" name="file" accept=".csv,text/csv" required>
-    </label>
-    <div class="inline-form">
-      <button type="submit" class="btn btn-primary">Import</button>
-      <a class="btn btn-ghost" href="/admin/reports">Back to reports</a>
-    </div>
-  </form>
-</section>
+    merged into the song's existing open or pending report, so a song never appears twice:
+    missing fields are filled in, descriptions are combined, an lrclib.net lyrics link wins
+    over any other, genres and traits are combined. Other differing values keep the existing
+    value and are listed for you to check. A song whose only report is resolved is skipped.
+    The song is found by its "band - song name" folder.
 {% endblock %}
+{% block back %}Back to reports{% endblock %}

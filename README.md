@@ -7,7 +7,7 @@ A small web app for a home karaoke system:
 | **Songs** | everyone | Browse & search the library (one entry per folder in your songs directory). |
 | **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, wrong/missing cover image, other) and describe what's broken (both always required, **except** "wrong/missing cover image", which requires a cover image link instead - there's nothing to describe). Under the **strict** profile, the language and (for "lyrics broken"/"out of sync") a genius.com or lrclib.net lyrics link are required too; under **karaoke night**, everything past the song/category/description is optional. Which profile applies is an admin setting - see Settings below. Submissions land in a review queue, not the exportable list directly - see **Requested**/**Reported** below. |
 | **Request song** | logged-in users | Ask for a new song: band + title always required. Under **strict**, YouTube link, language and lyrics link are required too, plus MusicBrainz ID, cover image link and Duet stay optional in both profiles; under **karaoke night**, only band + title are required. Duet - is a duet version wanted? - defaults to "No" (blank/"Unspecified" was removed as a choice). Rejected if the song already exists in the library *or* already has a request (pending review or already admitted) with the same Duet setting - a plain and a duet request for the same song are both allowed at once. Submissions land in a review queue - see **Requested** below. |
-| **Reported** | admins | A **"Needs review" section** lists newly submitted reports, not yet exportable: edit one to fill in anything missing - including an admin-only **genre**/**trait** tag, see CSV export below - then **Admit** it to move it into the exportable list below, or **Discard** it. The admin **Edit** form (pending and admitted alike) and **Admit** always require a language and a lyrics link (genius.com or lrclib.net), for every category and independent of whichever Report broken profile is live, on top of the category's own rule (a description, or a cover image link for "wrong/missing cover image"). The exportable list itself: review / edit / resolve broken-song reports, **export as CSV** (`broken.csv`). A second report for a song that's still pending review or already has an open admitted report merges into it instead of creating a duplicate row - see below. |
+| **Reported** | admins | A **"Needs review" section** lists newly submitted reports, not yet exportable: edit one to fill in anything missing - including an admin-only **genre**/**trait** tag, see CSV export below; both tables show them in their own columns, "Default"/"None" until someone picks one - then **Admit** it to move it into the exportable list below, or **Discard** it. The edit form's **Save and admit** button saves your changes first and then admits; if the admit check still finds something missing, you stay on the form with the error shown. The admin **Edit** form (pending and admitted alike) and **Admit** always require a language and a lyrics link (genius.com or lrclib.net), for every category and independent of whichever Report broken profile is live, on top of the category's own rule (a description, or a cover image link for "wrong/missing cover image"). The exportable list itself: review / edit / resolve broken-song reports, **export as CSV** (`broken.csv`). A second report for a song that's still pending review or already has an open admitted report merges into it instead of creating a duplicate row - see below. |
 | **Requested** | admins | Same **"Needs review"** / Edit / Admit / Discard flow as Reported, above, for song requests. The admin **Edit** form (pending and admitted alike) and **Admit** share their own fixed required-field list - YouTube link, language, MusicBrainz ID and lyrics link - independent of whichever Request song profile is currently live (so switching that profile later never changes what an admin must fill in). Admit is also blocked in production mode if the song already exists in the library (exact folder match) - switch to **debug** mode (see Settings) to admit it anyway. The exportable list: review / edit / close / delete song requests, see whether one already matches the library, **export as CSV**. |
 | **Duplicates** | admins | Three sections, with a slim sidebar to jump between them. **Duplicates**: songs that appear more than once (same artist and title), compare their metadata, dismiss false positives. **Possible duplicates (versions)**: titles that only differ in a "(...)"/"[...]" aside or punctuation, like "Skyfall" vs "Skyfall (Full Length)" - often kept on purpose, so dismiss those; dismissing here never affects the exact list and vice versa. **Folders without a song**: song folders without any UltraStar song file (empty, or media only), except the set-aside folder `-`. Results are cached (scanning is expensive) - rescan on demand or wait for the scheduled monthly rescan. |
 | **Integrity** | admins | Song files checked against the UltraStar format spec (with a count of affected song files and a filter by issue type, e.g. only "#VIDEO file not found"; exportable as an UltraStar Manager playlist), the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder). The latter two export a move list instead - a NUL-delimited file naming every file's current and correct path - for the standalone `scripts/apply_moves.sh` to actually move on disk, something UltraStar Manager itself can't do. A page with more than one section (like this one) gets a slim fixed sidebar so you can jump to a section instead of scrolling. Rescan on demand with the button at the top. |
@@ -327,11 +327,29 @@ row optional, older exports with fewer trailing columns work too, UTF-8 or
 Windows-1252, up to 256 KB). Each row's song is found by an exact
 `band - song name` folder match (case-insensitive) and becomes a report in
 **Needs review** - never directly exportable - or merges into the song's
-existing open/pending report, the same way as above. A row is skipped, with
-its line number and reason shown, if no such folder exists or a value isn't
-valid (category, language, genre, trait codes; links must be http(s)); the
-other rows still import. Imported reports still need a language and lyrics
-link before they can be admitted, like any other.
+existing open/pending report (also an earlier row of the same file), so a
+song never appears twice. The merge rules (`app/import_merge.py`, shared
+with the request import below): a field the existing report lacks is filled
+in; an lrclib.net lyrics link wins over any other, otherwise the existing
+link stays; genres and traits are combined (`default`/`none` only stand
+alone); the description is appended unless already contained (a differing
+category is added to it, as above), so importing the same file twice changes
+nothing; a differing language or cover link keeps the existing value and is
+listed under the import result as a note to check. A song whose only report
+is resolved is skipped. A row is also skipped, with its line number and
+reason shown, if no such folder exists or a value isn't valid (category,
+language, genre, trait codes; links must be http(s)); the other rows still
+import. Imported reports still need a language and lyrics link before they
+can be admitted, like any other.
+
+**Importing requests** (`app/request_import.py`): `Requested` tab →
+**Import CSV** works the same way for a file in the `song-requests.csv`
+export format. A row merges into the pending or open request with the same
+band, song and duet setting (the public form's duplicate check), by the same
+rules; a differing YouTube link, language, MusicBrainz ID or cover link is
+kept and listed. A row is skipped if the song is already in the library
+(exact `band - song` folder), if the same request is already done, or if a
+value fails the request form's own checks.
 
 ---
 
@@ -493,6 +511,8 @@ app/
   request_matching.py  does a song request already exist in the library, the pending queue, or the request queue?
   report_matching.py   finds/merges a duplicate broken-song report into a pending or already-open one
   report_import.py     imports broken reports from a broken.csv-format file into Needs review
+  request_import.py    imports song requests from a song-requests.csv-format file into Needs review
+  import_merge.py      CSV reading and merge rules shared by both imports
   duet.py            yes/no Duet choice for the request form (defaults to "No")
   languages.py       language choices shared by the request/report forms (ISO 639-1 + "Mixed")
   broken_categories.py  fixed category list for the broken-report form
@@ -508,7 +528,7 @@ app/
   deps.py            current-user / auth guards / template helper
   routes/            songs, auth, reports, requests, admin
   templates/         Jinja2 templates
-  static/            style.css, app.js (progressive enhancement)
+  static/            style.css, app.js + checkbox-groups.js (progressive enhancement)
 scripts/
   apply_moves.sh     standalone - not built into the container - applies a move-list export on disk
   fix_case_mismatches.py  standalone - renames files whose name differs from their tag only in letter case

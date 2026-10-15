@@ -29,7 +29,10 @@ def _pending() -> list[PendingBrokenReport]:
 
 def test_import_page_is_linked_from_reports_and_admin_only(admin_client):
     assert "/admin/reports/import" in admin_client.get("/admin/reports").text
-    assert admin_client.get("/admin/reports/import").status_code == 200
+    page = admin_client.get("/admin/reports/import")
+    assert page.status_code == 200
+    assert 'action="/admin/reports/import"' in page.text
+    assert 'href="/admin/reports">Back to reports</a>' in page.text
 
     admin_client.post("/admin/users", data={"username": "gus", "password": "gusgusgusgus"})
     admin_client.post("/logout")
@@ -168,3 +171,81 @@ def test_empty_file_imports_nothing(admin_client):
     assert r.status_code == 200
     assert "0 imported" in r.text
     assert _pending() == []
+
+
+# ------------------------------------------------- merging into a song's report
+# Rules shared with the request import: app/import_merge.py.
+LRCLIB = "https://lrclib.net/tracks/123"
+
+
+def _row(lyrics="", language="", cover="", genre="", trait="", description="cuts out", category="audio"):
+    return (
+        f"Queen,Bohemian Rhapsody,{category},{description},{lyrics},{language},{cover},"
+        f'"{genre}","{trait}"\n'
+    )
+
+
+def test_importing_the_same_file_twice_changes_nothing(admin_client):
+    text = HEADER + _row(lyrics=GENIUS, language="en", genre="metal", trait="choir")
+    _import(admin_client, text)
+    r = _import(admin_client, text)
+    assert "0 imported, 1 merged" in r.text
+    [row] = _pending()
+    assert row.description == "cuts out"
+
+
+def test_an_lrclib_link_replaces_a_genius_link_but_not_the_other_way_round(admin_client):
+    _import(admin_client, HEADER + _row(lyrics=GENIUS) + _row(lyrics=LRCLIB, description="x"))
+    assert _pending()[0].genius_url == LRCLIB
+    _import(admin_client, HEADER + _row(lyrics=GENIUS))
+    assert _pending()[0].genius_url == LRCLIB
+
+
+def test_missing_fields_are_filled_in_from_the_imported_row(admin_client):
+    _import(admin_client, HEADER + _row())
+    _import(admin_client, HEADER + _row(language="de", cover="https://example.com/c.jpg", genre="metal",
+                                        trait="harsh_vocals"))
+    [row] = _pending()
+    assert (row.language, row.cover_url, row.genre, row.trait) == (
+        "de", "https://example.com/c.jpg", "metal", "harsh_vocals",
+    )
+
+
+def test_differing_genres_and_traits_are_combined(admin_client):
+    _import(admin_client, HEADER + _row(genre="metal", trait="choir"))
+    _import(admin_client, HEADER + _row(genre="gothic,metal", trait="operatic_vocals"))
+    [row] = _pending()
+    assert row.genre == "metal,gothic"
+    assert row.trait == "choir,operatic_vocals"
+
+
+def test_differing_language_and_cover_keep_the_existing_value_and_are_listed(admin_client):
+    _import(admin_client, HEADER + _row(language="de", cover="https://example.com/a.jpg"))
+    r = _import(admin_client, HEADER + _row(language="en", cover="https://example.com/b.jpg"))
+    [row] = _pending()
+    assert (row.language, row.cover_url) == ("de", "https://example.com/a.jpg")
+    assert "Line 2: Queen - Bohemian Rhapsody: language differs: kept &#34;de&#34;, file has &#34;en&#34;" in r.text
+    assert "cover link differs" in r.text
+
+
+def test_a_song_whose_only_report_is_resolved_is_skipped(admin_client):
+    with SessionLocal() as db:
+        db.add(BrokenReport(song_folder="Queen - Bohemian Rhapsody", category="audio", description="old",
+                            status="resolved", reporter_username="admin"))
+        db.commit()
+    r = _import(admin_client, HEADER + _row())
+    assert "1 skipped" in r.text
+    assert "already has a resolved report" in r.text
+    assert _pending() == []
+
+
+def test_a_row_merges_into_an_open_admitted_report(admin_client):
+    with SessionLocal() as db:
+        db.add(BrokenReport(song_folder="Queen - Bohemian Rhapsody", category="audio", description="old",
+                            reporter_username="admin"))
+        db.commit()
+    _import(admin_client, HEADER + _row(lyrics=LRCLIB, genre="rock"))
+    assert _pending() == []
+    with SessionLocal() as db:
+        row = db.query(BrokenReport).one()
+        assert (row.description, row.genius_url, row.genre) == ("old; cuts out", LRCLIB, "rock")

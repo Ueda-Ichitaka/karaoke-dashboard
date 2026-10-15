@@ -16,7 +16,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Song</th><th>Category</th><th>Language</th><th>Description</th><th>Lyrics ref</th><th>Cover</th><th>By</th><th></th></tr>
+          <tr><th>When</th><th>Song</th><th>Category</th><th>Language</th><th>Description</th><th>Lyrics ref</th><th>Cover</th><th>Genre</th><th>Trait</th><th>By</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in pending_reports %}
@@ -32,6 +32,8 @@
               <td class="wrap">
                 {% if r.cover_url %}<a href="{{ r.cover_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
+              <td>{{ r.genre|genre_text }}</td>
+              <td>{{ r.trait|trait_text }}</td>
               <td class="nowrap">{{ r.reporter_username }}</td>
               <td class="nowrap actions">
                 <a class="btn btn-small btn-ghost" href="/admin/reports/pending/{{ r.id }}/edit">Edit</a>
@@ -70,7 +72,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Song</th><th>Category</th><th>Language</th><th>Description</th><th>Lyrics ref</th><th>Cover</th><th>By</th><th>Status</th><th></th></tr>
+          <tr><th>When</th><th>Song</th><th>Category</th><th>Language</th><th>Description</th><th>Lyrics ref</th><th>Cover</th><th>Genre</th><th>Trait</th><th>By</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in reports %}
@@ -90,6 +92,8 @@
               <td class="wrap">
                 {% if r.cover_url %}<a href="{{ r.cover_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
+              <td>{{ r.genre|genre_text }}</td>
+              <td>{{ r.trait|trait_text }}</td>
               <td class="nowrap">{{ r.reporter_username }}</td>
               <td>{{ r.status }}</td>
               <td class="nowrap actions">

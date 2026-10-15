@@ -1,0 +1,42 @@
+{#- The admin CSV import page, shared by the report and request imports
+    (admin/report_import.html, admin/request_import.html fill in the blocks):
+    the upload form and the import result - counts, skipped rows, and the
+    notes for merged rows whose values differed (app/import_merge.py). -#}
+{% extends "base.html" %}
+{% block content %}
+<section class="page narrow">
+  <h1>{% block heading %}{% endblock %}</h1>
+  <p class="subtle">{% block intro %}{% endblock %}</p>
+
+  {% if result is not none %}
+    <div class="alert {{ 'alert-error' if result.skipped else 'alert-ok' }}">
+      <p>{{ result.imported }} imported, {{ result.merged }} merged, {{ result.skipped|length }} skipped.</p>
+      {% if result.skipped %}
+        <ul>
+          {% for s in result.skipped %}<li>Line {{ s.line }}: {{ s.reason }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+    {% if result.notes %}
+      <div class="alert alert-note">
+        <p>Merged with differences - the existing value was kept, please check:</p>
+        <ul>
+          {% for n in result.notes %}<li>Line {{ n.line }}: {{ n.message }}</li>{% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  {% endif %}
+
+  <form class="stack-form" method="post" action="{{ list_url }}/import" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field">
+      <span class="field-label">CSV file <em>(required, up to 256 KB)</em></span>
+      <input type="file" name="file" accept=".csv,text/csv" required>
+    </label>
+    <div class="inline-form">
+      <button type="submit" class="btn btn-primary">Import</button>
+      <a class="btn btn-ghost" href="{{ list_url }}">{% block back %}{% endblock %}</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

@@ -74,7 +74,7 @@
     </div>
     <div class="field">
       <span class="field-label">Trait</span>
-      <div class="checkbox-group">
+      <div class="checkbox-group" data-exclusive-choice="none">
         {% for code, label in trait_choices %}
           <label class="checkbox-option">
             <input type="checkbox" name="trait" value="{{ code }}" {{ 'checked' if code in form.trait }}>
@@ -85,15 +85,11 @@
     </div>
     <div class="inline-form">
       <button type="submit" class="btn btn-primary">Save</button>
+      {% if pending %}
+        <button type="submit" class="btn btn-primary" name="after_save" value="admit">Save and admit to the exportable list</button>
+      {% endif %}
       <a class="btn btn-ghost" href="/admin/requests">Cancel</a>
     </div>
   </form>
-
-  {% if pending %}
-    <form class="inline-form" method="post" action="/admin/requests/pending/{{ item.id }}/admit">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="btn btn-primary">Admit to the exportable list</button>
-    </form>
-  {% endif %}
 </section>
 {% endblock %}

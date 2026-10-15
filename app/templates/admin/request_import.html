@@ -1,0 +1,14 @@
+{% extends "admin/csv_import.html" %}
+{% set list_url = "/admin/requests" %}
+{% block title %}Import requests · {{ app_title }}{% endblock %}
+{% block heading %}Import song requests{% endblock %}
+{% block intro %}
+    Upload a CSV in the same format as the song-requests.csv export:
+    <span class="mono">{{ columns|join(',') }}</span>. A header row is optional.
+    Each row becomes a request in <a href="/admin/requests#needs-review">Needs review</a> - or is
+    merged into the pending or open request with the same band, song and duet setting, so a song
+    never appears twice: missing fields are filled in, an lrclib.net lyrics link wins over any
+    other, genres and traits are combined. Other differing values keep the existing value and are
+    listed for you to check. Songs already in the library and requests already done are skipped.
+{% endblock %}
+{% block back %}Back to requests{% endblock %}

@@ -16,7 +16,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Band</th><th>Song</th><th>Language</th><th>YouTube</th><th>Lyrics</th><th>MusicBrainz ID</th><th>Cover</th><th>Duet</th><th>By</th><th></th></tr>
+          <tr><th>When</th><th>Band</th><th>Song</th><th>Language</th><th>YouTube</th><th>Lyrics</th><th>MusicBrainz ID</th><th>Cover</th><th>Duet</th><th>Genre</th><th>Trait</th><th>By</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in pending_requests %}
@@ -40,6 +40,8 @@
                 {% if r.cover_url %}<a href="{{ r.cover_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
               <td class="nowrap">{{ duet_labels.get(r.duet, '-') if r.duet else '-' }}</td>
+              <td>{{ r.genre|genre_text }}</td>
+              <td>{{ r.trait|trait_text }}</td>
               <td class="nowrap">{{ r.requester_username }}</td>
               <td class="nowrap actions">
                 <a class="btn btn-small btn-ghost" href="/admin/requests/pending/{{ r.id }}/edit">Edit</a>
@@ -68,6 +70,7 @@
     <div class="toolbar-right">
       <a class="btn btn-small" href="/admin/requests.csv?scope=open">Export open CSV</a>
       <a class="btn btn-small btn-ghost" href="/admin/requests.csv?scope=all">Export all CSV</a>
+      <a class="btn btn-small btn-ghost" href="/admin/requests/import">Import CSV</a>
     </div>
   </div>
 
@@ -77,7 +80,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Band</th><th>Song</th><th>Language</th><th>YouTube</th><th>Lyrics</th><th>MusicBrainz ID</th><th>Cover</th><th>Duet</th><th>By</th><th>Library</th><th>Status</th><th></th></tr>
+          <tr><th>When</th><th>Band</th><th>Song</th><th>Language</th><th>YouTube</th><th>Lyrics</th><th>MusicBrainz ID</th><th>Cover</th><th>Duet</th><th>Genre</th><th>Trait</th><th>By</th><th>Library</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in requests %}
@@ -101,6 +104,8 @@
                 {% if r.cover_url %}<a href="{{ r.cover_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
               <td class="nowrap">{{ duet_labels.get(r.duet, '-') if r.duet else '-' }}</td>
+              <td>{{ r.genre|genre_text }}</td>
+              <td>{{ r.trait|trait_text }}</td>
               <td class="nowrap">{{ r.requester_username }}</td>
               <td class="nowrap">
                 {% if r.library_match and r.library_match.exact_folder %}

@@ -524,7 +524,6 @@ app/
   app_mode.py         production/debug app mode choices
   app_logging.py      the one Python logging level knob, tied to app mode
   app_settings.py     fetches/creates the AppSettings singleton (profile + mode switches)
-  pending_migration.py  one-time startup move of pre-review "open" rows into the pending tables
   deps.py            current-user / auth guards / template helper
   routes/            songs, auth, reports, requests, admin
   templates/         Jinja2 templates

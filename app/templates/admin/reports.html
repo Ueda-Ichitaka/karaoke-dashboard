@@ -26,10 +26,10 @@
               <td>{{ category_labels.get(r.category, r.category or '-') }}</td>
               <td class="nowrap">{{ language_labels.get(r.language, r.language or '-') }}</td>
               <td class="wrap">{{ r.description }}</td>
-              <td class="wrap">
+              <td class="link-cell">
                 {% if r.genius_url %}<a href="{{ r.genius_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
-              <td class="wrap">
+              <td class="link-cell">
                 {% if r.cover_url %}<a href="{{ r.cover_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
               <td>{{ r.genre|genre_text }}</td>
@@ -86,10 +86,10 @@
               <td>{{ category_labels.get(r.category, r.category or '-') }}</td>
               <td class="nowrap">{{ language_labels.get(r.language, r.language or '-') }}</td>
               <td class="wrap">{{ r.description }}</td>
-              <td class="wrap">
+              <td class="link-cell">
                 {% if r.genius_url %}<a href="{{ r.genius_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
-              <td class="wrap">
+              <td class="link-cell">
                 {% if r.cover_url %}<a href="{{ r.cover_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
               <td>{{ r.genre|genre_text }}</td>

@@ -1,8 +1,8 @@
 """Database engine, session factory and startup helpers.
 
 init_db() creates any missing tables and, since there's no Alembic yet, also
-adds any model columns missing from tables that already existed (see
-_sync_schema and BACKLOG.md).
+adds any model columns missing from tables that already existed and widens
+text columns the model has made longer (see _sync_schema and BACKLOG.md).
 """
 
 from __future__ import annotations
@@ -52,15 +52,37 @@ def wait_for_db(retries: int = 30, delay: float = 2.0) -> None:
     ) from last_err
 
 
+def _widen_statements(inspector, dialect) -> list[str]:
+    """ALTER statements widening each existing text column whose length in
+    the database is shorter than in its model (e.g. a VARCHAR(32) the model
+    has since raised to 128). Widening keeps every stored value."""
+    statements = []
+    existing_tables = set(inspector.get_table_names())
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        db_lengths = {c["name"]: getattr(c["type"], "length", None) for c in inspector.get_columns(table.name)}
+        for column in table.columns:
+            model_length = getattr(column.type, "length", None)
+            db_length = db_lengths.get(column.name)
+            if model_length and db_length and db_length < model_length:
+                ddl_type = column.type.compile(dialect=dialect)
+                statements.append(f'ALTER TABLE "{table.name}" ALTER COLUMN "{column.name}" TYPE {ddl_type}')
+    return statements
+
+
 def _sync_schema(target_engine: Engine) -> None:
-    """Add model columns missing from already-existing tables.
+    """Add model columns missing from already-existing tables, and widen
+    text columns the model has made longer.
 
     create_all() only creates tables that don't exist yet - it never alters
     one that's already there, so a nullable column added to a model here
-    would otherwise never reach a table created by an earlier app version.
-    Only additive, nullable columns are supported (see BACKLOG.md for
-    adopting Alembic once real migrations - renames, backfills, drops - are
-    needed).
+    would otherwise never reach a table created by an earlier app version,
+    and a raised length would never reach the database (Postgres enforces
+    it; SQLite ignores lengths and can't alter a column, so it's skipped
+    there). Only additive, nullable columns and widening are supported (see
+    BACKLOG.md for adopting Alembic once real migrations - renames,
+    backfills, drops - are needed).
     """
     inspector = inspect(target_engine)
     existing_tables = set(inspector.get_table_names())
@@ -75,6 +97,11 @@ def _sync_schema(target_engine: Engine) -> None:
             ddl_type = column.type.compile(dialect=target_engine.dialect)
             with target_engine.begin() as conn:
                 conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {ddl_type}'))
+
+    if target_engine.dialect.name != "sqlite":
+        for statement in _widen_statements(inspect(target_engine), target_engine.dialect):
+            with target_engine.begin() as conn:
+                conn.execute(text(statement))
 
 
 def init_db() -> None:

@@ -87,3 +87,47 @@ def test_app_start_keeps_admitted_rows_admitted_and_tagged(fresh_db):
         report = db.query(BrokenReport).one()
         assert (request.status, request.genre, request.trait) == ("open", "metal,folk", "harsh_vocals")
         assert (report.status, report.genre, report.trait) == ("open", "rock", "choir")
+
+
+# A text column widened in the model (trait: VARCHAR(32) -> VARCHAR(128))
+# must be widened in an existing database too - Postgres enforces the old
+# length. SQLite (the tests' database) ignores lengths and can't ALTER a
+# column, so the widening is planned for Postgres and checked as DDL here.
+def _old_trait_table(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'old-trait.db'}")
+    with engine.begin() as conn:
+        conn.execute(text(
+            "CREATE TABLE song_requests (id INTEGER PRIMARY KEY, band_name VARCHAR(512) NOT NULL, "
+            "song_name VARCHAR(512) NOT NULL, status VARCHAR(16) NOT NULL, requester_username VARCHAR(64) NOT NULL, "
+            "created_at DATETIME NOT NULL, genre VARCHAR(128), trait VARCHAR(32))"
+        ))
+    return engine
+
+
+def test_columns_shorter_than_the_model_are_widened_on_postgres(tmp_path):
+    from sqlalchemy.dialects import postgresql
+
+    from app.database import _widen_statements
+
+    statements = _widen_statements(inspect(_old_trait_table(tmp_path)), postgresql.dialect())
+    assert 'ALTER TABLE "song_requests" ALTER COLUMN "trait" TYPE VARCHAR(128)' in statements
+    assert not any('"genre"' in s or '"band_name"' in s for s in statements)  # already wide enough
+
+
+def test_sync_schema_on_sqlite_leaves_lengths_alone(tmp_path):
+    engine = _old_trait_table(tmp_path)
+    _sync_schema(engine)  # must not try an ALTER COLUMN SQLite doesn't support
+    columns = {c["name"]: c for c in inspect(engine).get_columns("song_requests")}
+    assert "language" in columns
+
+
+def test_every_genre_and_trait_together_fit_their_columns():
+    from app.genres import GENRE_CHOICES, format_genres
+    from app.models import BrokenReport, PendingBrokenReport, PendingSongRequest, SongRequest
+    from app.traits import TRAIT_CHOICES, format_traits
+
+    all_genres = format_genres([code for code, _ in GENRE_CHOICES if code != "default"])
+    all_traits = format_traits([code for code, _ in TRAIT_CHOICES])
+    for model in (SongRequest, PendingSongRequest, BrokenReport, PendingBrokenReport):
+        assert len(all_genres) <= model.__table__.c.genre.type.length
+        assert len(all_traits) <= model.__table__.c.trait.type.length

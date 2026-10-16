@@ -25,10 +25,10 @@
               <td>{{ r.band_name }}</td>
               <td>{{ r.song_name }}</td>
               <td class="nowrap">{{ language_labels.get(r.language, r.language or '-') }}</td>
-              <td class="wrap">
+              <td class="link-cell">
                 {% if r.youtube_url %}<a href="{{ r.youtube_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
-              <td class="wrap">
+              <td class="link-cell">
                 {% if r.lyrics_url and r.lyrics_url.startswith('http') %}
                   <a href="{{ r.lyrics_url }}" target="_blank" rel="noopener">link</a>
                 {% elif r.lyrics_url %}
@@ -36,7 +36,7 @@
                 {% else %}-{% endif %}
               </td>
               <td class="mono">{{ r.musicbrainz_id or '-' }}</td>
-              <td class="wrap">
+              <td class="link-cell">
                 {% if r.cover_url %}<a href="{{ r.cover_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
               <td class="nowrap">{{ duet_labels.get(r.duet, '-') if r.duet else '-' }}</td>
@@ -89,10 +89,10 @@
               <td>{{ r.band_name }}</td>
               <td>{{ r.song_name }}</td>
               <td class="nowrap">{{ language_labels.get(r.language, r.language or '-') }}</td>
-              <td class="wrap">
+              <td class="link-cell">
                 {% if r.youtube_url %}<a href="{{ r.youtube_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
-              <td class="wrap">
+              <td class="link-cell">
                 {% if r.lyrics_url and r.lyrics_url.startswith('http') %}
                   <a href="{{ r.lyrics_url }}" target="_blank" rel="noopener">link</a>
                 {% elif r.lyrics_url %}
@@ -100,7 +100,7 @@
                 {% else %}-{% endif %}
               </td>
               <td class="mono">{{ r.musicbrainz_id or '-' }}</td>
-              <td class="wrap">
+              <td class="link-cell">
                 {% if r.cover_url %}<a href="{{ r.cover_url }}" target="_blank" rel="noopener">link</a>{% else %}-{% endif %}
               </td>
               <td class="nowrap">{{ duet_labels.get(r.duet, '-') if r.duet else '-' }}</td>

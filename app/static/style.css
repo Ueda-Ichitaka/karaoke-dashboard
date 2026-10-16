@@ -330,6 +330,10 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .data-table tbody tr:hover { background: var(--surface-2); }
 .data-table .nowrap { white-space: nowrap; }
 .data-table .wrap { min-width: 220px; white-space: pre-wrap; }
+/* A link column only shows "link" (or, for a request's lyrics, possibly a
+   file path, which may break anywhere) - no reserved width. */
+.data-table .link-cell { white-space: nowrap; }
+.data-table .link-cell .mono { white-space: normal; word-break: break-all; }
 .row-done { opacity: .5; }
 .mono, .data-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--text-dim); }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }

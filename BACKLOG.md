@@ -10,8 +10,11 @@ to `SongRequest`. `app/database.py: init_db()` only calls
 `Base.metadata.create_all()`, which creates missing tables but never alters
 existing ones - schema changes currently ship as a small idempotent
 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` helper alongside it (see
-`app/database.py: _sync_schema()` or equivalent). That doesn't scale to
-renames, data backfills, or column drops.
+`app/database.py: _sync_schema()` or equivalent), which since 2026-10-16
+also widens a text column whose model length was raised (a too-short
+`trait` column broke admitting several traits on Postgres, while the
+SQLite tests never noticed). That doesn't scale to renames, data
+backfills, or column drops.
 
 **Proposal:** introduce Alembic, generate a versioned migration for the
 columns added in this change (and any added since), and run

@@ -1,0 +1,24 @@
+{# About me: one panel of the "What's new" page (_new_panels.html) - a list
+   of (song, date) pairs in "items", newest first, each linking to that
+   song's search in the song library and dated with when it was "verb"
+   (added/updated). "q" is the search that narrowed it, if any. #}
+<section class="side-panel" id="{{ panel_id }}" aria-labelledby="{{ panel_id }}-heading">
+  <h2 id="{{ panel_id }}-heading">{{ heading }}</h2>
+  <p class="subtle">Last {{ recent_period }}</p>
+  {% if items %}
+    <ul class="recent-list">
+      {% for song, moment in items %}
+        <li>
+          <a href="/songs?q={{ song.folder|urlencode }}">
+            {% if song.artist %}<span class="song-artist">{{ song.artist }}</span>{% endif %}
+            <span class="song-title">{{ song.title }}</span>
+          </a>
+          {% include "_broken_badge.html" %}
+          <time datetime="{{ moment.strftime('%Y-%m-%d') }}">{{ moment.strftime('%Y-%m-%d') }}</time>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">No songs {{ verb }} in the last {{ recent_period }}{% if q %} matching "{{ q }}"{% endif %}.</p>
+  {% endif %}
+</section>

@@ -1,0 +1,29 @@
+{# About me: the "What's new" page - the songs added and the songs updated in
+   the last recent_period (set on the Settings page, app/recent_period.py;
+   recorded by app/library_history.py), side by side, with
+   a search on top that narrows both (live via /new/partial, which renders
+   _new_panels.html). On a narrow screen the panels stack (.new-panels in
+   app/static/style.css). #}
+{% extends "base.html" %}
+{% block title %}What's new · {{ app_title }}{% endblock %}
+{% block content_class %} with-panels{% endblock %}
+{% block content %}
+<section class="page">
+  <div class="page-head">
+    <h1>What's new</h1>
+    <p class="subtle">Songs added to the library and songs updated in the last {{ recent_period }}.</p>
+  </div>
+
+  <form class="search" method="get" action="/new" role="search">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search for a band or a song…"
+           autocomplete="off" autofocus aria-label="Search new and updated songs"
+           data-live-search data-target="#new-results" data-endpoint="/new/partial">
+    <button type="submit" class="btn">Search</button>
+    {% if q %}<a class="btn btn-ghost" href="/new">Clear</a>{% endif %}
+  </form>
+
+  <div id="new-results">
+    {% include "_new_panels.html" %}
+  </div>
+</section>
+{% endblock %}

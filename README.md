@@ -1,536 +1,172 @@
-# 🎤 Karaoke Dashboard
+# Karaoke Dashboard
 
-A small web app for a home karaoke system:
+A small self-hosted web app for a home karaoke system built on
+[UltraStar Deluxe](https://usdx.eu/). Guests browse the song library, report
+songs that are broken and request new ones; admins review those submissions,
+export them as CSV for the song pipeline, and keep the library itself tidy.
 
-| Tab | Who | What |
-| --- | --- | --- |
-| **Songs** | everyone | Browse & search the library (one entry per folder in your songs directory). |
-| **Report broken** | logged-in users | Pick a song, choose a category (`#GAP`, out of sync, lyrics broken, missing video, missing audio, wrong/missing cover image, other) and describe what's broken (both always required, **except** "wrong/missing cover image", which requires a cover image link instead - there's nothing to describe). Under the **strict** profile, the language and (for "lyrics broken"/"out of sync") a genius.com or lrclib.net lyrics link are required too; under **karaoke night**, everything past the song/category/description is optional. Which profile applies is an admin setting - see Settings below. Submissions land in a review queue, not the exportable list directly - see **Requested**/**Reported** below. |
-| **Request song** | logged-in users | Ask for a new song: band + title always required. Under **strict**, YouTube link, language and lyrics link are required too, plus MusicBrainz ID, cover image link and Duet stay optional in both profiles; under **karaoke night**, only band + title are required. Duet - is a duet version wanted? - defaults to "No" (blank/"Unspecified" was removed as a choice). Rejected if the song already exists in the library *or* already has a request (pending review or already admitted) with the same Duet setting - a plain and a duet request for the same song are both allowed at once. Submissions land in a review queue - see **Requested** below. |
-| **Reported** | admins | A **"Needs review" section** lists newly submitted reports, not yet exportable: edit one to fill in anything missing - including an admin-only **genre**/**trait** tag, see CSV export below; both tables show them in their own columns, "Default"/"None" until someone picks one - then **Admit** it to move it into the exportable list below, or **Discard** it. The edit form's **Save and admit** button saves your changes first and then admits; if the admit check still finds something missing, you stay on the form with the error shown. The admin **Edit** form (pending and admitted alike) and **Admit** always require a language and a lyrics link (genius.com or lrclib.net), for every category and independent of whichever Report broken profile is live, on top of the category's own rule (a description, or a cover image link for "wrong/missing cover image"). The exportable list itself: review / edit / resolve broken-song reports, **export as CSV** (`broken.csv`). A second report for a song that's still pending review or already has an open admitted report merges into it instead of creating a duplicate row - see below. |
-| **Requested** | admins | Same **"Needs review"** / Edit / Admit / Discard flow as Reported, above, for song requests. The admin **Edit** form (pending and admitted alike) and **Admit** share their own fixed required-field list - YouTube link, language, MusicBrainz ID and lyrics link - independent of whichever Request song profile is currently live (so switching that profile later never changes what an admin must fill in). Admit is also blocked in production mode if the song already exists in the library (exact folder match) - switch to **debug** mode (see Settings) to admit it anyway. The exportable list: review / edit / close / delete song requests, see whether one already matches the library, **export as CSV**. |
-| **Duplicates** | admins | Three sections, with a slim sidebar to jump between them. **Duplicates**: songs that appear more than once (same artist and title), compare their metadata, dismiss false positives. **Possible duplicates (versions)**: titles that only differ in a "(...)"/"[...]" aside or punctuation, like "Skyfall" vs "Skyfall (Full Length)" - often kept on purpose, so dismiss those; dismissing here never affects the exact list and vice versa. **Folders without a song**: song folders without any UltraStar song file (empty, or media only), except the set-aside folder `-`. Results are cached (scanning is expensive) - rescan on demand or wait for the scheduled monthly rescan. |
-| **Integrity** | admins | Song files checked against the UltraStar format spec (with a count of affected song files and a filter by issue type, e.g. only "#VIDEO file not found"; exportable as an UltraStar Manager playlist), the library checked for the flat "Artist - Title" folder convention (nested/misnamed folders shown with a file tree), and misplaced songs (wrong song in an otherwise correctly-named folder). The latter two export a move list instead - a NUL-delimited file naming every file's current and correct path - for the standalone `scripts/apply_moves.sh` to actually move on disk, something UltraStar Manager itself can't do. A page with more than one section (like this one) gets a slim fixed sidebar so you can jump to a section instead of scrolling. Rescan on demand with the button at the top. |
-| **Users** | admins | Create users, reset passwords, grant/revoke admin, disable, delete. |
-| **Settings** | admins | Switch the Request song and Report broken forms between the **karaoke night** and **strict** profiles, independently of each other; switch the app between **production** and **debug** mode (raises the log level; also lets an admin admit a song request for a song already in the library); and an **Enable logging** toggle that silences all logging outright, independently of mode. |
+## Motivation
 
-Built with **FastAPI + Jinja2 + SQLAlchemy**, server-rendered, no JS framework.
-The song list is the set of sub-folders of a directory you mount into the
-container (e.g. your existing karaoke library on the NAS). Reports, requests and
-user accounts live in **PostgreSQL**.
+A home karaoke library grows to thousands of song folders on a NAS, and over
+time some of them break: the timing is off, the lyrics are wrong, the audio
+or video is missing. The people who notice are the singers, in the middle of
+a karaoke night - and the same people know which songs they'd love to sing
+next.
 
-Click a song row to expand it: every [UltraStar Deluxe](https://usdx.eu/) `.txt`
-file in that folder (there can be more than one - batch-imported folders often
-hold several distinct songs) is parsed into a metadata card - cover, length,
-duet, genre, year, language. Length comes from the actual audio/video file the
-song plays back (`#AUDIO`/`#MP3`/`#VIDEO`), not the rarely-present UltraStar
-`#START`/`#END` tags. No JavaScript is involved; it's a native `<details>`
-disclosure per row.
+Collected in chat messages or on paper, that feedback gets lost or arrives
+twice. Karaoke Dashboard gives it one place:
 
-**Duplicates** (`app/duplicates.py`) groups every UltraStar entry in the
-library by normalized artist + title, across folders *and* within a single
-folder (e.g. two differently-named `.txt` charts for the same song sitting
-next to each other). A group of two or more is a duplicate; its detail page
-shows each copy's folder/filename and a field-by-field diff (genre, year,
-language, length, cover, ...). A duet arrangement is never grouped with a
-solo one - that's an intentional variant, not a duplicate. Reviewing a group
-and clicking **Dismiss** records it (by its normalized key) so it's skipped
-on future scans, even after the underlying files change. Scanning every
-folder's UltraStar tags is expensive, so the group list is cached in memory
-rather than recomputed on every page view - the **Rescan** button forces a
-fresh scan, and it also happens automatically once a month (`DUPLICATES_RESCAN_DAY`
-/ `_HOUR` / `_MINUTE`, see Configuration below).
+- **Guests** see what's in the library, which songs are already known to be
+  broken and what was added recently.
+- **Logged-in users** report a broken song or request a new one in a short
+  form.
+- **Admins** review each submission, complete it, and export the lists as
+  CSV files that the song pipeline (UltraSinger batch processing and the
+  USDX Song Factory) picks up to repair or create songs.
+- **Library checks** find duplicates, files that break the UltraStar format,
+  and folders that don't follow the `Artist - Title` convention.
 
-**Integrity** (`app/format_check.py`, `app/structure_check.py`) runs two
-independent checks, both computed live on every view (use the **Rescan**
-button at the top to force a fresh look): every `.txt` file is checked
-against the [UltraStar format spec](https://github.com/UltraStar-Deluxe/format)
-(missing mandatory tags, broken media references, malformed numeric fields,
-unparsable body lines - severities are **error** for things that break
-playback and **warning** for spec deviations that don't; a file whose only
-issue is a missing `#VERSION` tag is left out entirely - real but
-non-breaking, and it would otherwise drown out genuine problems on an older
-library); and every song folder is checked against the library's flat
-`Artist - Title` convention - a folder may hold several songs, but a nested
-subfolder or a name without the separator is flagged, with a file tree to
-show why. A `@eaDir` subfolder (Synology's per-folder thumbnail cache) is
-never treated as a nested subfolder for this check - it's NAS bookkeeping,
-not a structure problem. Both kinds of non-conformance are typically
-introduced by other library-management tools.
-A third check flags **misplaced songs**: a song whose own `#ARTIST`/`#TITLE`
-tags don't match the "Artist - Title" folder it's sitting in - e.g. a
-batch-import bug that dumped an unrelated song's files into an otherwise
-correctly-named folder - so it's clear which of several `.txt`s in a folder
-actually belongs there. The comparison ignores `()`/`[]` asides (e.g. a
-yt-dlp video ID or "(Official Audio)"), a known "Napalm Records"-style label
-suffix, and treats filename-unsafe characters like `:` and `/` - and the `-`
-or `|` that commonly replace them once they're part of a folder/file name -
-as interchangeable, so those don't read as a mismatch. The format-issues
-check can be exported as an [UltraStar Deluxe playlist](https://usdx.eu/)
-(`.upl`, matched by Artist + Title) scoped to just those songs - open it in
-[UltraStar Manager](https://github.com/UltraStar-Deluxe/UltraStar-Manager)
-to jump straight to them instead of browsing the whole library. That
-project is vendored read-only at `third_party/ultrastar-manager` (a git
-submodule, not built or run by this app) purely as a reference for its
-`.upl` format (`src/playlist/QUPlaylistFile.cpp`); run
-`git submodule update --init` after cloning if you want it locally.
-The other two checks - non-conforming folders and misplaced songs - export
-a **move list** instead (`app/move_export.py`): UltraStar Manager has no
-way to move a file, only to point at one, so this project ships its own
-standalone script for that, **`scripts/apply_moves.sh`** (deliberately
-outside `app/`, never built into the container image). The export is a
-flat stream of NUL-terminated tokens, alternating a source path and its
-correct destination path - the same convention `find -print0` uses, so a
-filename with any character, including a literal `/` in a band name like
-"AC/DC" (sanitized to "AC-DC" in the destination folder name), needs no
-escaping. Run it by hand against the real `songs_dir` mount:
-`scripts/apply_moves.sh [--dry-run] <move-list-file>...` - it creates each
-destination folder as needed and never overwrites an existing file (it
-skips and reports that on stderr instead). A nested subfolder literally
-named `-` is left alone by the structure-moves export.
+## Features
 
-**Case-only mismatches.** Over an SMB mount without Unix extensions (e.g.
-`vers=3.0`), the NAS's Samba matches filenames case-insensitively. When
-UltraStar Manager's rename only changes letter case ("abba - i have a
-dream.mp3" -> "ABBA - I Have A Dream.mp3"), it rewrites the tag in the .txt,
-but the share reports the new name as already existing and the file rename
-is refused. Players over that mount still find the file; the integrity
-check, reading the NAS's own case-sensitive disk, does not. The standalone
-**`scripts/fix_case_mismatches.py [--dry-run] [--root <songs-dir>]`**
-(stdlib Python, also outside `app/`) renames each such file to the tag's
-spelling via a temporary name, which the share accepts. It never edits a
-.txt, skips anything ambiguous, and never overwrites a file. Safe to rerun.
+### Song library
 
-**Missing audio/video sources.** The standalone
-**`scripts/repair_library.py [--dry-run] [--root <songs-dir>] [--csv <file>]`**
-(stdlib Python, outside `app/`) repairs song .txt files without a working
-audio/video source and lists what it can't repair as report rows, in the
-`broken.csv` format, for the **Import CSV** on the `Reported` tab:
+Search the library live, expand a song for its metadata (cover, length, duet,
+genre, year, language). Songs with an open report carry a **Reported broken**
+badge - until the report is resolved, or optionally until the song is fixed.
 
-- A duet without audio next to a solo whose `#BPM` is at most 0.1% and
-  `#GAP` at most 0.6 s apart gets the solo's `#MP3`/`#VIDEO` - it's a duet
-  version of the same recording.
-- Any other such duet moves to its own `<folder> [DUET]` folder (with its
-  `.usdb` marker and own images), gets copies of the solo's media, and a
-  report row (category `other`) asking for re-timing and a `#GAP`
-  recalculation, with the intended video from its `.usdb` marker. Its own
-  folder is what lets the song factory, which repairs one folder at a time
-  using its first song .txt, work on it.
-- A missing or dangling `#MP3`/`#VIDEO` (or an absent `#VIDEO` with a video
-  file present) is set to the file it can only mean: the one named with
-  the song's USDB video ID, else the only such file in the folder. A linked
-  file starting with `_` loses that `_` unless the plain name is taken.
-- Anything else - no such file, or several and none identifiable - becomes
-  a report row (category `audio`/`video`).
+![Song library](docs/screenshots/songs.png)
 
-Each song gets one row only, since the dashboard reports a song once: the
-first repair found sets the category, every further one is appended to the
-description as "Also (<category>): ...". Report rows carry what the files state: language (`#LANGUAGE`, mapped to
-the dashboard's codes), genre (`#GENRE`, exact code matches only), cover
-link (`.usdb`). A dry run writes no CSV unless `--csv` is given. Before
-editing a .txt it keeps a `<name>.txt.bak` copy (an existing one is never
-overwritten), and it preserves the file's encoding and line endings. Run
-`fix_case_mismatches.py` first - letter-case mismatches are left to it.
+### What's new
 
----
+**Recently added** and **Recently updated** side by side: the songs added to
+the library and the songs whose files changed recently (2 months by default,
+adjustable in days, weeks or months), with a search on top that narrows both.
 
-## Deploy on a Synology NAS (Container Manager / docker-compose)
+![What's new](docs/screenshots/whats-new.png)
 
-Style follows the [mariushosting](https://mariushosting.com) Synology tutorials.
+### Report a broken song / request a song
 
-### 1. Folders
+Short forms for logged-in users. A report names the song, a category (gap,
+out of sync, lyrics, video, audio, cover, other) and what's wrong; a request
+names band and title plus optional links. Duplicates are merged or refused,
+so a song never shows up twice.
 
-Via **File Station** create:
+![Report a broken song](docs/screenshots/report.png)
+![Request a song](docs/screenshots/request.png)
 
-```
-/volume1/docker/karaoke-dashboard
-/volume1/docker/karaoke-dashboard/db
-```
+### Review and export (admins)
 
-### 2. Environment file
+New reports and requests wait in **Needs review**. An admin completes them -
+including genre and vocal/instrument tags - and admits them into the
+exportable list, which downloads as CSV. Existing CSV files can be imported
+back, merging with what's already there.
 
-Copy [`.env.example`](.env.example) to `.env` inside
-`/volume1/docker/karaoke-dashboard/` and fill it in. Generate the secrets:
+![Reported songs](docs/screenshots/admin-reported.png)
+![Requested songs](docs/screenshots/admin-requested.png)
+
+### Library checks (admins)
+
+**Duplicates** finds songs that exist more than once and possible duplicate
+versions. **Integrity** checks every song file against the UltraStar format,
+flags folders that break the `Artist - Title` convention and songs sitting in
+the wrong folder, and exports playlists and move lists to fix them.
+
+![Duplicates](docs/screenshots/duplicates.png)
+![Integrity](docs/screenshots/integrity.png)
+
+### Library scripts
+
+The dashboard never changes a song file. Three standalone scripts in
+`scripts/` do, run by hand against the songs directory (not part of the
+image). Each has a `--dry-run` mode:
+
+| Script | What it does |
+| --- | --- |
+| `fix_case_mismatches.py` | Renames files whose name differs from their `.txt` tag only in letter case - a rename an SMB share refuses. |
+| `repair_library.py` | Links missing audio/video sources, moves duets that need re-timing into their own folder, and writes what it can't fix as a CSV to import on the Reported tab. |
+| `apply_moves.sh` | Applies a move list exported from the Integrity tab, moving misplaced files into the right folders without overwriting anything. |
 
 ```bash
-openssl rand -hex 32   # SECRET_KEY
-openssl rand -hex 24   # POSTGRES_PASSWORD
+scripts/fix_case_mismatches.py --dry-run --root /volume1/music/karaoke
+scripts/repair_library.py --dry-run --root /volume1/music/karaoke --csv repairs.csv
+scripts/apply_moves.sh --dry-run --root /volume1/music/karaoke non-conforming.moves misplaced.moves
 ```
 
-Set `ADMIN_PASSWORD` - the `admin` account is created automatically on first
-start. `SESSION_COOKIE_SECURE=true` unless you reach the app over plain `http://`.
+Details, and the order to run them in, are in
+[docs/library-scripts.md](docs/library-scripts.md).
 
-### 3. Compose file
+### Users and settings (admins)
 
-Use [`docker-compose.yml`](docker-compose.yml). **Edit one line** for your NAS:
+Accounts are created by an admin; there's no self-registration. Settings
+switch each public form between a relaxed **karaoke night** profile and a
+**strict** one, and the app between production and debug mode.
 
-```yaml
-    volumes:
-      - /volume1/music/karaoke:/songs:ro   # <-- your real karaoke library path
-```
+![Settings](docs/screenshots/settings.png)
 
-The web port (`${WEB_PORT:-9713}`, set via `.env` if you want a different
-one) is bound to `127.0.0.1` only - reachable from the NAS itself, not from
-your LAN or the internet directly. This is deliberate: it forces every
-visitor through a reverse proxy rather than the container's raw port,
-closing an otherwise-real hole where trusting `X-Forwarded-For` from
-"the Docker network" can't actually distinguish a real reverse proxy's
-traffic from anyone who reaches the port directly - Docker NATs *every*
-published-port connection through the same bridge gateway address,
-regardless of true origin. Only change this if you deliberately want direct
-LAN access without a proxy:
+## Quick start
 
-```yaml
-    ports:
-      - ${WEB_PORT:-9713}:8000              # <-- removes the 127.0.0.1 restriction
-```
+### Deploy on a Synology NAS
 
-### 4. Start
+You need Container Manager (or Portainer) and your karaoke library on the NAS.
 
-**Container Manager → Project → Create**, point it at the folder with
-`docker-compose.yml` and `.env`, and start it. The image is pulled from
-`ghcr.io/ueda-ichitaka/karaoke-dashboard:latest`.
+1. Create the folder `/volume1/docker/karaoke-dashboard/db`.
+2. Copy [`.env.example`](.env.example) to
+   `/volume1/docker/karaoke-dashboard/.env` and fill it in:
 
-To run an older build instead, pick a version from the package page
-(<https://github.com/Ueda-Ichitaka/karaoke-dashboard/pkgs/container/karaoke-dashboard>,
-"View and manage all versions") and replace `latest` in `docker-compose.yml`
-with its version tag, e.g. `ghcr.io/ueda-ichitaka/karaoke-dashboard:2026.10.11-42`.
-The 10 newest builds are kept - see "How images are published" below.
+   ```bash
+   openssl rand -hex 32   # SECRET_KEY
+   openssl rand -hex 24   # POSTGRES_PASSWORD
+   ```
 
-Set up the Synology **reverse proxy** (Control Panel → Login Portal →
-Advanced → Reverse Proxy) pointing your chosen hostname at
-`127.0.0.1:9713` (or your `WEB_PORT`), and log in through that hostname -
-`http://<NAS-IP>:9713` no longer works directly, by design (see above). Keep
-`SESSION_COOKIE_SECURE=true` once the proxy terminates HTTPS.
+   Set `ADMIN_PASSWORD` too - the `admin` account is created on first start.
+3. Copy [`docker-compose.yml`](docker-compose.yml) next to it and point the
+   songs mount at your library:
 
-### Updating
+   ```yaml
+       volumes:
+         - /volume1/music/karaoke:/songs:ro
+   ```
+
+4. **Container Manager -> Project -> Create** from that folder and start it.
+5. Add a **reverse proxy** (Control Panel -> Login Portal -> Advanced ->
+   Reverse Proxy) from your hostname to `127.0.0.1:9713`, and open the app
+   through that hostname. The port only listens on the NAS itself, by design.
+
+Update to the newest build with:
 
 ```bash
 docker compose pull && docker compose up -d
 ```
 
-The database schema is created automatically; there are no manual migration
-steps for now.
+The database schema is created and updated automatically. Pinning a version,
+the reasoning behind the port binding, troubleshooting and every setting are
+in [docs/deploy.md](docs/deploy.md).
 
-### Troubleshooting
-
-The app prints what it's doing on startup:
-
-```
-[startup] connecting to database at karaoke-db:5432/karaoke
-[startup] database connection OK
-```
-
-**`database unreachable ... after 30 attempts` / `Name or service not known`**
-- the app can't resolve the DB host. Check, in order:
-
-1. Both containers were started from the **same** compose project (so they share
-   one network). Deploying the two containers separately will not work.
-2. `POSTGRES_PASSWORD` in `.env` has no `$`, no `#`, no surrounding quotes and no
-   stray spaces - compose mangles those and the value the DB gets won't match.
-   Regenerate with `openssl rand -hex 24` if unsure.
-3. If you changed `POSTGRES_PASSWORD` after the first start, the database volume
-   still has the **old** password baked in. Wipe it and redeploy:
-   remove the stack, delete the contents of
-   `/volume1/docker/karaoke-dashboard/db`, start again.
-
-**`password authentication failed for user "karaoke"`** - same as (3): the volume
-was initialised with a different password. Wipe `…/db` and redeploy.
-
----
-
-## Configuration
-
-All settings are environment variables (see `.env.example` and `app/config.py`).
-
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `POSTGRES_HOST` / `POSTGRES_PORT` | `db` / `5432` | Database host/port. The compose file sets the host to `karaoke-db`. |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `karaoke` / `karaoke` / `karaoke` | The app URL-encodes the password, so `@ : / % #` in it are safe. |
-| `DATABASE_URL` | *(empty)* | Optional. A full SQLAlchemy URL that overrides the `POSTGRES_*` parts (e.g. `sqlite:///./dev.db` or a managed-DB URL). |
-| `SECRET_KEY` | *(insecure dev value)* | **Required in production.** Signs the session cookie. |
-| `SESSION_COOKIE_SECURE` | `true` | Send the session cookie only over HTTPS. |
-| `SONGS_DIR` | `/songs` | Directory scanned for song sub-folders. Mount read-only. |
-| `SONG_SEPARATOR` | `" - "` | Splits `Artist - Title` folder names. |
-| `SCAN_CACHE_SECONDS` | `30` | How long the directory listing is cached before re-scanning. |
-| `PAGE_SIZE` | `60` | Songs per page. |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / *(empty)* | First-run admin seed. If the password is empty, no admin is created. |
-| `CSV_INCLUDE_HEADER` | `true` | Header row in the requested-songs/broken-songs CSV exports. |
-| `DUPLICATES_RESCAN_DAY` | `1` | Day of month (1-28) the duplicates report auto-rescans. |
-| `DUPLICATES_RESCAN_HOUR` / `_MINUTE` | `3` / `0` | 24h time (in `TZ`) for that auto-rescan. |
-| `APP_TITLE` | `Karaoke Dashboard` | Shown in the header and page titles. |
-
-Synology system folders (`@eaDir`, `#recycle`, …) and dot-folders are ignored
-when scanning.
-
-### CSV export
-
-`Requested` tab → **Export open CSV** / **Export all CSV**. Columns:
-`band name, song name, youtube link, language, musicbrainz_id, lyrics_url, cover_url, duet, genre, trait`,
-comma-separated, `\n` row terminator, UTF-8. Header row unless
-`CSV_INCLUDE_HEADER=false`. The middle five columns are optional/blank unless
-the requester filled them in on the request form (`duet` is `yes`, `no` or
-blank - the form defaults to "No", so blank is a leftover value from before
-that default existed, and both downstream and this project's own duplicate
-check treat it the same as `no`; `cover_url` must be an http(s) link); they're consumed by the
-UltraSinger batch pipeline (see `UPSTREAM_REQUESTS.md`) - `language` pins
-whisper's language detection, `musicbrainz_id` enables a direct metadata
-lookup instead of a fuzzy search, and `lyrics_url` is tried before an online
-lyrics search (only a genius.com song page, an lrclib.net track page
-(`lrclib.net/tracks/<id>`) or a direct `.txt`/`.lrc` link actually work;
-anything else - including a filesystem path an admin may set - falls back
-silently, it's never an error). `musicbrainz_id` accepts either
-the bare ID or a pasted `musicbrainz.org` URL - the ID is extracted from the
-URL automatically (see `app/musicbrainz.py`), so the stored value always
-fits the column and matches what the downstream lookup expects. The last two
-columns, `genre` and `trait` (`app/genres.py`, `app/traits.py`), are never on
-either public form - an admin adds them while reviewing a pending request,
-before admitting it (or on an already-admitted one, via its own Edit). A
-song can carry several genres and several traits at once (comma-joined in
-the one cell, e.g. `metal,gothic` or `harsh_vocals,choir`). Both default to
-`default`/`none` and are always present in the export, never blank. Both
-lists are still growing - expect more choices in `GENRE_CHOICES`/
-`TRAIT_CHOICES` over time.
-
-`Reported` tab → **Export open CSV** / **Export all CSV** (`broken.csv`).
-Columns: `band, song name, category, description, lyrics_url, language, cover_url, genre, trait`,
-same format as above (the last two: see the `Requested` tab's `genre`/`trait`
-columns above, same fields, same admin-only edit step). `category` is one of
-the fixed codes in `app/broken_categories.py` (`gap`, `async`, `lyrics`,
-`video`, `audio`, `cover`, `other`) - `lyrics` and `async` also require a
-genius.com or lrclib.net lyrics link on the report form (stored as
-`BrokenReport.genius_url`, exported here as `lyrics_url` to match the UltraSinger-side column name);
-`cover` ("wrong/missing cover image") requires `cover_url` instead and leaves
-`description` optional, the only category where that's true. `description`
-is sanitized at submission time (`app/validation.py: sanitize_free_text`):
-collapsed to a single line and stripped of characters that could break a CSV
-row or trigger a spreadsheet formula (commas, semicolons, quotes, a leading
-`=`/`+`/`-`/`@`, ...). Unlike the request form, `language` is **mandatory**
-on the report form (under the strict profile) - a reporter of an
-"async"/"lyrics" report is usually exactly the person who'd know the song's
-language.
-
-**Duplicate reports merge** (`app/report_matching.py`): submitting a report
-for a song that already has an open report doesn't create a second row.
-The lyrics link and cover image link fill in on the existing report only if
-it doesn't already have one; the description always accumulates instead - if
-the new report's category differs from the existing one, that category's
-label is appended to the description, and any new description text is
-appended after it. The existing report's category, reporter and open/resolved
-status are left as they are. A report against a song whose earlier report has
-already been marked resolved is treated as a new occurrence, not a
-duplicate, and gets its own row.
-
-**Importing reports** (`app/report_import.py`): `Reported` tab → **Import
-CSV** accepts a file in the same format as the `broken.csv` export (header
-row optional, older exports with fewer trailing columns work too, UTF-8 or
-Windows-1252, up to 256 KB). Each row's song is found by an exact
-`band - song name` folder match (case-insensitive) and becomes a report in
-**Needs review** - never directly exportable - or merges into the song's
-existing open/pending report (also an earlier row of the same file), so a
-song never appears twice. The merge rules (`app/import_merge.py`, shared
-with the request import below): a field the existing report lacks is filled
-in; an lrclib.net lyrics link wins over any other, otherwise the existing
-link stays; genres and traits are combined (`default`/`none` only stand
-alone); the description is appended unless already contained (a differing
-category is added to it, as above), so importing the same file twice changes
-nothing; a differing language or cover link keeps the existing value and is
-listed under the import result as a note to check. A song whose only report
-is resolved is skipped. A row is also skipped, with its line number and
-reason shown, if no such folder exists or a value isn't valid (category,
-language, genre, trait codes; links must be http(s)); the other rows still
-import. Imported reports still need a language and lyrics link before they
-can be admitted, like any other.
-
-**Importing requests** (`app/request_import.py`): `Requested` tab →
-**Import CSV** works the same way for a file in the `song-requests.csv`
-export format. A row merges into the pending or open request with the same
-band, song and duet setting (the public form's duplicate check), by the same
-rules; a differing YouTube link, language, MusicBrainz ID or cover link is
-kept and listed. A row is skipped if the song is already in the library
-(exact `band - song` folder), if the same request is already done, or if a
-value fails the request form's own checks.
-
----
-
-## Security
-
-Password hashing is bcrypt (`app/security.py`). A few login-specific
-hardening measures on top of that, all in `app/routes/auth.py`:
-
-- **Timing-safe verification** (`security.verify_login`): a login for a
-  nonexistent/inactive user still runs a real bcrypt comparison (against a
-  fixed dummy hash) instead of short-circuiting, so "no such user" and
-  "wrong password" take the same time - otherwise the difference is a
-  side-channel for enumerating valid usernames.
-- **Brute-force lockout** (`app/rate_limit.py`): 5 failed attempts from the
-  same client IP within 5 minutes locks out further attempts (429) from
-  that IP, success or failure. Keyed by IP, not username, so an attacker
-  can't use it to lock a real account out from elsewhere. **In-memory
-  only** - correct for the single uvicorn process this app runs as today
-  (see `Dockerfile` - no `--workers`); switching to multiple
-  workers/replicas would need a shared store (e.g. Redis) instead, since
-  each process would track its own count. **Also depends on the port
-  binding**: this only sees a real per-visitor IP (rather than every
-  request colliding on one shared bucket) when `docker-compose.yml`'s port
-  is bound to `127.0.0.1` and reached only through a reverse proxy - see
-  the deploy section above for why (Docker NATs any published-port
-  connection through the same bridge gateway address regardless of its
-  true origin, so trusting `X-Forwarded-For` without that binding lets an
-  attacker who reaches the port directly spoof a fresh IP on every
-  request and bypass the lockout entirely).
-- **Open-redirect-proof `next` parameter**: only a same-site relative path
-  is honored; a leading backslash is normalized to a forward slash first,
-  since browsers treat `\` the same as `/` when resolving a URL and
-  `/\evil.example.com` would otherwise slip past a naive scheme/netloc
-  check and resolve as `//evil.example.com`.
-- **Oversized input rejected early**: username/password over a generous
-  length ceiling are refused before reaching bcrypt or the database
-  (also enforced on admin user creation/password reset).
-- **Security headers** (`app/main.py`, applied to every response):
-  `X-Frame-Options: DENY` (clickjacking), `X-Content-Type-Options: nosniff`,
-  `Referrer-Policy: same-origin`.
-
-**CSRF protection** (`app/csrf.py`, `app/main.py`) applies app-wide, not
-just to login: a random per-session token (synchronizer-token pattern) is
-handed to every rendered page (`app/deps.py: render()`) and must come back
-as a hidden `csrf_token` field on every `POST` - enforced centrally by one
-middleware rather than per-route, so a new form/route is covered
-automatically. A request missing or mismatching it gets a 403 before the
-route ever runs. Not rotated on login - see `app/csrf.py`'s docstring for
-why that's an acceptable trade-off here.
-
-SQL injection isn't possible - every query goes through SQLAlchemy's ORM
-with bound parameters, never raw string interpolation - and stored XSS
-(e.g. a `<script>` in a username) is neutralized by Jinja2's autoescaping,
-on by default for `.html` templates. Both are covered by regression tests
-in `tests/test_login_security.py`; CSRF has its own suite in
-`tests/test_csrf.py`.
-
-A couple more, app-wide:
-
-- **Request body size cap** (`app/main.py: MAX_BODY_BYTES`, 256 KB): an
-  oversized `POST` is rejected on `Content-Length` before its body is ever
-  read into memory - every field this app accepts is short text, so this
-  is pure headroom, not a real limit.
-- **CSV formula injection** (`app/validation.py: neutralize_csv_formula`):
-  a `band name`/`song name`/`musicbrainz_id` starting with `=`, `+`, `-` or
-  `@` is prefixed with `'` in the `song-requests.csv` export, so a
-  malicious request (e.g. band name `=cmd|'/c calc'!A0`) can't execute as a
-  formula when the admin opens the file in Excel/Sheets. `broken.csv`'s
-  `description` field is protected differently (see the CSV export section
-  above) since it's free text, not an identity field worth preserving
-  byte-for-byte.
-
----
-
-## Local development
+### Try it locally
 
 ```bash
-# Put a few folders in ./songs-sample so the list has content (git-ignored):
-mkdir -p "songs-sample/Queen - Bohemian Rhapsody" "songs-sample/a-ha - Take On Me"
-
-# Option A - full stack in Docker (Postgres + app, hot reload)
-docker compose -f docker-compose.dev.yml up --build
-# -> http://localhost:8000   login: admin / adminadmin
-
-# Option B - app only, on your machine
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
-export SECRET_KEY=dev SESSION_COOKIE_SECURE=false \
-       DATABASE_URL="sqlite:///./dev.db" \
-       SONGS_DIR="$PWD/songs-sample" \
-       ADMIN_USERNAME=admin ADMIN_PASSWORD=adminadmin
+mkdir -p "songs-sample/Queen - Bohemian Rhapsody" "songs-sample/a-ha - Take On Me"
+export SECRET_KEY=dev SESSION_COOKIE_SECURE=false DATABASE_URL="sqlite:///./dev.db" \
+       SONGS_DIR="$PWD/songs-sample" ADMIN_USERNAME=admin ADMIN_PASSWORD=adminadmin
 uvicorn app.main:app --reload
+# -> http://localhost:8000, log in as admin / adminadmin
 ```
 
-Tests and lint:
+The Docker-based dev stack, tests and the project layout are in
+[docs/development.md](docs/development.md).
 
-```bash
-pytest
-ruff check .
-```
+## Documentation
 
-`songs-sample/` is git-ignored - create it locally with a few folders (or point
-`SONGS_DIR` at your real library). The test suite builds its own throwaway
-song directory, so it needs nothing there.
+| Topic | What's in it |
+| --- | --- |
+| [Features](docs/features.md) | Every page in detail: forms and profiles, the review flow, duplicates, integrity checks, settings |
+| [CSV export and import](docs/csv.md) | Column formats, how duplicate reports merge, importing CSV files |
+| [Library scripts](docs/library-scripts.md) | Standalone scripts that move, rename and repair song files on disk |
+| [Deployment](docs/deploy.md) | Synology deploy in detail, versions, troubleshooting, configuration reference |
+| [Security](docs/security.md) | Login hardening, CSRF, headers, input limits, CSV injection |
+| [Development](docs/development.md) | Local setup, tests, project layout, how images are built and published |
 
----
-
-## How images are published
-
-`.github/workflows/docker-publish.yml` runs on every push to `main`:
-
-1. lint + tests,
-2. build a multi-arch image (`linux/amd64`, `linux/arm64`) with provenance/SBOM
-   attestations turned off (they add extra manifest entries per platform that
-   Portainer and older Docker clients don't filter out, so a single `:latest`
-   pull would fetch 4 "images" instead of 2),
-3. push to `ghcr.io/<owner>/<repo>` tagged `latest`, `main`, `sha-<short>`,
-   a date-based version `YYYY.MM.DD-<run number>` (UTC build date plus the
-   workflow's run number, e.g. `2026.10.11-42` - unique per build and
-   sortable), and - on a `v*.*.*` git tag - the semver. The date-based
-   version is also the image's `org.opencontainers.image.version` label,
-   unless a semver tag outranks it. The same version is baked into the
-   image as `APP_VERSION` (`app/__init__.py`) and shown to admins in the
-   page footer (e.g. `v2026.10.11-42`), so you can tell which build is
-   running; a run outside the image shows `vdev`.
-
-No secrets to configure; it uses the repo's built-in `GITHUB_TOKEN`. Make the
-GHCR package public (or log the NAS in with a PAT) so Container Manager can pull.
-
-`.github/workflows/ghcr-cleanup.yml` runs weekly (and on manual dispatch) to
-keep only the 10 newest tagged builds (the versions available to pin, see
-"Start" above) and delete their now-unreferenced
-per-platform manifests, so the package page doesn't accumulate clutter from
-old builds. A tagged build's own manifests are only eligible for deletion
-once that tag itself falls out of the kept set - a still-kept tag's manifests
-are never touched, since deleting them would break that image.
-
----
-
-## Project layout
-
-```
-app/
-  main.py            FastAPI app, middleware, error handlers
-  config.py          env-based settings
-  database.py        engine, session, wait-for-db, create tables
-  models.py          User, BrokenReport, SongRequest, PendingBrokenReport, PendingSongRequest,
-                     AppSettings (profiles + mode), DismissedDuplicate
-  security.py        password hashing, admin seed
-  songs.py           filesystem scan + cached search index
-  ultrastar.py       UltraStar .txt metadata parsing (cover, length, duet, ...)
-  duplicates.py      cross-folder duplicate-song detection, caching + dismissal
-  scheduler.py        monthly auto-rescan of the duplicates cache
-  format_check.py    UltraStar format-spec conformity checks
-  structure_check.py flat "Artist - Title" library structure checks
-  misplaced_check.py wrong-song-in-folder checks
-  upl_export.py      UltraStar Manager (.upl) playlist export for the song-file-format check
-  move_export.py     NUL-delimited move-list export for structure/misplaced checks (scripts/apply_moves.sh)
-  request_matching.py  does a song request already exist in the library, the pending queue, or the request queue?
-  report_matching.py   finds/merges a duplicate broken-song report into a pending or already-open one
-  report_import.py     imports broken reports from a broken.csv-format file into Needs review
-  request_import.py    imports song requests from a song-requests.csv-format file into Needs review
-  import_merge.py      CSV reading and merge rules shared by both imports
-  duet.py            yes/no Duet choice for the request form (defaults to "No")
-  languages.py       language choices shared by the request/report forms (ISO 639-1 + "Mixed")
-  broken_categories.py  fixed category list for the broken-report form
-  genres.py          admin-only genre choice list + comma-joined storage helpers
-  traits.py          admin-only vocal/instrument trait choice list
-  musicbrainz.py     extracts a bare MBID from a pasted musicbrainz.org URL
-  validation.py      shared request-form / broken-report field validation
-  profiles.py         karaoke-night/strict required-field rules for both forms and the admit check
-  app_mode.py         production/debug app mode choices
-  app_logging.py      the one Python logging level knob, tied to app mode
-  app_settings.py     fetches/creates the AppSettings singleton (profile + mode switches)
-  deps.py            current-user / auth guards / template helper
-  routes/            songs, auth, reports, requests, admin
-  templates/         Jinja2 templates
-  static/            style.css, app.js + checkbox-groups.js (progressive enhancement)
-scripts/
-  apply_moves.sh     standalone - not built into the container - applies a move-list export on disk
-  fix_case_mismatches.py  standalone - renames files whose name differs from their tag only in letter case
-  repair_library.py  standalone - links missing audio/video sources, moves re-timing duets, writes report CSV
-tests/               pytest end-to-end tests
-```
+Built with FastAPI, Jinja2 and SQLAlchemy on PostgreSQL - server-rendered,
+no JavaScript framework. Licensed under the [MIT License](LICENSE).

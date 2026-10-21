@@ -5,6 +5,9 @@
 #
 #  Put a few folders in ./songs-sample first (it is git-ignored), or
 #  change the bind-mount below to point at a real karaoke library.
+#
+#  Healthchecks are defined but disabled; the app waits for the
+#  database itself (it retries the connection on startup).
 ####################################################################
 
 services:
@@ -20,6 +23,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      disable: true
+    restart: unless-stopped
     ports:
       - "5432:5432"
 
@@ -27,7 +32,7 @@ services:
     build: .
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
     environment:
       POSTGRES_HOST: db
       POSTGRES_USER: karaoke
@@ -40,6 +45,14 @@ services:
       ADMIN_PASSWORD: adminadmin
       SCAN_CACHE_SECONDS: "2"
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+      disable: true
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:

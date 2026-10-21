@@ -7,6 +7,10 @@
 #  2. Copy .env.example to .env (next to this file) and fill it in.
 #  3. Adjust the songs bind-mount below to your real library path.
 #  4. Container Manager → Project → create from this file.
+#
+#  Healthchecks are defined but disabled, the app waits for the
+#  database itself (it retries the connection on startup), and container
+#  logging is off - see docs/deploy.md for how to see the logs.
 ####################################################################
 
 services:
@@ -28,7 +32,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: on-failure:5
+      disable: true
+    logging:
+      driver: none
+    restart: unless-stopped
 
   karaoke-dashboard:
     # "latest" is the newest build; replace it with a version tag such as
@@ -38,7 +45,7 @@ services:
     hostname: karaoke-dashboard
     depends_on:
       karaoke-db:
-        condition: service_healthy
+        condition: service_started
     security_opt:
       - no-new-privileges:true
     environment:
@@ -90,4 +97,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
-    restart: on-failure:5
+      disable: true
+    logging:
+      driver: none
+    restart: unless-stopped

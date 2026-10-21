@@ -1,0 +1,5 @@
+{# About me: the "Reported broken" badge for the song in "song", shown when
+   its folder is in "broken" (folder -> report categories,
+   app/known_broken.py); hovering shows the categories. Shared by the song
+   list and the "What's new" panels. #}
+{% if song.folder in broken %}<span class="badge-broken" title="{{ broken[song.folder] or 'Reported broken' }}">Reported broken</span>{% endif %}

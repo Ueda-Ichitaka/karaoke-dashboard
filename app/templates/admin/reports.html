@@ -1,3 +1,8 @@
+{# About me: the admin Reported page - reports awaiting review (Needs
+   review), and the admitted list with its CSV export/import links. An
+   admitted report whose song files were written after it was drafted
+   (updated_since, app/library_history.py) is marked "Updated since report",
+   so the fix can be checked and the report resolved. #}
 {% extends "base.html" %}
 {% block title %}Reported broken songs · {{ app_title }}{% endblock %}
 {% block content_class %} wide{% endblock %}
@@ -72,7 +77,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Song</th><th>Category</th><th>Language</th><th>Description</th><th>Lyrics ref</th><th>Cover</th><th>Genre</th><th>Trait</th><th>By</th><th>Status</th><th></th></tr>
+          <tr><th>When</th><th>Song</th><th>Category</th><th>Language</th><th>Description</th><th>Lyrics ref</th><th>Cover</th><th>Genre</th><th>Trait</th><th>By</th><th>Song files</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in reports %}
@@ -95,6 +100,11 @@
               <td>{{ r.genre|genre_text }}</td>
               <td>{{ r.trait|trait_text }}</td>
               <td class="nowrap">{{ r.reporter_username }}</td>
+              <td class="nowrap">
+                {% if r.id in updated_since %}
+                  <span class="pill pill-ok" title="Song files written {{ updated_since[r.id].strftime('%Y-%m-%d %H:%M') }}">Updated since report</span>
+                {% else %}-{% endif %}
+              </td>
               <td>{{ r.status }}</td>
               <td class="nowrap actions">
                 <form method="post" action="/admin/reports/{{ r.id }}/status" class="inline">

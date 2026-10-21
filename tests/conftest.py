@@ -186,6 +186,9 @@ os.environ.update(
     SCAN_CACHE_SECONDS="0",
     ADMIN_USERNAME="admin",
     ADMIN_PASSWORD="adminadmin",
+    # The library scan only runs where a test calls it, never in the
+    # background while another test sets up its own data.
+    LIBRARY_SCAN_ON_START="false",
 )
 
 from app import rate_limit  # noqa: E402

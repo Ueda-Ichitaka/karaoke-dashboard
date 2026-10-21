@@ -44,9 +44,11 @@ async def lifespan(app: FastAPI):
         seed_admin(db)
         app_settings = get_app_settings(db)
         configure_logging(app_settings.mode, app_settings.logging_enabled)
+        library_scan_cron = app_settings.library_scan_cron
     logger.info("startup complete")
-    scheduler = create_scheduler()
+    scheduler = create_scheduler(library_scan_cron)
     scheduler.start()
+    app.state.scheduler = scheduler  # the Settings page reschedules the library scan on it
     yield
     scheduler.shutdown(wait=False)
 

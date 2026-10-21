@@ -8,6 +8,10 @@
     details up front. Each form switches independently.
   </p>
 
+  {% if saved %}
+    <div class="alert alert-ok">Settings saved.</div>
+  {% endif %}
+
   {% if errors %}
     <div class="alert alert-error">
       <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
@@ -44,11 +48,70 @@
         {% endfor %}
       </select>
     </label>
+    <label class="field">
+      <span class="field-label">
+        Reported broken badge
+        <span class="field-hint" tabindex="0" aria-label="How long the Reported broken badge shows on the Songs and What's new pages. The second mode also removes it once a song .txt, .mp3 or .opus file was written after the report (as recorded by the library scan). The admin report lists are never affected."
+              data-tip="How long the Reported broken badge shows on the Songs and What's new pages. The second mode also removes it once a song .txt, .mp3 or .opus file was written after the report (as recorded by the library scan). The admin report lists are never affected.">?</span>
+      </span>
+      <select name="broken_badge">
+        {% for code, label in badge_mode_choices %}
+          <option value="{{ code }}" {{ 'selected' if app_settings.broken_badge == code }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">
+        Library scan schedule
+        <span class="field-hint" tabindex="0" aria-label="When the library scan behind the What's new page runs, as a cron expression: minute, hour, day of month, month, weekday (0 and 7 are Sunday, mon-sun work too), in the app's time zone. Examples: 0 11 * * * (daily at 11:00), 0 */6 * * * (every 6 hours), 30 4 * * mon (Mondays at 4:30). It also runs once at every app start."
+              data-tip="When the library scan behind the What's new page runs, as a cron expression: minute, hour, day of month, month, weekday (0 and 7 are Sunday, mon-sun work too), in the app's time zone. Examples: 0 11 * * * (daily at 11:00), 0 */6 * * * (every 6 hours), 30 4 * * mon (Mondays at 4:30). It also runs once at every app start.">?</span>
+      </span>
+      <input type="text" name="library_scan_cron" value="{{ app_settings.library_scan_cron }}"
+             autocomplete="off" spellcheck="false" class="mono-input" required>
+    </label>
+    <div class="field">
+      <span class="field-label" id="recent-period-label">
+        What's new period
+        <span class="field-hint" tabindex="0" aria-label="How far back the Recently added and Recently updated lists on the What's new page reach. Months are calendar months."
+              data-tip="How far back the Recently added and Recently updated lists on the What's new page reach. Months are calendar months.">?</span>
+      </span>
+      <div class="period-input" role="group" aria-labelledby="recent-period-label">
+        <input type="number" name="recent_amount" value="{{ app_settings.recent_amount }}" min="1" max="{{ max_amount }}"
+               step="1" required aria-label="Amount">
+        <select name="recent_unit" aria-label="Unit">
+          {% for code, label in unit_choices %}
+            <option value="{{ code }}" {{ 'selected' if app_settings.recent_unit == code }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
     <label class="checkbox-option">
       <input type="checkbox" name="logging_enabled" {{ 'checked' if app_settings.logging_enabled }}>
       Enable logging
     </label>
     <button type="submit" class="btn btn-primary">Save</button>
   </form>
+
+  <h2 class="settings-section">Library scan</h2>
+  <p class="subtle">
+    The scan behind the Songs page's "Recently added" and "Recently updated" panels runs on
+    its schedule and at every app start. Scan now to pick up changes right away. Reset forgets
+    every recorded date and scans as if for the first time: every current folder counts as
+    old and both panels start empty.
+  </p>
+  {% if library_notice %}
+    <div class="alert alert-ok">{{ library_notice }}</div>
+  {% endif %}
+  <div class="actions">
+    <form method="post" action="/admin/settings/library-scan">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn">Scan now</button>
+    </form>
+    <form method="post" action="/admin/settings/library-reset"
+          onsubmit="return confirm('Reset the library history? Every current folder will count as old and both panels on the Songs page will be empty.')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-danger">Reset</button>
+    </form>
+  </div>
 </section>
 {% endblock %}

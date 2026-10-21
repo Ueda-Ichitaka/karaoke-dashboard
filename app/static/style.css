@@ -197,6 +197,44 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .song-title { color: var(--text-dim); }
 .song-row .song-artist + .song-title { font-size: 14px; }
 
+/* "Reported broken" badge (app/templates/_broken_badge.html) on a song with
+   a pending or open report - pushed to the right end of a song-list row. */
+.badge-broken {
+  display: inline-block; flex: none;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+  color: var(--err); border: 1px solid var(--err);
+  background: color-mix(in srgb, var(--err) 14%, transparent);
+  padding: 1px 7px; border-radius: 999px;
+}
+.song-row .badge-broken { margin-left: auto; align-self: center; }
+
+/* -- "What's new" page: the "Recently added" and "Recently updated" panels
+   side by side under the search (app/templates/new.html, _new_panels.html,
+   _recent_songs.html); on a narrow screen they stack. -- */
+.content.with-panels { max-width: 1240px; }
+.new-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.side-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.side-panel h2 { font-size: 16px; margin: 0 0 2px; }
+.side-panel .subtle { font-size: 12px; margin-bottom: 10px; }
+.side-panel .empty { padding: 12px 0; font-size: 13px; }
+.recent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.recent-list li {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px;
+  padding: 8px 0; border-top: 1px solid var(--border);
+}
+.recent-list li:first-child { border-top: none; }
+.recent-list a { display: flex; flex-direction: column; flex: 1 1 100%; min-width: 0; color: var(--text); }
+.recent-list a:hover { text-decoration: none; }
+.recent-list a:hover .song-title { color: var(--accent); }
+.recent-list .song-title { font-size: 14px; }
+.recent-list time { color: var(--text-dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) {
+  .new-panels { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* -- song detail (expanded UltraStar metadata) -- */
 .song-detail { padding: 2px 16px 16px 44px; display: flex; flex-direction: column; gap: 14px; }
 .song-detail .empty.small { padding: 4px 0; text-align: left; font-size: 13px; }
@@ -227,6 +265,7 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .stack-form input[type=url],
 .stack-form input[type=password],
 .stack-form input[type=search],
+.stack-form input[type=number],
 .stack-form select,
 .stack-form textarea {
   background: var(--surface);
@@ -239,6 +278,11 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 }
 .stack-form textarea { resize: vertical; }
 .stack-form input:focus, .stack-form select:focus, .stack-form textarea:focus { outline: 2px solid var(--accent); }
+/* A code-like value, e.g. the cron expression on the Settings page. */
+.stack-form .mono-input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+/* An amount next to its unit, e.g. the What's new period on the Settings page. */
+.period-input { display: flex; gap: 8px; }
+.period-input input[type=number] { width: 7em; flex: none; }
 /* Admin-only genre and trait pickers (app/genres.py, app/traits.py) -
    several boxes can be checked at once. */
 .checkbox-group { display: flex; flex-wrap: wrap; gap: 6px 16px; }
@@ -338,6 +382,8 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .mono, .data-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--text-dim); }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .actions .inline { display: inline-flex; gap: 4px; }
+/* A further section on the admin Settings page (admin/settings.html). */
+.settings-section { font-size: 18px; margin: 32px 0 4px; }
 .actions input[type=text] {
   background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
   padding: 3px 8px; color: var(--text); font: inherit; font-size: 13px; width: 130px;

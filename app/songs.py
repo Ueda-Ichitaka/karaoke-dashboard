@@ -109,7 +109,8 @@ class _SongIndex:
 _index = _SongIndex()
 
 
-def _filter(songs: list[Song], query: str) -> list[Song]:
+def filter_songs(songs: list[Song], query: str) -> list[Song]:
+    """The songs matching every word of the query (all of them for an empty one)."""
     query = query.strip().lower()
     if not query:
         return songs
@@ -119,7 +120,7 @@ def _filter(songs: list[Song], query: str) -> list[Song]:
 
 def search(query: str = "", page: int = 1, page_size: int | None = None) -> Page:
     page_size = page_size or settings.page_size
-    matches = _filter(_index.all(), query)
+    matches = filter_songs(_index.all(), query)
     total = len(matches)
     pages = max(1, (total + page_size - 1) // page_size)
     page = max(1, min(page, pages))

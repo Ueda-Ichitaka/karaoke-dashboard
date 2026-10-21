@@ -1,4 +1,5 @@
-"""Admin-only views: broken reports, song requests, CSV export, user management."""
+"""Admin-only views: broken reports, song requests, CSV export, user
+management, and settings (including the library-scan utilities)."""
 
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from .. import (
     duplicates,
     format_check,
     import_merge,
+    library_history,
     misplaced_check,
     move_export,
     report_import,
@@ -26,6 +28,7 @@ from .. import songs as song_index
 from ..app_logging import configure_logging, get_logger
 from ..app_mode import MODE_CHOICES, MODE_CODES
 from ..app_settings import get_app_settings
+from ..broken_badge import BADGE_MODE_CHOICES, BADGE_MODE_CODES
 from ..broken_categories import CATEGORY_CHOICES, CATEGORY_LABELS
 from ..config import settings
 from ..database import get_db
@@ -36,6 +39,8 @@ from ..languages import LANGUAGE_CHOICES, LANGUAGE_LABELS
 from ..models import BrokenReport, PendingBrokenReport, PendingSongRequest, SongRequest, User
 from ..musicbrainz import extract_musicbrainz_id
 from ..profiles import PROFILE_CHOICES, PROFILE_CODES, report_category_required_fields
+from ..recent_period import MAX_AMOUNT, UNIT_CHOICES, is_valid_unit
+from ..scheduler import cron_trigger, reschedule_library_scan
 from ..security import MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, hash_password
 from ..traits import DEFAULT_TRAIT, TRAIT_CHOICES, format_traits, is_valid_trait, parse_traits
 from ..validation import broken_report_field_errors, neutralize_csv_formula, request_field_errors, sanitize_free_text
@@ -95,9 +100,18 @@ def admin_home():
 
 
 # --------------------------------------------------------------------------- settings
+# Confirmation shown on the Settings page after a library-scan utility ran.
+_LIBRARY_NOTICES = {
+    "scanned": "Library scan done.",
+    "reset": "Library history reset - every current folder now counts as old.",
+}
+
+
 @router.get("/settings")
 def settings_view(
     request: Request,
+    library: str = "",
+    saved: bool = False,
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -105,7 +119,8 @@ def settings_view(
     return render(
         request, "admin/settings.html", user,
         errors=[], app_settings=app_settings, profile_choices=PROFILE_CHOICES,
-        mode_choices=MODE_CHOICES,
+        mode_choices=MODE_CHOICES, badge_mode_choices=BADGE_MODE_CHOICES, unit_choices=UNIT_CHOICES,
+        max_amount=MAX_AMOUNT, library_notice=_LIBRARY_NOTICES.get(library), saved=saved,
     )
 
 
@@ -116,11 +131,31 @@ def settings_update(
     report_profile: str = Form(""),
     mode: str = Form(""),
     logging_enabled: bool = Form(False),
+    broken_badge: str | None = Form(None),
+    library_scan_cron: str | None = Form(None),
+    recent_amount: str | None = Form(None),
+    recent_unit: str | None = Form(None),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     app_settings = get_app_settings(db)
     errors: list[str] = []
+    if broken_badge is not None and broken_badge not in BADGE_MODE_CODES:
+        errors.append("Unrecognized broken-badge mode.")
+    if library_scan_cron is not None:
+        library_scan_cron = " ".join(library_scan_cron.split())
+        try:
+            cron_trigger(library_scan_cron)
+        except ValueError as err:
+            errors.append(f"Invalid library scan schedule: {err}")
+    period = None
+    if recent_amount is not None or recent_unit is not None:
+        amount = (recent_amount or "").strip()
+        if not amount.isdigit() or not 1 <= int(amount) <= MAX_AMOUNT or not is_valid_unit(recent_unit or ""):
+            errors.append(f"The What's new period must be a whole number from 1 to {MAX_AMOUNT} "
+                          "of days, weeks or months.")
+        else:
+            period = (int(amount), recent_unit)
     if request_profile not in PROFILE_CODES:
         errors.append("Unrecognized request-song profile.")
     if report_profile not in PROFILE_CODES:
@@ -131,16 +166,40 @@ def settings_update(
         return render(
             request, "admin/settings.html", user, status_code=422,
             errors=errors, app_settings=app_settings, profile_choices=PROFILE_CHOICES,
-            mode_choices=MODE_CHOICES,
+            mode_choices=MODE_CHOICES, badge_mode_choices=BADGE_MODE_CHOICES, unit_choices=UNIT_CHOICES,
+            max_amount=MAX_AMOUNT,
         )
 
     app_settings.request_profile = request_profile
     app_settings.report_profile = report_profile
     app_settings.mode = mode
     app_settings.logging_enabled = logging_enabled
+    if broken_badge is not None:  # a form without the field keeps the current mode
+        app_settings.broken_badge = broken_badge
+    if library_scan_cron is not None:  # likewise for the schedule and the period
+        app_settings.library_scan_cron = library_scan_cron
+    if period is not None:
+        app_settings.recent_amount, app_settings.recent_unit = period
     db.commit()
     configure_logging(mode, logging_enabled)
-    return RedirectResponse("/admin/settings", status_code=303)
+    scheduler = getattr(request.app.state, "scheduler", None)
+    if scheduler is not None:
+        reschedule_library_scan(scheduler, app_settings.library_scan_cron)
+    return RedirectResponse("/admin/settings?saved=1", status_code=303)
+
+
+@router.post("/settings/library-scan")
+def settings_library_scan(user: User = Depends(require_admin)):
+    """Runs the library scan behind the songs page's recent panels now."""
+    library_history.run_scan()
+    return RedirectResponse("/admin/settings?library=scanned", status_code=303)
+
+
+@router.post("/settings/library-reset")
+def settings_library_reset(user: User = Depends(require_admin)):
+    """Forgets the recorded library history and scans as a very first scan."""
+    library_history.run_reset()
+    return RedirectResponse("/admin/settings?library=reset", status_code=303)
 
 
 # --------------------------------------------------------------------------- reports
@@ -161,6 +220,7 @@ def reports_view(
         request, "admin/reports.html", user,
         reports=reports, show=show, open_count=open_count or 0, category_labels=CATEGORY_LABELS,
         language_labels=LANGUAGE_LABELS, pending_reports=pending,
+        updated_since=library_history.updated_since_report(db, reports),
     )
 
 
@@ -415,6 +475,7 @@ def _admit_pending_report(db: Session, item: PendingBrokenReport) -> None:
             trait=item.trait,
             reporter_id=item.reporter_id,
             reporter_username=item.reporter_username,
+            created_at=item.created_at,  # when it was drafted, compared with later song-file writes
         )
     )
     logger.info("admitting broken report id=%s %s", item.id, item.song_folder)

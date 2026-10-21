@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -101,9 +101,11 @@ class SongRequest(Base):
 
 class AppSettings(Base):
     """Admin-editable app-wide settings - the karaoke-night/strict profile
-    for each of the two public forms (see app/profiles.py, app/app_settings.py)
-    and the production/debug mode (see app/app_mode.py). A singleton row,
-    always id=1.
+    for each of the two public forms (see app/profiles.py, app/app_settings.py),
+    the production/debug mode (see app/app_mode.py), the "Reported broken"
+    badge mode (see app/broken_badge.py), the library scan schedule (see
+    app/scheduler.py) and the "What's new" period (see app/recent_period.py).
+    A singleton row, always id=1.
     """
 
     __tablename__ = "app_settings"
@@ -120,6 +122,20 @@ class AppSettings(Base):
     # False, regardless of level. Nullable for the same ALTER-TABLE reason
     # as mode; a NULL row is normalized to True by get_app_settings().
     logging_enabled: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # When the public "Reported broken" badge goes away (app/broken_badge.py).
+    # Nullable for the same ALTER-TABLE reason as mode; a NULL row is
+    # normalized to "until_resolved" by get_app_settings().
+    broken_badge: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # The library scan's schedule, a standard cron expression
+    # (app/scheduler.py). Nullable for the same ALTER-TABLE reason as mode;
+    # a NULL row is normalized to DEFAULT_LIBRARY_SCAN_CRON by
+    # get_app_settings().
+    library_scan_cron: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # How far back the "What's new" lists reach: a whole number of a unit
+    # (app/recent_period.py). Nullable for the same ALTER-TABLE reason as
+    # mode; NULL is normalized to 2 months by get_app_settings().
+    recent_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    recent_unit: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
 
 class PendingSongRequest(Base):
@@ -190,3 +206,29 @@ class DismissedDuplicate(Base):
     is_duet: Mapped[bool] = mapped_column(Boolean)
     dismissed_by_username: Mapped[str] = mapped_column(String(64))
     dismissed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class LibraryFolder(Base):
+    """What the library scan (app/library_history.py) knows about one song
+    folder: when it first appeared, whether it follows the flat
+    "Artist - Title" convention, its song files' write times and sizes, and
+    when one of them was last written - behind the "Recently added" and
+    "Recently updated" lists on /songs. A row outlives its folder, so a
+    folder that comes back keeps its dates. Every column but the folder is
+    nullable so _sync_schema can add it to an existing table.
+    """
+
+    __tablename__ = "library_folders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    folder: Mapped[str] = mapped_column(String(512), unique=True)
+    # NULL: already in the library at the very first scan, so never
+    # "recently added".
+    first_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    follows_convention: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # JSON {filename: [mtime, size]} of the .txt/.mp3/.opus files directly
+    # in the folder, as of the last scan.
+    files: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Write time of the newest change to one of those files (NULL: none
+    # since the folder was recorded).
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)

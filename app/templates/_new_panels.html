@@ -1,0 +1,10 @@
+{# About me: the two panels of the "What's new" page (new.html), side by
+   side - also the live-search fragment from /new/partial. #}
+<div class="new-panels">
+  {% with panel_id="recent-additions", heading="Recently added", items=recent_added, verb="added" %}
+    {% include "_recent_songs.html" %}
+  {% endwith %}
+  {% with panel_id="recent-updates", heading="Recently updated", items=recent_updated, verb="updated" %}
+    {% include "_recent_songs.html" %}
+  {% endwith %}
+</div>

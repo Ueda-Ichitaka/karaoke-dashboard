@@ -1,24 +1,42 @@
-"""About me: public song catalogue routes - search list, and each song's
-expanded UltraStar metadata (including its cover image file)."""
+"""About me: public song catalogue routes - the searchable song list (each
+song marked when it's known to be broken, see app/known_broken.py, for as
+long as the Settings page's badge mode says - app/broken_badge.py) with
+each song's expanded UltraStar metadata (including its cover image file),
+and the "What's new" page: the songs added and the songs updated within the
+period set on the Settings page (app/recent_period.py; as recorded by the
+library scan, app/library_history.py), narrowed by its own search."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
+from sqlalchemy.orm import Session
 
 from .. import songs as song_index
 from .. import ultrastar
+from ..app_settings import get_app_settings
+from ..broken_badge import UNTIL_UPDATED
 from ..config import settings
+from ..database import get_db
 from ..deps import get_current_user, render
+from ..known_broken import known_broken
+from ..library_history import recent_additions, recent_updates
 from ..models import User
+from ..recent_period import describe, period_start
 
 router = APIRouter()
 
 # Only these are ever served through the cover route, regardless of what
 # #COVER: actually points at on disk.
 _ALLOWED_COVER_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+
+
+def _broken(db: Session) -> dict[str, str]:
+    """The songs to badge as broken, by the badge mode set on the Settings page."""
+    return known_broken(db, until_updated=get_app_settings(db).broken_badge == UNTIL_UPDATED)
 
 
 def _entries_by_folder(songs: list[song_index.Song]) -> dict[str, list[ultrastar.SongMeta]]:
@@ -41,12 +59,13 @@ def song_list(
     q: str = "",
     page: int = 1,
     user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     result = song_index.search(q, page)
     return render(
         request, "songs.html", user,
         q=q, result=result, total=song_index.total_count(),
-        entries_by_folder=_entries_by_folder(result.items),
+        entries_by_folder=_entries_by_folder(result.items), broken=_broken(db),
     )
 
 
@@ -56,13 +75,46 @@ def song_list_partial(
     q: str = "",
     page: int = 1,
     user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """List fragment used for the live-search results (no page chrome)."""
     result = song_index.search(q, page)
     return render(
         request, "_song_list.html", user, q=q, result=result,
-        entries_by_folder=_entries_by_folder(result.items),
+        entries_by_folder=_entries_by_folder(result.items), broken=_broken(db),
     )
+
+
+def _whats_new(request: Request, template: str, q: str, user: User | None, db: Session):
+    songs = song_index.filter_songs(song_index.all_songs(), q)
+    app_settings = get_app_settings(db)
+    since = period_start(datetime.now(UTC), app_settings.recent_amount, app_settings.recent_unit)
+    return render(
+        request, template, user, q=q, broken=_broken(db),
+        recent_period=describe(app_settings.recent_amount, app_settings.recent_unit),
+        recent_added=recent_additions(db, songs, since), recent_updated=recent_updates(db, songs, since),
+    )
+
+
+@router.get("/new")
+def whats_new(
+    request: Request,
+    q: str = "",
+    user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return _whats_new(request, "new.html", q, user, db)
+
+
+@router.get("/new/partial")
+def whats_new_partial(
+    request: Request,
+    q: str = "",
+    user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Both panels, used for the live-search results (no page chrome)."""
+    return _whats_new(request, "_new_panels.html", q, user, db)
 
 
 @router.get("/songs/{folder}/cover/{filename}")

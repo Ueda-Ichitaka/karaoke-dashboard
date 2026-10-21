@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     duplicates_rescan_hour: int = 3
     duplicates_rescan_minute: int = 0
 
+    # Run the library scan behind the "What's new" page once at app start
+    # (app/library_history.py); its schedule is set on the admin Settings
+    # page.
+    library_scan_on_start: bool = True
+
     @property
     def sqlalchemy_url(self) -> str:
         if self.database_url:

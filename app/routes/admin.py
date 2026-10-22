@@ -300,6 +300,7 @@ def report_edit_submit(
         errors.append("That song is no longer in the library - pick another.")
     errors.extend(broken_report_field_errors(
         category, description, genius_url, language, cover_url, required=_admin_report_required(category),
+        allow_file_paths=True,
     ))
     errors.extend(genre_trait_errors)
 
@@ -399,6 +400,7 @@ def pending_report_edit_submit(
     errors.extend(
         broken_report_field_errors(
             category, description, genius_url, language, cover_url, required=_admin_report_required(category),
+            allow_file_paths=True,
         )
     )
     errors.extend(genre_trait_errors)
@@ -453,7 +455,7 @@ def pending_report_admit(
 def _pending_report_admit_errors(item: PendingBrokenReport) -> list[str]:
     return broken_report_field_errors(
         item.category or "", item.description, item.genius_url or "", item.language or "",
-        item.cover_url or "", required=_admin_report_required(item.category or ""),
+        item.cover_url or "", required=_admin_report_required(item.category or ""), allow_file_paths=True,
     )
 
 
@@ -665,7 +667,7 @@ def request_edit_submit(
 
     errors = request_field_errors(
         band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet,
-        lyrics_url=lyrics_url, required=_ADMIN_REQUIRED_FIELDS,
+        lyrics_url=lyrics_url, required=_ADMIN_REQUIRED_FIELDS, allow_file_paths=True,
     )
     errors.extend(genre_trait_errors)
     if errors:
@@ -762,7 +764,7 @@ def pending_request_edit_submit(
 
     errors = request_field_errors(
         band_name, song_name, youtube_url, language, musicbrainz_id, cover_url, duet,
-        lyrics_url=lyrics_url, required=_ADMIN_REQUIRED_FIELDS,
+        lyrics_url=lyrics_url, required=_ADMIN_REQUIRED_FIELDS, allow_file_paths=True,
     )
     errors.extend(genre_trait_errors)
     if errors:
@@ -818,7 +820,7 @@ def _pending_request_admit_errors(db: Session, item: PendingSongRequest) -> list
     errors = request_field_errors(
         item.band_name, item.song_name, item.youtube_url or "", item.language or "",
         item.musicbrainz_id or "", item.cover_url or "", item.duet or "",
-        lyrics_url=item.lyrics_url or "", required=_ADMIN_REQUIRED_FIELDS,
+        lyrics_url=item.lyrics_url or "", required=_ADMIN_REQUIRED_FIELDS, allow_file_paths=True,
     )
     app_settings = get_app_settings(db)
     library_match = request_matching.find_library_match(item.band_name, item.song_name)

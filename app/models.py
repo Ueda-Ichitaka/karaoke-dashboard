@@ -230,5 +230,8 @@ class LibraryFolder(Base):
     # in the folder, as of the last scan.
     files: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Write time of the newest change to one of those files (NULL: none
-    # since the folder was recorded).
+    # since the folder was recorded) - behind "Recently updated".
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    # Newest write time of those files any scan has read, the very first
+    # included (NULL: none seen) - what a report's time is compared with.
+    last_write_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

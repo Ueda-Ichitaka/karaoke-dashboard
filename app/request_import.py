@@ -12,8 +12,9 @@ the public form's duplicate check) - including an earlier row of the same
 file - is merged into it by the shared import rules (app/import_merge.py).
 Rows are skipped with a reason when the song is already in the library (an
 exact "band - song" folder, as the public form refuses it), when the same
-request is already done, or when a value is unusable (the public form's
-own checks: app/validation.py: request_field_errors); the rest still import.
+request is already done, or when a value is unusable (the admin edit form's
+checks: app/validation.py: request_field_errors, which also take an
+.mp3/.mp4 path in the YouTube column); the rest still import.
 """
 
 from __future__ import annotations
@@ -81,7 +82,7 @@ def import_requests(db: Session, text: str, user: User) -> ImportResult:
 
         errors = request_field_errors(
             band, song, values["youtube link"], values["language"], values["musicbrainz_id"], values["cover_url"],
-            values["duet"], lyrics_url=values["lyrics_url"], required=set(),
+            values["duet"], lyrics_url=values["lyrics_url"], required=set(), allow_file_paths=True,
         )
         genres, genre_error = parse_codes(values["genre"], is_valid_genre, "genre")
         traits, trait_error = parse_codes(values["trait"], is_valid_trait, "trait")

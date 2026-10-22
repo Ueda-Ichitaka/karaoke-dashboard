@@ -1,8 +1,10 @@
 """Tests for the "Updated since report" mark in the admitted reports table on
 /admin/reports: a report is marked when the library scan recorded a write to
-its song's files (LibraryFolder.updated_at, app/library_history.py) after
-the report was drafted - so an admin can check the fix and resolve it.
-Admitting keeps the time the report was drafted, which is what counts.
+its song's files (LibraryFolder.last_write_at or a detected change,
+updated_at - app/library_history.py) after the report was drafted - so an
+admin can check the fix and resolve it. That includes a fix written before
+the library scan's first run. Admitting keeps the time the report was
+drafted, which is what counts.
 """
 
 from __future__ import annotations
@@ -78,11 +80,22 @@ def test_needs_review_shows_no_mark(admin_client):
 def test_admitting_keeps_the_time_the_report_was_drafted(admin_client):
     with SessionLocal() as db:
         db.add(PendingBrokenReport(song_folder=FOLDER, category="audio", description="x", language="en",
-                                   genius_url="https://genius.com/x", reporter_username="admin",
-                                   created_at=REPORTED))
+                                   genius_url="https://genius.com/Queen-bohemian-rhapsody-lyrics",
+                                   reporter_username="admin", created_at=REPORTED))
         db.commit()
         pending_id = db.query(PendingBrokenReport).one().id
     admin_client.post(f"/admin/reports/pending/{pending_id}/admit")
     with SessionLocal() as db:
         admitted = db.query(BrokenReport).one().created_at
     assert admitted.replace(tzinfo=admitted.tzinfo or UTC) == REPORTED
+
+
+def test_a_fix_written_before_the_first_scan_is_marked(admin_client):
+    _report()
+    with SessionLocal() as db:
+        db.add(LibraryFolder(folder=FOLDER, first_seen_at=None, follows_convention=True, files="{}",
+                             last_write_at=datetime(2026, 10, 3, 8, 0, tzinfo=UTC), updated_at=None))
+        db.commit()
+    row = _row(admin_client.get("/admin/reports").text)
+    assert MARK in row
+    assert 'title="Song files written 2026-10-03 08:00"' in row

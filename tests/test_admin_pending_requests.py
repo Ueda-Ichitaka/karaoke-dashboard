@@ -81,7 +81,7 @@ def test_edit_form_marks_admin_fields_required(admin_client):
     _submit(admin_client)
     pid = _pending_id()
     r = admin_client.get(f"/admin/requests/pending/{pid}/edit")
-    for label in ("YouTube link", "Language", "MusicBrainz ID", "Lyrics link"):
+    for label in ("YouTube link or media file", "Language", "MusicBrainz ID", "Lyrics link"):
         assert f"{label} <em>(required)</em>" in r.text
     assert 'name="youtube_url" required' in r.text
     assert 'name="language" required' in r.text

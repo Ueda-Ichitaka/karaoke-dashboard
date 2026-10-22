@@ -100,3 +100,14 @@ def test_until_updated_lists_only_the_categories_reported_after_the_update(fresh
         ])
         db.commit()
         assert known_broken(db, until_updated=True) == {"Toto - Africa": "Lyrics broken"}
+
+
+def test_until_updated_counts_a_fix_written_before_the_first_scan(fresh_db):
+    with SessionLocal() as db:
+        db.add_all([
+            _admitted("Toto - Africa", created_at=REPORTED),
+            LibraryFolder(folder="Toto - Africa", first_seen_at=None, follows_convention=True, files="{}",
+                          last_write_at=REPORTED + timedelta(days=1), updated_at=None),
+        ])
+        db.commit()
+        assert known_broken(db, until_updated=True) == {}

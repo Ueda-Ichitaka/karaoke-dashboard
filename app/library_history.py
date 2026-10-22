@@ -17,10 +17,17 @@ that.
   part of adding it (files still being copied in). Deleting a file is not
   an update.
 
+Every scan, the very first included, also records each folder's newest
+song-file write time (last_write_at; it only ever moves forward).
+last_writes() - the newer of that and the last detected change - is what
+the "is it fixed" checks compare a report's time with: the admin Reported
+page's mark (updated_since_report) and the public badge's "until updated"
+mode (app/known_broken.py). So a fix written before the first scan counts
+too.
+
 The admin Settings page runs the scan on demand (run_scan) and can reset
 the history (run_reset): forget everything recorded and scan again as a
-very first scan. The admin Reported page marks a report whose song was
-updated after the report was drafted (updated_since_report).
+very first scan.
 """
 
 from __future__ import annotations
@@ -113,11 +120,15 @@ def scan_library(db: Session, *, root: str | Path | None = None, now: datetime |
     for name in names:
         nested, files = _read_folder(root / name)
         follows_convention = parse_folder(name).artist is not None and not nested
+        newest = max((datetime.fromtimestamp(mtime, UTC) for mtime, _ in files.values()), default=None)
         row = rows.get(name)
         if row is None:
             db.add(LibraryFolder(folder=name, first_seen_at=None if first_scan else now,
-                                 follows_convention=follows_convention, files=json.dumps(files)))
+                                 follows_convention=follows_convention, files=json.dumps(files),
+                                 last_write_at=newest))
             continue
+        if newest and (row.last_write_at is None or newest > as_utc(row.last_write_at)):
+            row.last_write_at = newest
         if row.files is not None:
             written = _newest_write(json.loads(row.files), files, row.first_seen_at)
             if written and (row.updated_at is None or written > as_utc(row.updated_at)):
@@ -176,23 +187,24 @@ def recent_updates(db: Session, songs: list[Song], since: datetime) -> list[tupl
     return _recent(db, songs, LibraryFolder.updated_at, since)
 
 
-def folder_updates(db: Session, folders: set[str]) -> dict[str, datetime]:
-    """Each of these folders' last recorded song-file write, where there is one."""
+def last_writes(db: Session, folders: set[str]) -> dict[str, datetime]:
+    """Each of these folders' last known song-file write - the newer of the
+    newest write time a scan read and the last detected change - where
+    there is one."""
     if not folders:
         return {}
-    return {
-        folder: as_utc(updated_at)
-        for folder, updated_at in db.execute(
-            select(LibraryFolder.folder, LibraryFolder.updated_at)
-            .where(LibraryFolder.folder.in_(folders), LibraryFolder.updated_at.is_not(None))
-        )
-    }
+    rows = db.execute(
+        select(LibraryFolder.folder, LibraryFolder.last_write_at, LibraryFolder.updated_at)
+        .where(LibraryFolder.folder.in_(folders))
+    )
+    writes = {folder: [as_utc(t) for t in (last_write, updated) if t] for folder, last_write, updated in rows}
+    return {folder: max(times) for folder, times in writes.items() if times}
 
 
 def updated_since_report(db: Session, reports: list[BrokenReport]) -> dict[int, datetime]:
     """Maps each report whose song had a recorded update after the report
     was drafted to that update's time."""
-    updates = folder_updates(db, {report.song_folder for report in reports})
+    updates = last_writes(db, {report.song_folder for report in reports})
     return {
         report.id: updates[report.song_folder]
         for report in reports

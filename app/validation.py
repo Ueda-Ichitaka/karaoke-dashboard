@@ -1,11 +1,17 @@
 """About me: shared form validation for the song-request form (public and
 admin-side edit) and the broken-song report form (app/routes/requests.py,
-app/routes/admin.py, app/routes/reports.py).
+app/routes/admin.py, app/routes/reports.py). A request's YouTube field takes
+an http(s) link; a lyrics field (request lyrics_url, report genius_url)
+only a genius.com song page or an lrclib.net track page - the pages the
+song pipeline can use. The admin side (edit forms, admit checks, CSV
+imports) passes allow_file_paths, which also takes a path to an .mp3/.mp4
+file in the YouTube field and to a .txt file in a lyrics field.
 """
 
 from __future__ import annotations
 
 import re
+from urllib.parse import urlsplit
 
 from .broken_categories import is_valid_category
 from .duet import is_valid_duet
@@ -56,14 +62,65 @@ def is_http_url(value: str) -> bool:
     return value.startswith("http://") or value.startswith("https://")
 
 
+MEDIA_PATH_EXTENSIONS = (".mp3", ".mp4")
+LYRICS_PATH_EXTENSIONS = (".txt",)
+
+_GENIUS_HOSTS = {"genius.com", "www.genius.com"}
+_LRCLIB_HOSTS = {"lrclib.net", "www.lrclib.net"}
+_GENIUS_SONG_PATH_RE = re.compile(r"^/[^/]+-lyrics/?$", re.IGNORECASE)
+_LRCLIB_TRACK_PATH_RE = re.compile(r"^/tracks/\d+/?$")
+
+
+def is_file_path(value: str, extensions: tuple[str, ...]) -> bool:
+    """A file path (not a URL of any scheme) ending in one of the extensions."""
+    return "://" not in value and value.lower().endswith(extensions)
+
+
+def is_lyrics_link(value: str) -> bool:
+    """A genius.com song page (genius.com/...-lyrics) or an lrclib.net track
+    page (lrclib.net/tracks/<number>), over http(s)."""
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https"):
+        return False
+    if parts.hostname in _GENIUS_HOSTS:
+        return bool(_GENIUS_SONG_PATH_RE.match(parts.path))
+    if parts.hostname in _LRCLIB_HOSTS:
+        return bool(_LRCLIB_TRACK_PATH_RE.match(parts.path))
+    return False
+
+
+def youtube_link_error(value: str, allow_file_paths: bool) -> str | None:
+    if not value or is_http_url(value):
+        return None
+    if not allow_file_paths:
+        return "The YouTube link must start with http:// or https://"
+    if not is_file_path(value, MEDIA_PATH_EXTENSIONS):
+        return "The YouTube link must start with http:// or https://, or be a path to an .mp3 or .mp4 file."
+    return None
+
+
+def lyrics_link_error(value: str, allow_file_paths: bool) -> str | None:
+    if not value or is_lyrics_link(value):
+        return None
+    if not allow_file_paths:
+        return ("The lyrics link must be a genius.com song page (genius.com/...-lyrics) "
+                "or an lrclib.net track page (lrclib.net/tracks/...).")
+    if not is_file_path(value, LYRICS_PATH_EXTENSIONS):
+        return ("The lyrics link must be a genius.com song page (genius.com/...-lyrics), "
+                "an lrclib.net track page (lrclib.net/tracks/...) or a path to a .txt file.")
+    return None
+
+
 def request_field_errors(
     band_name: str, song_name: str, youtube_url: str, language: str, musicbrainz_id: str = "",
     cover_url: str = "", duet: str = "", lyrics_url: str = "", profile: str = "karaoke_night",
-    required: set[str] | None = None,
+    required: set[str] | None = None, allow_file_paths: bool = False,
 ) -> list[str]:
     """`required` overrides the profile lookup entirely when given - used by
     the admit-time check (app/routes/admin.py), which has its own fixed set
     of required fields independent of the request-form profile switch.
+    allow_file_paths lets the YouTube field hold an .mp3/.mp4 file path and
+    the lyrics field a .txt file path.
     """
     required = required if required is not None else request_required_fields(profile)
     errors: list[str] = []
@@ -73,8 +130,8 @@ def request_field_errors(
         errors.append("Song name is required.")
     if "youtube_url" in required and not youtube_url:
         errors.append("YouTube link is required.")
-    if youtube_url and not is_http_url(youtube_url):
-        errors.append("The YouTube link must start with http:// or https://")
+    if error := youtube_link_error(youtube_url, allow_file_paths):
+        errors.append(error)
     if "language" in required and not language:
         errors.append("Please choose the song's language.")
     if language and not is_valid_language_code(language):
@@ -88,6 +145,8 @@ def request_field_errors(
         )
     if "lyrics_url" in required and not lyrics_url:
         errors.append("Lyrics link is required.")
+    if error := lyrics_link_error(lyrics_url, allow_file_paths):
+        errors.append(error)
     if cover_url and not is_http_url(cover_url):
         errors.append("The cover image link must start with http:// or https://")
     if duet and not is_valid_duet(duet):
@@ -97,11 +156,12 @@ def request_field_errors(
 
 def broken_report_field_errors(
     category: str, description: str, genius_url: str = "", language: str = "", cover_url: str = "",
-    profile: str = "strict", required: set[str] | None = None,
+    profile: str = "strict", required: set[str] | None = None, allow_file_paths: bool = False,
 ) -> list[str]:
     """`required` overrides the profile lookup entirely when given - used by
     the admin edit form and admit gate (app/routes/admin.py), which have
     their own fixed set of required fields independent of the profile.
+    allow_file_paths lets the lyrics link be a .txt file path.
     """
     required = required if required is not None else report_required_fields(profile, category)
     errors: list[str] = []
@@ -113,8 +173,8 @@ def broken_report_field_errors(
         errors.append("Please describe what's broken.")
     if "genius_url" in required and not genius_url:
         errors.append("Please provide a genius.com or lrclib.net lyrics link.")
-    if genius_url and not is_http_url(genius_url):
-        errors.append("The lyrics link must start with http:// or https://")
+    if error := lyrics_link_error(genius_url, allow_file_paths):
+        errors.append(error)
     if "language" in required and not language:
         errors.append("Please choose the song's language.")
     elif language and not is_valid_language_code(language):

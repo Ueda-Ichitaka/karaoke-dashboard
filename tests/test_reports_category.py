@@ -172,9 +172,9 @@ def test_genius_link_not_required_for_other_categories():
     assert broken_report_field_errors("video", "x", genius_url="", language="de") == []
 
 
-def test_genius_link_must_be_a_url_when_given():
+def test_genius_link_must_be_a_song_or_track_page_when_given():
     errors = broken_report_field_errors("lyrics", "", genius_url="not-a-url")
-    assert any("http" in e.lower() for e in errors)
+    assert any("genius.com song page" in e for e in errors)
     assert (
         broken_report_field_errors(
             "lyrics", "x", genius_url="https://genius.com/x-lyrics", language="de"

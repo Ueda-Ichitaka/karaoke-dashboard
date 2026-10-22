@@ -18,10 +18,10 @@ band name, song name, youtube link, language, musicbrainz_id, lyrics_url, cover_
 | Column | Content |
 | --- | --- |
 | `band name`, `song name` | Always set. |
-| `youtube link` | Optional. |
+| `youtube link` | Optional. An http(s) link, or - set by an admin - a filesystem path to an `.mp3` or `.mp4` file. |
 | `language` | Optional. ISO 639-1 code or `mixed` (`app/languages.py`). Pins the language detection downstream. |
 | `musicbrainz_id` | Optional. The bare ID - a pasted `musicbrainz.org` URL is reduced to it on input (`app/musicbrainz.py`). Enables a direct metadata lookup instead of a fuzzy search. |
-| `lyrics_url` | Optional. Tried before an online lyrics search. Only a genius.com song page, an lrclib.net track page (`lrclib.net/tracks/<id>`) or a direct `.txt`/`.lrc` link work downstream; anything else, including a filesystem path an admin may set, falls back to the normal search without an error. |
+| `lyrics_url` | Optional. Tried before an online lyrics search. A genius.com song page (`genius.com/...-lyrics`), an lrclib.net track page (`lrclib.net/tracks/<id>`) or - set by an admin - a filesystem path to a `.txt` file; nothing else is accepted. |
 | `cover_url` | Optional, an http(s) link. |
 | `duet` | `yes`, `no`, or blank. Blank appears on older requests and is treated as `no`, here and downstream. |
 | `genre` | Admin-only, comma-joined codes from `app/genres.py`, e.g. `metal,gothic`. Never blank: `default` when none is set. |
@@ -44,7 +44,7 @@ band, song name, category, description, lyrics_url, language, cover_url, genre, 
 | `band`, `song name` | The song, from its folder name. |
 | `category` | One of `gap`, `async`, `lyrics`, `video`, `audio`, `cover`, `other` (`app/broken_categories.py`). |
 | `description` | What's wrong. Optional only for `cover`. Cleaned on input (`app/validation.py: sanitize_free_text`): one line, without characters that could break a CSV row or start a spreadsheet formula (commas, semicolons, quotes, a leading `=`/`+`/`-`/`@`, ...). |
-| `lyrics_url` | A genius.com or lrclib.net link. Required for `lyrics` and `async` on the strict form. Stored as `BrokenReport.genius_url`, named `lyrics_url` here to match the pipeline's column. |
+| `lyrics_url` | A genius.com song page or an lrclib.net track page, or - set by an admin - a filesystem path to a `.txt` file. Required for `lyrics` and `async` on the strict form. Stored as `BrokenReport.genius_url`, named `lyrics_url` here to match the pipeline's column. |
 | `language` | ISO 639-1 code or `mixed`. Required on the strict form. |
 | `cover_url` | Required for `cover`, optional otherwise. |
 | `genre`, `trait` | Same as in `song-requests.csv`. |
@@ -94,7 +94,8 @@ import.
   differing language or cover link is listed.
 - A song whose only report is resolved is skipped.
 - A row is skipped if a value isn't valid: category, language, genre or trait
-  codes, or a link that isn't http(s).
+  codes, a cover link that isn't http(s), or a lyrics link that isn't a
+  genius.com song page, an lrclib.net track page or a `.txt` path.
 - Imported reports still need a language and lyrics link before they can be
   admitted.
 

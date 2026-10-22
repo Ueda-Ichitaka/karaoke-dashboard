@@ -89,8 +89,11 @@ which requires a cover image link instead, since there's nothing to
 describe. What else is required depends on the form's profile (see
 [Settings](#settings)):
 
-- **strict**: the language too, and for `lyrics`/`async` a genius.com or
-  lrclib.net lyrics link.
+- **strict**: the language too, and for `lyrics`/`async` a lyrics link.
+
+The lyrics link, whenever given, must be a genius.com song page
+(`genius.com/...-lyrics`) or an lrclib.net track page
+(`lrclib.net/tracks/...`) - the pages the song pipeline can use.
 - **karaoke night**: nothing beyond song, category and description (or the
   cover link).
 
@@ -104,8 +107,8 @@ review**, not in the exportable list.
 Band and title are always required. The other fields:
 
 - **YouTube link, language, lyrics link** - required under **strict**,
-  optional under **karaoke night**. The lyrics link is a genius.com or
-  lrclib.net page.
+  optional under **karaoke night**. The lyrics link must be a genius.com
+  song page or an lrclib.net track page, as on the report form.
 - **MusicBrainz ID** - always optional. A pasted `musicbrainz.org` URL is
   reduced to the bare ID (`app/musicbrainz.py`).
 - **Cover image link** - always optional, must be http(s).
@@ -136,10 +139,14 @@ Checking a trait unchecks "None", and checking "None" clears the traits.
 fixed rules, independent of the public form's profile, so switching a
 profile never changes what an admin must fill in:
 
-- **Reports**: a language and a lyrics link (genius.com or lrclib.net) for
-  every category, plus the category's own rule (a description, or a cover
-  image link for `cover`).
-- **Requests**: YouTube link, language, MusicBrainz ID and lyrics link. In
+- **Reports**: a language and a lyrics link for every category, plus the
+  category's own rule (a description, or a cover image link for `cover`).
+- **Lyrics links** on both: a genius.com song page, an lrclib.net track page,
+  or a filesystem path to a `.txt` lyrics file you prepared yourself - here
+  and in the CSV imports, never on the public forms.
+- **Requests**: YouTube link, language, MusicBrainz ID and lyrics link. The
+  YouTube field also takes a filesystem path to an `.mp3` or `.mp4` file you
+  prepared yourself - here and in the CSV import, never on the public form. In
   production mode, a request for a song that's already in the library (exact
   folder match) can't be admitted - switch to debug mode to admit it anyway.
 
@@ -151,14 +158,15 @@ same format. See [csv.md](csv.md).
 
 **Updated since report.** An admitted report is marked **Updated since
 report** in its *Song files* column when the library scan (see
-[Songs](#songs)) recorded a write to the song's `.txt`, `.mp3` or `.opus`
-files after the report was drafted - a sign the song was fixed, so you can
+[What's new](#whats-new)) read a write to the song's `.txt`, `.mp3` or
+`.opus` files that is newer than the report - a sign the song was fixed, so you can
 check it and resolve the report. Hovering shows when the files were
 written. What counts is when the report was first submitted, not when it
 was admitted. Some older reports store their admit time instead of the
-submission time; for those, the admit time counts. The scan only knows
-writes since its first run, and only
-as of its last run - **Scan now** on the Settings page refreshes it.
+submission time; for those, the admit time counts. Every scan, the very
+first included, reads each file's write time, so a fix written before the
+scan's first run counts too. The mark is as fresh as the last scan - **Scan
+now** on the Settings page refreshes it.
 
 ## Duplicates
 
@@ -246,8 +254,9 @@ accounts. There's no self-registration; the first admin is created from
   the Songs and What's new pages shows. **Until the report is resolved**
   (the default): an admin resolves the report to remove it. **Until the song
   is updated or the report resolved**: it also goes away once the library
-  scan recorded a write to the song's `.txt`, `.mp3` or `.opus` files after
-  the report was submitted (the same time as the admin
+  scan read a write to the song's `.txt`, `.mp3` or `.opus` files newer than
+  the report - a fix before the scan's first run included (the same check as
+  the admin
   [Updated since report](#reported-and-requested) mark). With several open
   reports, it stays while one of them is newer than the write. The admin
   report lists always show every open report.

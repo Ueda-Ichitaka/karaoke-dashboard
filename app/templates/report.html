@@ -1,3 +1,6 @@
+{# About me: the public "Report broken" form - pick a song, a category and
+   describe the problem; the lyrics link takes a genius.com song page or an
+   lrclib.net track page (app/validation.py: lyrics_link_error). #}
 {% extends "base.html" %}
 {% block title %}Report a broken song · {{ app_title }}{% endblock %}
 {% block content %}
@@ -67,10 +70,10 @@
       <label class="field">
         <span class="field-label">
           Lyrics link <em data-broken-genius-hint>{{ '(required for "Lyrics broken" / "Song goes out of sync")' if profile == 'strict' else '(optional)' }}</em>
-          <span class="field-hint" tabindex="0" aria-label="A genius.com song page or an lrclib.net track page (lrclib.net/tracks/...) for this song - gives the admin a reference for the correct lyrics/timing when fixing the issue." data-tip="A genius.com song page or an lrclib.net track page (lrclib.net/tracks/...) for this song - gives the admin a reference for the correct lyrics/timing when fixing the issue.">?</span>
+          <span class="field-hint" tabindex="0" aria-label="A genius.com song page (genius.com/...-lyrics) or an lrclib.net track page (lrclib.net/tracks/...) for this song - gives the admin a reference for the correct lyrics/timing when fixing the issue." data-tip="A genius.com song page (genius.com/...-lyrics) or an lrclib.net track page (lrclib.net/tracks/...) for this song - gives the admin a reference for the correct lyrics/timing when fixing the issue.">?</span>
         </span>
         <input type="url" name="genius_url" value="{{ form.genius_url or '' }}" data-broken-genius
-               placeholder="https://genius.com/… or https://lrclib.net/tracks/…">
+               placeholder="https://genius.com/…-lyrics or https://lrclib.net/tracks/…">
       </label>
 
       <label class="field">

@@ -115,7 +115,7 @@ def test_unusable_rows_are_skipped_with_a_reason_and_the_rest_still_imports(admi
     assert "7 skipped" in r.text
     for reason in (
         "No library folder", "Unrecognized category", "Unrecognized language",
-        "lyrics link must start with http", "cover image link must start with http",
+        "lyrics link must be a genius.com song page", "cover image link must start with http",
         "Unrecognized genre", "Unrecognized trait",
     ):
         assert reason in r.text

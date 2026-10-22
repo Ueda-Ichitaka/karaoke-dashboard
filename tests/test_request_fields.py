@@ -59,8 +59,8 @@ def test_request_rejects_unknown_language_code(admin_client):
     assert "language" in r.text.lower()
 
 
-def test_lyrics_url_accepts_filesystem_path(admin_client):
-    # admins may point lyrics_url at a file on disk, not just a URL
+def test_the_public_form_refuses_a_lyrics_filesystem_path(admin_client):
+    # only admins may point lyrics_url at a file on disk (tests/test_lyrics_link_rule.py)
     r = admin_client.post(
         "/request",
         data={
@@ -69,8 +69,8 @@ def test_lyrics_url_accepts_filesystem_path(admin_client):
             "lyrics_url": "/songs/Journey - Faithfully/lyrics.txt",
         },
     )
-    assert r.status_code == 200
-    assert "was submitted" in r.text
+    assert "was submitted" not in r.text
+    assert "The lyrics link must be a genius.com song page" in r.text
 
 
 def test_request_accepts_a_pasted_musicbrainz_url_instead_of_a_bare_id(admin_client):

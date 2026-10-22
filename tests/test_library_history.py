@@ -7,7 +7,9 @@ song, dated by the scan that first sees it, and a write to a .txt, .mp3 or
 .opus file directly in a folder is an update, dated by the file's write
 time - except writes within the grace period after a new folder was first
 seen, which are part of adding it. A reset forgets everything and scans
-again as a very first scan.
+again as a very first scan. Every scan, the first included, also records
+each folder's newest song-file write - what the "is it fixed" checks compare
+a report's time with.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import pytest
 from app.database import SessionLocal
 from app.library_history import (
     ADD_GRACE,
+    last_writes,
     recent_additions,
     recent_updates,
     reset_library,
@@ -194,3 +197,42 @@ def test_reset_keeps_the_history_when_the_library_cannot_be_read(root, tmp_path_
     with SessionLocal() as db:
         reset_library(db, root=tmp_path_factory.mktemp("unmounted"), now=LATER)
     assert _added(root) == [("B - Two", "2026-10-18")]
+
+
+# ---- the newest song-file write, recorded from the very first scan on ----
+def _last_writes(*folders: str) -> dict[str, str]:
+    with SessionLocal() as db:
+        return {f: d.strftime("%Y-%m-%d %H:%M") for f, d in last_writes(db, set(folders)).items()}
+
+
+def test_the_first_scan_already_records_the_newest_song_file_write(tmp_path, fresh_db):
+    folder = tmp_path / "A - One"
+    _write(folder / "song.txt", NOW - timedelta(days=3))
+    _write(folder / "song.opus", NOW - timedelta(days=1))
+    _write(folder / "cover.jpg", NOW)
+    _write(tmp_path / "Empty - Folder" / "cover.jpg", NOW)
+    _scan(tmp_path, NOW)
+    assert _updated(tmp_path) == []  # still nothing "recently updated" after the first scan
+    assert _last_writes("A - One", "Empty - Folder") == {
+        "A - One": (NOW - timedelta(days=1)).strftime("%Y-%m-%d %H:%M")}
+
+
+def test_later_scans_move_the_newest_write_forward_never_back(root):
+    folder = root / "Old - Song"
+    _write(folder / "song.mp3", NOW - timedelta(hours=5))
+    _scan(root, NOW)
+    assert _last_writes("Old - Song") == {"Old - Song": (NOW - timedelta(hours=5)).strftime("%Y-%m-%d %H:%M")}
+    (folder / "song.mp3").unlink()
+    _scan(root, LATER)
+    assert _last_writes("Old - Song") == {"Old - Song": (NOW - timedelta(hours=5)).strftime("%Y-%m-%d %H:%M")}
+
+
+def test_a_detected_change_counts_as_a_write_too(root):
+    folder = root / "Old - Song"
+    _write(folder / "song.txt", NOW - timedelta(days=5))
+    _write(folder / "song.mp3", OLD)
+    _scan(root, NOW)
+    _write(folder / "song.mp3", NOW - timedelta(days=4), "replaced")  # kept an older time than the .txt
+    (folder / "song.txt").unlink()
+    _scan(root, LATER)
+    assert _last_writes("Old - Song") == {"Old - Song": (NOW - timedelta(days=4)).strftime("%Y-%m-%d %H:%M")}

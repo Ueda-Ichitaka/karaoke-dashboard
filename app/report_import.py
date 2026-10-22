@@ -14,7 +14,9 @@ as for a second report from the public form. A song whose only report is
 resolved is skipped. The song folder is resolved by an exact "band - song
 name" folder match (case-insensitive), the same way the export derives
 band/song name from the folder. Rows that can't be used (unknown folder,
-unrecognized category/language/genre/trait, a link that isn't http(s)) are
+unrecognized category/language/genre/trait, a cover link that isn't
+http(s), a lyrics link that isn't a genius.com song page, an lrclib.net
+track page or a .txt path - app/validation.py: lyrics_link_error) are
 skipped with a reason; the rest still import.
 """
 
@@ -41,7 +43,7 @@ from .languages import is_valid_language_code
 from .models import BrokenReport, PendingBrokenReport, User
 from .report_matching import find_existing_report
 from .traits import DEFAULT_TRAIT, format_traits, is_valid_trait
-from .validation import is_http_url, sanitize_free_text
+from .validation import is_http_url, lyrics_link_error, sanitize_free_text
 
 COLUMNS = ("band", "song name", "category", "description", "lyrics_url", "language", "cover_url", "genre", "trait")
 _HEADER_FIRST_CELLS = {"band", "band name"}
@@ -52,8 +54,8 @@ def _row_error(values: dict[str, str]) -> str | None:
         return f"Unrecognized category: {values['category'] or '(blank)'}."
     if values["language"] and not is_valid_language_code(values["language"]):
         return f"Unrecognized language: {values['language']}."
-    if values["lyrics_url"] and not is_http_url(values["lyrics_url"]):
-        return "The lyrics link must start with http:// or https://"
+    if error := lyrics_link_error(values["lyrics_url"], allow_file_paths=True):
+        return error
     if values["cover_url"] and not is_http_url(values["cover_url"]):
         return "The cover image link must start with http:// or https://"
     return None

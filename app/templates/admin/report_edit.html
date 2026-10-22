@@ -1,3 +1,7 @@
+{# About me: the admin edit form for a broken-song report, pending or
+   admitted, with "Save" and, for a pending one, "Save and admit". The lyrics
+   link also takes a path to a .txt file (app/validation.py:
+   allow_file_paths). #}
 {% extends "base.html" %}
 {% block title %}Edit report · {{ app_title }}{% endblock %}
 {% block content %}
@@ -61,10 +65,10 @@
     <label class="field">
       <span class="field-label">
         Lyrics link <em>(required)</em>
-        <span class="field-hint" tabindex="0" aria-label="A genius.com song page or an lrclib.net track page (lrclib.net/tracks/...) for this song." data-tip="A genius.com song page or an lrclib.net track page (lrclib.net/tracks/...) for this song.">?</span>
+        <span class="field-hint" tabindex="0" aria-label="A genius.com song page (genius.com/...-lyrics), an lrclib.net track page (lrclib.net/tracks/...), or a filesystem path to a .txt lyrics file you've prepared yourself." data-tip="A genius.com song page (genius.com/...-lyrics), an lrclib.net track page (lrclib.net/tracks/...), or a filesystem path to a .txt lyrics file you've prepared yourself.">?</span>
       </span>
-      <input type="url" name="genius_url" required value="{{ form.genius_url }}"
-             placeholder="https://genius.com/… or https://lrclib.net/tracks/…">
+      <input type="text" name="genius_url" required value="{{ form.genius_url }}"
+             placeholder="https://genius.com/…-lyrics, https://lrclib.net/tracks/… or a .txt path">
     </label>
 
     <label class="field">

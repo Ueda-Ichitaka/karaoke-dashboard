@@ -1,0 +1,56 @@
+{# About me: the Connections tab of the Genres page - a tile per shown genre
+   (song count, share of the biggest, its biggest bands; "Other genres"
+   names the first eight folded genres), then the network: a circle per
+   genre with its name inside, a line per pair of genres that songs share
+   (thicker for more songs) with those songs as dots on it, and the songs
+   with one genre as dots around their circle (positions from
+   app/genre_layout.py, drawn as 2:1 SVG that fills the page width). A tile
+   or circle opens the genre on the List tab; a dot opens the song card
+   (_song_card.html). The search marks the matching dots. #}
+{% extends "base.html" %}
+{% block title %}Genre connections · {{ app_title }}{% endblock %}
+{% block content_class %} with-panels{% endblock %}
+{% block content %}
+{% set q_part = '&q=' ~ (q|urlencode) if q else '' %}
+<section class="page">
+  {% include "_genre_head.html" %}
+
+  <div class="genre-tiles">
+    {% for t in drawing.tiles %}
+      {% if t.is_other %}<div class="genre-tile genre-tile-other" data-count="{{ t.count }}">{% else %}<a class="genre-tile" href="/genres?genre={{ t.genre|urlencode }}" data-count="{{ t.count }}">{% endif %}
+        <span class="genre-tile-head">
+          <span class="genre-tile-name"><span class="swatch" style="background: {{ t.color }}"></span>{{ t.genre }}</span>
+          <span class="genre-tile-count">{{ t.count }}</span>
+        </span>
+        <span class="genre-bar" aria-hidden="true"><span style="width: {{ [2, t.share]|max }}%; background: {{ t.color }}"></span></span>
+        <span class="genre-tile-bands">{% if t.is_other %}{{ t.folded[:8]|join(", ") }}{% if t.folded|length > 8 %} and {{ t.folded|length - 8 }} more{% endif %}{% else %}{{ t.bands|join(", ") }}{% endif %}</span>
+      {% if t.is_other %}</div>{% else %}</a>{% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="drawing-head">
+    <h2>How genres connect</h2>
+    <p class="drawing-note">
+      {% if q %}<strong>{{ hit_count }} song{{ '' if hit_count == 1 else 's' }} match "{{ q }}"</strong> - highlighted.{% endif %}
+      Dots on a line are songs with both genres; a thicker line means more of them.
+    </p>
+  </div>
+  <div class="genre-drawing" data-song-map>
+    <svg class="genre-network{% if q %} searching{% endif %}" viewBox="{{ drawing.view_box }}" role="img"
+         aria-label="Genre network: genres as circles, lines between genres songs share, songs as dots">
+      {% for e in drawing.edges %}
+        <line class="net-edge" data-pair="{{ e.pair }}" data-count="{{ e.count }}" x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}" stroke-width="{{ e.width }}"><title>{{ e.a }} and {{ e.b }}: {{ e.count }} song{{ '' if e.count == 1 else 's' }}</title></line>
+      {% endfor %}
+      {% with dots=drawing.dots %}{% include "_genre_dots.html" %}{% endwith %}
+      {% for n in drawing.nodes %}
+        {% if n.is_other %}<g class="net-node" data-genre="{{ n.genre }}">{% else %}<a class="net-node" href="/genres?genre={{ n.genre|urlencode }}{{ q_part }}" data-genre="{{ n.genre }}">{% endif %}
+          <circle cx="{{ n.x }}" cy="{{ n.y }}" r="{{ n.r }}" stroke="{{ n.color }}"/>
+          <text class="cluster-label{{ ' small-label' if n.r < 30 }}" x="{{ n.x }}" y="{{ n.label_y }}" text-anchor="middle" fill="{{ n.color }}">{{ n.genre }}</text>
+          <title>{{ n.genre }}: {{ n.count }} song{{ '' if n.count == 1 else 's' }}</title>
+        {% if n.is_other %}</g>{% else %}</a>{% endif %}
+      {% endfor %}
+    </svg>
+    {% include "_song_card.html" %}
+  </div>
+</section>
+{% endblock %}

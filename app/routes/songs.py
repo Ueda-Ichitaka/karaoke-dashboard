@@ -7,7 +7,10 @@ period set on the Settings page (app/recent_period.py; as recorded by the
 library scan, app/library_history.py), narrowed by its own search, and the
 Genres page for logged-in users: the genres the library scan read from the
 song files (app/song_genres.py) with their song counts, and the songs of
-the picked genre, narrowed by a search over genre, band and title."""
+the picked genre, narrowed by a search over genre, band and title. Its
+Map and Connections tabs draw the same genres as SVG (app/genre_layout.py,
+as many as the Settings page's "Genres on the map") and mark the songs the
+search finds."""
 
 from __future__ import annotations
 
@@ -25,6 +28,7 @@ from ..broken_badge import UNTIL_UPDATED
 from ..config import settings
 from ..database import get_db
 from ..deps import get_current_user, render, require_user
+from ..genre_layout import genre_map, genre_network
 from ..known_broken import known_broken
 from ..library_history import recent_additions, recent_updates
 from ..models import User
@@ -121,6 +125,17 @@ def whats_new_partial(
     return _whats_new(request, "_new_panels.html", q, user, db)
 
 
+# The Genres page's tabs: key, label, address.
+GENRE_TABS = (("list", "List", "/genres"), ("map", "Map", "/genres/map"),
+              ("connections", "Connections", "/genres/connections"))
+
+
+def _tab_context(tab: str, songs: list[song_index.Song], genres: dict[str, list[str]]) -> dict:
+    """What the head every Genres tab shares (_genre_head.html) needs."""
+    return {"tab": tab, "tab_url": dict((key, url) for key, _, url in GENRE_TABS)[tab], "genre_tabs": GENRE_TABS,
+            "total": len(songs), "with_genre": len(genres)}
+
+
 def _genres_page(request: Request, template: str, q: str, genre: str, page: int, user: User, db: Session):
     songs = song_index.all_songs()
     genres = genres_by_folder(db, songs)
@@ -128,10 +143,11 @@ def _genres_page(request: Request, template: str, q: str, genre: str, page: int,
     listed = [song for song in matches if genre in genres[song.folder]] if genre else matches
     genre_list = genre_counts(matches, genres)
     return render(
-        request, template, user, q=q, genre=genre, genres=genres, genre_list=genre_list,
+        request, template, user, **_tab_context("list", songs, genres),
+        q=q, genre=genre, genres=genres, genre_list=genre_list,
         top_count=max((count for _, count in genre_list), default=0),
         companions=companions(matches, genres, genre) if genre else [],
-        result=song_index.paginate(listed, page), total=len(songs), with_genre=len(genres),
+        result=song_index.paginate(listed, page),
     )
 
 
@@ -158,6 +174,35 @@ def genres_partial(
 ):
     """The genre list and the song list, used for the live-search results (no page chrome)."""
     return _genres_page(request, "_genre_panels.html", q, genre, page, user, db)
+
+
+def _genre_drawing(request: Request, tab: str, template: str, build, q: str, user: User, db: Session):
+    songs = song_index.all_songs()
+    genres = genres_by_folder(db, songs)
+    hits = {song.folder for song in search_with_genres(songs, genres, q)} if q.strip() else set()
+    drawing = build(songs, genres, get_app_settings(db).genre_map_size, hits)
+    return render(request, template, user, **_tab_context(tab, songs, genres),
+                  q=q, genre="", drawing=drawing, hit_count=len(hits))
+
+
+@router.get("/genres/map")
+def genres_map(
+    request: Request,
+    q: str = "",
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    return _genre_drawing(request, "map", "genres_map.html", genre_map, q, user, db)
+
+
+@router.get("/genres/connections")
+def genres_connections(
+    request: Request,
+    q: str = "",
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    return _genre_drawing(request, "connections", "genres_connections.html", genre_network, q, user, db)
 
 
 @router.get("/songs/{folder}/cover/{filename}")

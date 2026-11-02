@@ -1,0 +1,11 @@
+{# About me: the song card of the Genres page's Map and Connections tabs -
+   hidden until a song dot is clicked; app/static/app.js fills it with the
+   dot's band, title and genres and places it next to the dot. Without JS a
+   dot is a plain link to the song on the Songs page. #}
+<div class="song-card" data-song-card hidden>
+  <button type="button" class="song-card-close" data-card-close aria-label="Close">&times;</button>
+  <span class="song-artist" data-card-artist></span>
+  <span class="song-title" data-card-title></span>
+  <span class="genre-chips" data-card-genres></span>
+  <a href="/songs" data-card-link>Open in Songs</a>
+</div>

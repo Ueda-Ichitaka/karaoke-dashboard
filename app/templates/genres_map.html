@@ -1,0 +1,52 @@
+{# About me: the Map tab of the Genres page - every song with a genre as a
+   dot in its genre's cluster, songs with several shown genres between their
+   clusters (positions from app/genre_layout.py, drawn as 2:1 SVG that fills
+   the page width), the genre labels drawn last, on top. A cluster, its
+   label and its legend chip open the genre on the List tab; a dot opens the
+   song card (_song_card.html). The search marks the matching dots and dims
+   the rest. #}
+{% extends "base.html" %}
+{% block title %}Genre map · {{ app_title }}{% endblock %}
+{% block content_class %} with-panels{% endblock %}
+{% block content %}
+{% set q_part = '&q=' ~ (q|urlencode) if q else '' %}
+<section class="page">
+  {% include "_genre_head.html" %}
+
+  <p class="drawing-note">
+    {% if q %}<strong>{{ hit_count }} song{{ '' if hit_count == 1 else 's' }} match "{{ q }}"</strong> - highlighted, the rest is dimmed.{% endif %}
+    Click a genre to open it in the List tab, a dot for its song.
+  </p>
+
+  <div class="genre-drawing" data-song-map>
+    <svg class="genre-map{% if q %} searching{% endif %}" viewBox="{{ drawing.view_box }}" role="img"
+         aria-label="Genre map: one dot per song, grouped by genre">
+      {% for c in drawing.clusters %}
+        {% if c.is_other %}<g class="map-cluster" data-genre="{{ c.genre }}">{% else %}<a class="map-cluster" href="/genres?genre={{ c.genre|urlencode }}{{ q_part }}" data-genre="{{ c.genre }}">{% endif %}
+          <circle class="cluster-area" cx="{{ c.x }}" cy="{{ c.y }}" r="{{ c.r }}" fill="{{ c.color }}" stroke="{{ c.color }}"/>
+        {% if c.is_other %}</g>{% else %}</a>{% endif %}
+      {% endfor %}
+      {% with dots=drawing.dots %}{% include "_genre_dots.html" %}{% endwith %}
+      {% for c in drawing.clusters %}
+        {% if c.is_other %}<g class="map-label">{% else %}<a class="map-label" href="/genres?genre={{ c.genre|urlencode }}{{ q_part }}">{% endif %}
+          <text class="cluster-label" x="{{ c.x }}" y="{{ c.label_y }}" text-anchor="middle" fill="{{ c.color }}">{{ c.genre }} <tspan class="cluster-count">{{ c.count }}</tspan></text>
+        {% if c.is_other %}</g>{% else %}</a>{% endif %}
+      {% endfor %}
+    </svg>
+    {% include "_song_card.html" %}
+  </div>
+
+  <div class="genre-legend" aria-label="Genres">
+    {% for c in drawing.clusters %}
+      {% if c.is_other %}
+        <span class="legend-chip"><span class="swatch" style="background: {{ c.color }}"></span>{{ c.genre }} <span class="subtle">{{ c.count }}</span></span>
+      {% else %}
+        <a class="legend-chip" href="/genres?genre={{ c.genre|urlencode }}{{ q_part }}"><span class="swatch" style="background: {{ c.color }}"></span>{{ c.genre }} <span class="subtle">{{ c.count }}</span></a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% if drawing.folded %}<p class="drawing-note">Other genres: {{ drawing.folded|join(", ") }}</p>{% endif %}
+  {% set left_out = total - with_genre %}
+  <p class="drawing-note">Not on the map: {{ left_out }} song{{ '' if left_out == 1 else 's' }} without a genre.</p>
+</section>
+{% endblock %}

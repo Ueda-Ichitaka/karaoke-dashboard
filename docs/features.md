@@ -8,7 +8,7 @@ see [csv.md](csv.md); for the scripts that change files on disk see
 | --- | --- | --- |
 | [Songs](#songs) | everyone | Browse and search the library |
 | [What's new](#whats-new) | everyone | Songs recently added and recently updated |
-| [Genres](#genres) | logged-in users | Explore the library by the genres its song files name |
+| [Genres](#genres) | logged-in users | The library by genre: list, map and genre connections |
 | [Report broken](#report-broken) | logged-in users | Report a broken song |
 | [Request song](#request-song) | logged-in users | Ask for a new song |
 | [Reported](#reported-and-requested) | admins | Review, edit, resolve and export broken-song reports |
@@ -16,7 +16,7 @@ see [csv.md](csv.md); for the scripts that change files on disk see
 | [Duplicates](#duplicates) | admins | Songs that exist more than once |
 | [Integrity](#integrity) | admins | Format, folder structure and misplaced-song checks |
 | [Users](#users) | admins | Accounts |
-| [Settings](#settings) | admins | Form profiles, app mode, logging, badge mode, library scan |
+| [Settings](#settings) | admins | Form profiles, app mode, logging, badge mode, library scan, genres on the map |
 
 ## Songs
 
@@ -74,8 +74,13 @@ song's genres for the [Genres](#genres) page.
 ## Genres
 
 The library by genre, for logged-in users (the tab is shown to everyone; a
-visitor is sent to the login page). Two parts side by side, stacked below
-760px:
+visitor is sent to the login page). Three tabs share one head - the song
+counts, the search bar and the tab row **List | Map | Connections**; the
+tab links keep the search.
+
+### List
+
+`/genres`. Two parts side by side, stacked below 760px:
 
 - **Genre list** (left): every genre of the library with its number of
   songs, most songs first, with a bar relative to the biggest genre.
@@ -86,8 +91,41 @@ visitor is sent to the login page). Two parts side by side, stacked below
   three genres its songs share most. The list is paged like the Songs page.
 
 The search bar on top narrows both by band, title and genre, live as you
-type, and keeps the picked genre. The head counts the library's songs and
-those with a genre.
+type, and keeps the picked genre.
+
+### Map
+
+`/genres/map`. Every song with a genre is a dot in its genre's cluster; a
+song with several shown genres sits between their clusters, and genres that
+share many songs are placed close together, so their clusters overlap. A
+cluster's size follows its songs. The biggest genres get a cluster each -
+as many as **Genres on the map** on [Settings](#settings), 12 by default; the
+songs whose genres are all smaller gather in a grey **Other genres** cluster,
+and the genres folded into it are listed below the map. The first 12
+clusters have a colour of their own, the rest are grey.
+
+- A search marks the matching dots and dims the rest ("7 songs match").
+- Hovering a dot shows band, title and genres; clicking it opens a song
+  card with the genres as chips and a link to the song on the Songs page
+  (without JavaScript the dot is that link).
+- A cluster, its label or its chip in the legend opens the genre on the List tab.
+- The songs without a genre are counted below the map.
+
+### Connections
+
+`/genres/connections`. A tile per shown genre - song count, a bar relative
+to the biggest genre, its three biggest bands - and one for **Other genres**
+naming the first eight folded genres. Below, the network: a circle per
+genre with its name inside, a line per pair of genres that songs share (thicker for more songs)
+with those songs as dots on it (a song with three genres is on three
+lines), and the songs with one genre as dots around their circle. Search,
+hover, song card and links work as on the Map.
+
+Both drawings are SVG computed on the server (`app/genre_layout.py`): the
+same library always gives the same picture. Both are spread out wide (2:1,
+the shape of the page) and fill the page width.
+
+### Where the genres come from
 
 The genres come from the `#GENRE` tag of the song files (`app/song_genres.py`),
 read by the [library scan](#whats-new) on every run and stored in the table
@@ -312,6 +350,10 @@ accounts. There's no self-registration; the first admin is created from
   whole number (1-999) of days, weeks or calendar months, 2 months by
   default (`app/recent_period.py`). The start is exact to the moment - "2
   weeks" on a Tuesday at 15:00 starts two Tuesdays ago at 15:00.
+- **Genres on the map** - how many of the biggest genres get their own
+  cluster on the [Genres](#genres) Map and their own circle and tile on its
+  Connections tab, from 1 to 24 (12 by default); the others fold into
+  "Other genres".
 - **Library scan schedule** - when the scan behind the What's new page runs,
   as a standard cron expression: minute, hour, day of month, month, weekday
   (0 and 7 are Sunday, `mon`-`sun` work too), in the app's time zone (`TZ`).

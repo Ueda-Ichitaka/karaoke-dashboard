@@ -2,7 +2,8 @@
 app/models.py), creating it with defaults on first use. Used by the public
 request/report routes to pick which profile (app/profiles.py) currently
 applies, by the public song pages for the "Reported broken" badge mode
-(app/broken_badge.py) and the "What's new" period (app/recent_period.py),
+(app/broken_badge.py), the "What's new" period (app/recent_period.py) and
+the number of genres on the Genres page's map (app/genre_layout.py),
 at app start for the library scan schedule (app/main.py), and by the admin
 Settings view (app/routes/admin.py) to
 show/update it.
@@ -13,6 +14,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from .broken_badge import UNTIL_RESOLVED
+from .genre_layout import DEFAULT_GENRE_MAP_SIZE
 from .library_history import DEFAULT_LIBRARY_SCAN_CRON
 from .models import AppSettings
 from .recent_period import DEFAULT_AMOUNT, DEFAULT_UNIT
@@ -42,5 +44,8 @@ def get_app_settings(db: Session) -> AppSettings:
         db.commit()
     if settings.recent_amount is None or settings.recent_unit is None:
         settings.recent_amount, settings.recent_unit = DEFAULT_AMOUNT, DEFAULT_UNIT
+        db.commit()
+    if settings.genre_map_size is None:
+        settings.genre_map_size = DEFAULT_GENRE_MAP_SIZE
         db.commit()
     return settings

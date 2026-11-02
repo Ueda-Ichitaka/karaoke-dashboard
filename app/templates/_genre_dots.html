@@ -1,0 +1,10 @@
+{# About me: the song dots of a Genres page drawing (genres_map.html,
+   genres_connections.html), inside its <svg>. Each dot links to the song
+   on the Songs page and carries its band, title and genres for the song
+   card (app/static/app.js); hovering shows them as a tooltip. The search
+   hits come last, so they are drawn on top, and bigger. #}
+{% for dot in (dots|rejectattr("hit")|list) + (dots|selectattr("hit")|list) %}
+  <a class="map-dot{% if dot.hit %} hit{% endif %}" href="/songs?q={{ dot.song.folder|urlencode }}"
+     data-folder="{{ dot.song.folder }}" data-artist="{{ dot.song.artist or '' }}" data-title="{{ dot.song.title }}"
+     data-genres="{{ dot.genres|join('|') }}"><circle cx="{{ dot.x }}" cy="{{ dot.y }}" r="{{ dot.r * 1.8 if dot.hit else dot.r }}" fill="{{ dot.color }}"/><title>{{ dot.song.display }} ({{ dot.genres|join(', ') }})</title></a>
+{% endfor %}

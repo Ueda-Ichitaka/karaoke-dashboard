@@ -85,6 +85,15 @@
         </select>
       </div>
     </div>
+    <label class="field">
+      <span class="field-label">
+        Genres on the map
+        <span class="field-hint" tabindex="0" aria-label="How many of the biggest genres get their own cluster on the Map tab and their own circle and tile on the Connections tab of the Genres page. The songs of the other genres gather in Other genres. The first 12 get a colour of their own, the rest are grey."
+              data-tip="How many of the biggest genres get their own cluster on the Map tab and their own circle and tile on the Connections tab of the Genres page. The songs of the other genres gather in Other genres. The first 12 get a colour of their own, the rest are grey.">?</span>
+      </span>
+      <input type="number" name="genre_map_size" value="{{ app_settings.genre_map_size }}" min="1"
+             max="{{ max_genre_map_size }}" step="1" required>
+    </label>
     <label class="checkbox-option">
       <input type="checkbox" name="logging_enabled" {{ 'checked' if app_settings.logging_enabled }}>
       Enable logging

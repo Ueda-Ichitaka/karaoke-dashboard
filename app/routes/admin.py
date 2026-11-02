@@ -34,6 +34,7 @@ from ..config import settings
 from ..database import get_db
 from ..deps import render, require_admin
 from ..duet import DUET_CHOICES, DUET_LABELS
+from ..genre_layout import MAX_GENRE_MAP_SIZE
 from ..genres import DEFAULT_GENRE, GENRE_CHOICES, format_genres, is_valid_genre, parse_genres
 from ..languages import LANGUAGE_CHOICES, LANGUAGE_LABELS
 from ..models import BrokenReport, PendingBrokenReport, PendingSongRequest, SongRequest, User
@@ -120,7 +121,8 @@ def settings_view(
         request, "admin/settings.html", user,
         errors=[], app_settings=app_settings, profile_choices=PROFILE_CHOICES,
         mode_choices=MODE_CHOICES, badge_mode_choices=BADGE_MODE_CHOICES, unit_choices=UNIT_CHOICES,
-        max_amount=MAX_AMOUNT, library_notice=_LIBRARY_NOTICES.get(library), saved=saved,
+        max_amount=MAX_AMOUNT, max_genre_map_size=MAX_GENRE_MAP_SIZE,
+        library_notice=_LIBRARY_NOTICES.get(library), saved=saved,
     )
 
 
@@ -135,6 +137,7 @@ def settings_update(
     library_scan_cron: str | None = Form(None),
     recent_amount: str | None = Form(None),
     recent_unit: str | None = Form(None),
+    genre_map_size: str | None = Form(None),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -156,6 +159,13 @@ def settings_update(
                           "of days, weeks or months.")
         else:
             period = (int(amount), recent_unit)
+    map_size = None
+    if genre_map_size is not None:
+        size = genre_map_size.strip()
+        if not size.isdigit() or not 1 <= int(size) <= MAX_GENRE_MAP_SIZE:
+            errors.append(f"Genres on the map must be a whole number from 1 to {MAX_GENRE_MAP_SIZE}.")
+        else:
+            map_size = int(size)
     if request_profile not in PROFILE_CODES:
         errors.append("Unrecognized request-song profile.")
     if report_profile not in PROFILE_CODES:
@@ -167,7 +177,7 @@ def settings_update(
             request, "admin/settings.html", user, status_code=422,
             errors=errors, app_settings=app_settings, profile_choices=PROFILE_CHOICES,
             mode_choices=MODE_CHOICES, badge_mode_choices=BADGE_MODE_CHOICES, unit_choices=UNIT_CHOICES,
-            max_amount=MAX_AMOUNT,
+            max_amount=MAX_AMOUNT, max_genre_map_size=MAX_GENRE_MAP_SIZE,
         )
 
     app_settings.request_profile = request_profile
@@ -180,6 +190,8 @@ def settings_update(
         app_settings.library_scan_cron = library_scan_cron
     if period is not None:
         app_settings.recent_amount, app_settings.recent_unit = period
+    if map_size is not None:
+        app_settings.genre_map_size = map_size
     db.commit()
     configure_logging(mode, logging_enabled)
     scheduler = getattr(request.app.state, "scheduler", None)

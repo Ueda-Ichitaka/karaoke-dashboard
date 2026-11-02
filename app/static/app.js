@@ -1,6 +1,7 @@
 // Progressive enhancement, loaded on every page from base.html: live song
-// search/picker, the request-form duplicate check, the broken-report
-// category/description toggle, and the go-to-top button. Every page works
+// search/picker (the Genres tab links follow a live search), the song card
+// of the Genres map and network, the request-form duplicate check, the
+// broken-report category/description toggle, and the go-to-top button. Every page works
 // without JS too - this only adds convenience on top.
 (function () {
   "use strict";
@@ -42,12 +43,61 @@
         params.delete("page");
         const qs = params.toString();
         window.history.replaceState(null, "", qs ? "?" + qs : window.location.pathname);
+        document.querySelectorAll("a[data-keep-q]").forEach((link) => {
+          const tabUrl = new URL(link.href, window.location.href);
+          if (q) tabUrl.searchParams.set("q", q); else tabUrl.searchParams.delete("q");
+          link.href = tabUrl.pathname + tabUrl.search;
+        });
       } catch (e) {
         /* leave the server-rendered list in place */
       }
     }, 200);
 
     input.addEventListener("input", run);
+  });
+
+  // ---- song card on the Genres page's Map and Connections tabs ---------
+  // A click on a song dot opens a card next to it instead of following the
+  // dot's link (to the song on the Songs page, which the card offers).
+  document.querySelectorAll("[data-song-map]").forEach((map) => {
+    const card = map.querySelector("[data-song-card]");
+    if (!card) return;
+    const artist = card.querySelector("[data-card-artist]");
+    const title = card.querySelector("[data-card-title]");
+    const chips = card.querySelector("[data-card-genres]");
+    const link = card.querySelector("[data-card-link]");
+
+    function close() { card.hidden = true; }
+
+    map.addEventListener("click", (ev) => {
+      const dot = ev.target.closest("a.map-dot");
+      if (!dot) return;
+      ev.preventDefault();
+      artist.textContent = dot.dataset.artist || "";
+      title.textContent = dot.dataset.title || "";
+      chips.replaceChildren(...(dot.dataset.genres || "").split("|").filter(Boolean).map((genre) => {
+        const chip = document.createElement("a");
+        chip.className = "genre-chip";
+        chip.href = "/genres?genre=" + encodeURIComponent(genre);
+        chip.textContent = genre;
+        return chip;
+      }));
+      link.href = dot.getAttribute("href");
+      card.hidden = false;
+      const box = map.getBoundingClientRect();
+      const x = ev.clientX - box.left;
+      const y = ev.clientY - box.top;
+      const left = Math.max(8, Math.min(x + 12, box.width - card.offsetWidth - 8));
+      const top = y + 12 + card.offsetHeight > box.height ? Math.max(8, y - card.offsetHeight - 12) : y + 12;
+      card.style.left = left + "px";
+      card.style.top = top + "px";
+      link.focus({ preventScroll: true });
+    });
+    card.querySelector("[data-card-close]").addEventListener("click", close);
+    document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") close(); });
+    document.addEventListener("click", (ev) => {
+      if (!card.hidden && !card.contains(ev.target) && !ev.target.closest("a.map-dot")) close();
+    });
   });
 
   // ---- song picker (report page) --------------------------------------

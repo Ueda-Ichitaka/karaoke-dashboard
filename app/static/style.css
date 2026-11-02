@@ -278,6 +278,77 @@ h1 { font-size: 22px; margin: 0 0 4px; }
   .genre-panels { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* -- Genres page tabs: the tab row under the search (_genre_head.html), and
+   the SVG drawings of the Map and Connections tabs (genres_map.html,
+   genres_connections.html) - 2:1, they fill the page width. A search dims
+   every dot but the hits. -- */
+.genre-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--border); margin: 0 0 18px; }
+.genre-tabs a {
+  padding: 10px 16px; margin-bottom: -1px; color: var(--text-dim); border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.genre-tabs a:hover { text-decoration: none; color: var(--text); }
+.genre-tabs a[aria-current="page"] { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
+.drawing-note { color: var(--text-dim); font-size: 13px; margin: 0 0 10px; }
+.drawing-note strong { color: var(--text); }
+.drawing-head { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; margin-top: 24px; }
+.drawing-head h2 { font-size: 18px; margin: 0 0 6px; }
+.genre-drawing {
+  position: relative; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); margin-bottom: 14px;
+}
+.genre-drawing svg { display: block; width: 100%; height: auto; }
+.cluster-area { fill-opacity: .08; stroke-opacity: .35; }
+.map-cluster:hover .cluster-area { fill-opacity: .16; }
+.cluster-label {
+  font-size: 13px; font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px;
+}
+a.map-label:hover .cluster-label, .net-node:hover .cluster-label { text-decoration: underline; }
+.cluster-count { fill: var(--text-dim); font-weight: 400; }
+.cluster-label.small-label { font-size: 11px; }
+.map-dot circle { fill-opacity: .7; stroke: transparent; stroke-width: 4px; }
+.map-dot:hover circle { fill-opacity: 1; stroke: var(--text); stroke-width: 1.5px; }
+.searching .map-dot circle { fill-opacity: .15; }
+.searching .map-dot.hit circle { fill-opacity: 1; stroke: var(--text); stroke-width: 2px; }
+.net-edge { stroke: var(--border); stroke-linecap: round; }
+.net-node circle { fill: var(--surface); stroke-width: 2px; }
+.net-node:hover circle { fill: var(--surface-2); }
+.genre-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.legend-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 14px;
+}
+a.legend-chip:hover { text-decoration: none; border-color: var(--accent); }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.genre-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.genre-tile {
+  display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+}
+a.genre-tile:hover { text-decoration: none; border-color: var(--accent); }
+.genre-tile-other { background: transparent; border-style: dashed; }
+.genre-tile-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.genre-tile-name { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.genre-tile-count { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.genre-tile .genre-bar { margin-top: 0; }
+.genre-tile-bands { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.genre-tile-other .genre-tile-bands { white-space: normal; }
+.song-card {
+  position: absolute; z-index: 5; width: 260px; max-width: calc(100% - 16px);
+  display: flex; flex-direction: column; gap: 4px; padding: 12px 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+.song-card[hidden] { display: none; }
+.song-card .song-artist { font-size: 12px; font-weight: 400; color: var(--text-dim); padding-right: 24px; }
+.song-card .song-title { color: var(--text); font-weight: 600; }
+.song-card .genre-chips { margin: 4px 0; }
+.song-card-close {
+  position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border: none; border-radius: 6px;
+  background: transparent; color: var(--text-dim); font-size: 18px; line-height: 1; cursor: pointer;
+}
+.song-card-close:hover { background: var(--surface-2); color: var(--text); }
+
 /* -- song detail (expanded UltraStar metadata) -- */
 .song-detail { padding: 2px 16px 16px 44px; display: flex; flex-direction: column; gap: 14px; }
 .song-detail .empty.small { padding: 4px 0; text-align: left; font-size: 13px; }

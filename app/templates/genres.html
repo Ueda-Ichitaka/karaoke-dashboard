@@ -1,27 +1,15 @@
-{# About me: the Genres page for logged-in users - the library explored by
-   the genres its song files name (read by the library scan,
-   app/song_genres.py). A search on top narrows the genre list and the song
-   list below it by genre, band and title (live via /genres/partial, which
-   renders _genre_panels.html, keeping the picked genre). #}
+{# About me: the List tab of the Genres page for logged-in users - the
+   library explored by the genres its song files name (read by the library
+   scan, app/song_genres.py). Under the shared head (_genre_head.html: search
+   and tab row) the genre list and the song list, narrowed by the search
+   (live via /genres/partial, which renders _genre_panels.html, keeping the
+   picked genre). #}
 {% extends "base.html" %}
 {% block title %}Genres · {{ app_title }}{% endblock %}
 {% block content_class %} with-panels{% endblock %}
 {% block content %}
 <section class="page">
-  <div class="page-head">
-    <h1>Genres</h1>
-    <p class="subtle">{{ total }} song{{ '' if total == 1 else 's' }}, {{ with_genre }} with a genre from their song file.</p>
-  </div>
-
-  <form class="search" method="get" action="/genres" role="search">
-    {% if genre %}<input type="hidden" name="genre" value="{{ genre }}">{% endif %}
-    <input type="search" name="q" value="{{ q }}" placeholder="Search for a genre, band or song…"
-           autocomplete="off" autofocus aria-label="Search genres, bands and songs"
-           data-live-search data-target="#genre-results"
-           data-endpoint="/genres/partial{% if genre %}?genre={{ genre|urlencode }}{% endif %}">
-    <button type="submit" class="btn">Search</button>
-    {% if q %}<a class="btn btn-ghost" href="/genres{% if genre %}?genre={{ genre|urlencode }}{% endif %}">Clear</a>{% endif %}
-  </form>
+  {% include "_genre_head.html" %}
 
   <div id="genre-results">
     {% include "_genre_panels.html" %}

@@ -104,7 +104,8 @@ class AppSettings(Base):
     for each of the two public forms (see app/profiles.py, app/app_settings.py),
     the production/debug mode (see app/app_mode.py), the "Reported broken"
     badge mode (see app/broken_badge.py), the library scan schedule (see
-    app/scheduler.py) and the "What's new" period (see app/recent_period.py).
+    app/scheduler.py), the "What's new" period (see app/recent_period.py)
+    and the number of genres on the Genres page's map (app/genre_layout.py).
     A singleton row, always id=1.
     """
 
@@ -136,6 +137,11 @@ class AppSettings(Base):
     # mode; NULL is normalized to 2 months by get_app_settings().
     recent_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
     recent_unit: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # How many of the biggest genres get their own cluster on the Genres
+    # page's Map and Connections tabs (app/genre_layout.py). Nullable for the
+    # same ALTER-TABLE reason as mode; NULL is normalized to
+    # DEFAULT_GENRE_MAP_SIZE by get_app_settings().
+    genre_map_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class PendingSongRequest(Base):

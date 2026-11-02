@@ -235,3 +235,19 @@ class LibraryFolder(Base):
     # Newest write time of those files any scan has read, the very first
     # included (NULL: none seen) - what a report's time is compared with.
     last_write_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SongGenre(Base):
+    """One genre of one song folder, as the library scan
+    (app/library_history.py, app/song_genres.py) read it from the #GENRE tag
+    of the folder's song files - behind the Genres page. A folder without a
+    genre has no row; position keeps the order the files name them in.
+    """
+
+    __tablename__ = "song_genres"
+    __table_args__ = (UniqueConstraint("folder", "genre", name="uq_song_genre"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    folder: Mapped[str] = mapped_column(String(512), index=True)
+    genre: Mapped[str] = mapped_column(String(128), index=True)
+    position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

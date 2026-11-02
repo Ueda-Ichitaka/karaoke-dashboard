@@ -26,7 +26,7 @@
     return res.json();
   }
 
-  // ---- live search on the songs page -----------------------------------
+  // ---- live search (Songs, What's new, Genres) -------------------------
   document.querySelectorAll("input[data-live-search]").forEach((input) => {
     const target = document.querySelector(input.dataset.target);
     const endpoint = input.dataset.endpoint;
@@ -34,7 +34,7 @@
 
     const run = debounce(async () => {
       const q = input.value.trim();
-      const url = endpoint + "?q=" + encodeURIComponent(q);
+      const url = endpoint + (endpoint.includes("?") ? "&" : "?") + "q=" + encodeURIComponent(q);
       try {
         target.innerHTML = await fetchFragment(url);
         const params = new URLSearchParams(window.location.search);

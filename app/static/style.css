@@ -235,6 +235,49 @@ h1 { font-size: 22px; margin: 0 0 4px; }
   .new-panels { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* -- Genres page: the genre list with song counts on the left, the picked
+   genre's songs with genre chips on the right (app/templates/genres.html,
+   _genre_panels.html); on a narrow screen the list sits above the songs. -- */
+.genre-panels { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.genre-index { padding: 14px 8px; }
+.genre-index h2 {
+  margin: 0 8px 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim);
+}
+.genre-index .empty { padding: 8px; }
+.genre-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.genre-row { display: block; padding: 7px 8px; border-radius: 8px; color: var(--text); font-size: 14px; }
+.genre-row:hover { text-decoration: none; background: var(--surface-2); }
+.genre-row[aria-current="true"] { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--accent); }
+.genre-row-head { display: flex; justify-content: space-between; gap: 8px; }
+.genre-count { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.genre-bar { display: block; height: 4px; margin-top: 4px; border-radius: 2px; background: var(--surface-2); }
+.genre-bar > span { display: block; height: 100%; border-radius: 2px; background: var(--accent-2); }
+.genre-row[aria-current="true"] .genre-bar > span { background: var(--accent); }
+.genre-songs-head { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
+.genre-songs-head h2 { font-size: 20px; }
+.genre-songs-head h2 .subtle { font-size: 14px; font-weight: 400; margin-left: 4px; }
+.genre-songs-head p.subtle { font-size: 13px; margin: 0; }
+.genre-song-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.genre-song {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.genre-song-link { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; color: var(--text); }
+.genre-song-link:hover { text-decoration: none; }
+.genre-song-link:hover .song-title { color: var(--accent); }
+.genre-song-link .song-artist { font-size: 12px; font-weight: 400; color: var(--text-dim); }
+.genre-song-link .song-title { color: var(--text); }
+.genre-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.genre-chip {
+  font-size: 12px; padding: 2px 8px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-dim);
+}
+.genre-chip:hover { text-decoration: none; border-color: var(--accent); color: var(--text); }
+.genre-chip-current { border-color: var(--accent); color: var(--text); }
+@media (max-width: 760px) {
+  .genre-panels { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* -- song detail (expanded UltraStar metadata) -- */
 .song-detail { padding: 2px 16px 16px 44px; display: flex; flex-direction: column; gap: 14px; }
 .song-detail .empty.small { padding: 4px 0; text-align: left; font-size: 13px; }

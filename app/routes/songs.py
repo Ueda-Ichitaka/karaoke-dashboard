@@ -2,9 +2,12 @@
 song marked when it's known to be broken, see app/known_broken.py, for as
 long as the Settings page's badge mode says - app/broken_badge.py) with
 each song's expanded UltraStar metadata (including its cover image file),
-and the "What's new" page: the songs added and the songs updated within the
+the "What's new" page: the songs added and the songs updated within the
 period set on the Settings page (app/recent_period.py; as recorded by the
-library scan, app/library_history.py), narrowed by its own search."""
+library scan, app/library_history.py), narrowed by its own search, and the
+Genres page for logged-in users: the genres the library scan read from the
+song files (app/song_genres.py) with their song counts, and the songs of
+the picked genre, narrowed by a search over genre, band and title."""
 
 from __future__ import annotations
 
@@ -21,11 +24,12 @@ from ..app_settings import get_app_settings
 from ..broken_badge import UNTIL_UPDATED
 from ..config import settings
 from ..database import get_db
-from ..deps import get_current_user, render
+from ..deps import get_current_user, render, require_user
 from ..known_broken import known_broken
 from ..library_history import recent_additions, recent_updates
 from ..models import User
 from ..recent_period import describe, period_start
+from ..song_genres import companions, genre_counts, genres_by_folder, search_with_genres
 
 router = APIRouter()
 
@@ -115,6 +119,45 @@ def whats_new_partial(
 ):
     """Both panels, used for the live-search results (no page chrome)."""
     return _whats_new(request, "_new_panels.html", q, user, db)
+
+
+def _genres_page(request: Request, template: str, q: str, genre: str, page: int, user: User, db: Session):
+    songs = song_index.all_songs()
+    genres = genres_by_folder(db, songs)
+    matches = search_with_genres(songs, genres, q)
+    listed = [song for song in matches if genre in genres[song.folder]] if genre else matches
+    genre_list = genre_counts(matches, genres)
+    return render(
+        request, template, user, q=q, genre=genre, genres=genres, genre_list=genre_list,
+        top_count=max((count for _, count in genre_list), default=0),
+        companions=companions(matches, genres, genre) if genre else [],
+        result=song_index.paginate(listed, page), total=len(songs), with_genre=len(genres),
+    )
+
+
+@router.get("/genres")
+def genres_page(
+    request: Request,
+    q: str = "",
+    genre: str = "",
+    page: int = 1,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    return _genres_page(request, "genres.html", q, genre, page, user, db)
+
+
+@router.get("/genres/partial")
+def genres_partial(
+    request: Request,
+    q: str = "",
+    genre: str = "",
+    page: int = 1,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """The genre list and the song list, used for the live-search results (no page chrome)."""
+    return _genres_page(request, "_genre_panels.html", q, genre, page, user, db)
 
 
 @router.get("/songs/{folder}/cover/{filename}")

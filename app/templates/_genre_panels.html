@@ -1,0 +1,79 @@
+{# About me: the two parts of the Genres page (genres.html) - also the
+   live-search fragment from /genres/partial. On the left the genres of the
+   songs matching the search with their song counts (most first), on the
+   right the songs of the picked genre (or of every genre), each with its
+   genres as chips and linked to the song on the Songs page. On a narrow
+   screen the list sits above the songs (.genre-panels in
+   app/static/style.css). #}
+{% set q_part = '&q=' ~ (q|urlencode) if q else '' %}
+<div class="genre-panels">
+  <aside class="side-panel genre-index" aria-label="Genres">
+    <h2>Genres</h2>
+    {% if not genre_list %}
+      <p class="empty">No genres{% if q %} match "{{ q }}"{% endif %}.</p>
+    {% else %}
+      <ul class="genre-list">
+        <li>
+          <a class="genre-row" href="/genres{% if q %}?q={{ q|urlencode }}{% endif %}"
+             {% if not genre %}aria-current="true"{% endif %}>
+            <span class="genre-row-head"><span>All genres</span></span>
+          </a>
+        </li>
+        {% for name, count in genre_list %}
+          <li>
+            <a class="genre-row" href="/genres?genre={{ name|urlencode }}{{ q_part }}"
+               {% if name == genre %}aria-current="true" {% endif %}data-genre="{{ name }}" data-count="{{ count }}">
+              <span class="genre-row-head">
+                <span>{{ name }}</span>
+                <span class="genre-count">{{ count }}</span>
+              </span>
+              <span class="genre-bar" aria-hidden="true"><span style="width: {{ [2, (count * 100 / top_count)|round|int]|max }}%"></span></span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </aside>
+
+  <section class="side-panel genre-songs" aria-labelledby="genre-songs-heading">
+    <div class="genre-songs-head">
+      <h2 id="genre-songs-heading">
+        {{ genre or "All genres" }}
+        <span class="subtle">{{ result.total }} song{{ '' if result.total == 1 else 's' }}{% if q %} matching "{{ q }}"{% endif %}</span>
+      </h2>
+      {% if companions %}
+        <p class="subtle">Often together with {% for name, count in companions %}{{ name }} ({{ count }}){{ ", " if not loop.last }}{% endfor %}</p>
+      {% endif %}
+    </div>
+    {% if result.total == 0 %}
+      <p class="empty">No songs{% if genre %} in {{ genre }}{% endif %}{% if q %} match "{{ q }}"{% endif %}.</p>
+    {% else %}
+      <ul class="genre-song-list">
+        {% for song in result.items %}
+          <li class="genre-song" data-folder="{{ song.folder }}">
+            <a class="genre-song-link" href="/songs?q={{ song.folder|urlencode }}">
+              {% if song.artist %}<span class="song-artist">{{ song.artist }}</span>{% endif %}
+              <span class="song-title">{{ song.title }}</span>
+            </a>
+            <span class="genre-chips">
+              {% for name in genres[song.folder] %}
+                <a class="genre-chip{{ ' genre-chip-current' if name == genre }}" href="/genres?genre={{ name|urlencode }}">{{ name }}</a>
+              {% endfor %}
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if result.pages > 1 %}
+        <nav class="pager">
+          {% if result.has_prev %}
+            <a href="/genres?genre={{ genre|urlencode }}&q={{ q|urlencode }}&page={{ result.page - 1 }}">&larr; Prev</a>
+          {% else %}<span class="disabled">&larr; Prev</span>{% endif %}
+          <span class="pager-pos">Page {{ result.page }} of {{ result.pages }}</span>
+          {% if result.has_next %}
+            <a href="/genres?genre={{ genre|urlencode }}&q={{ q|urlencode }}&page={{ result.page + 1 }}">Next &rarr;</a>
+          {% else %}<span class="disabled">Next &rarr;</span>{% endif %}
+        </nav>
+      {% endif %}
+    {% endif %}
+  </section>
+</div>

@@ -8,6 +8,7 @@ see [csv.md](csv.md); for the scripts that change files on disk see
 | --- | --- | --- |
 | [Songs](#songs) | everyone | Browse and search the library |
 | [What's new](#whats-new) | everyone | Songs recently added and recently updated |
+| [Genres](#genres) | logged-in users | Explore the library by the genres its song files name |
 | [Report broken](#report-broken) | logged-in users | Report a broken song |
 | [Request song](#request-song) | logged-in users | Ask for a new song |
 | [Reported](#reported-and-requested) | admins | Review, edit, resolve and export broken-song reports |
@@ -52,7 +53,8 @@ The library has no "added" or "updated" date of its own, so a background
 scan records what it finds (table `library_folders`). It runs once at app
 start and then on the schedule set on the [Settings](#settings) page, by
 default daily at 11:00; the page only reads its results. Admins can also
-run it, or reset it, from [Settings](#settings).
+run it, or reset it, from [Settings](#settings). The same scan reads each
+song's genres for the [Genres](#genres) page.
 
 - **The very first scan** counts every folder as old, for both lists. They
   start empty and fill with what happens afterwards.
@@ -68,6 +70,41 @@ run it, or reset it, from [Settings](#settings).
   is not an update.
 - **Grace period**: writes within 1 hour after a new folder was first seen
   count as part of adding it (files still being copied in), not as updates.
+
+## Genres
+
+The library by genre, for logged-in users (the tab is shown to everyone; a
+visitor is sent to the login page). Two parts side by side, stacked below
+760px:
+
+- **Genre list** (left): every genre of the library with its number of
+  songs, most songs first, with a bar relative to the biggest genre.
+  **All genres** on top lists every song with a genre.
+- **Songs** (right): the songs of the picked genre, as band and title with
+  the song's genres as chips. A chip opens that genre; the song opens it
+  on the Songs page. For a picked genre, "Often together with" names the
+  three genres its songs share most. The list is paged like the Songs page.
+
+The search bar on top narrows both by band, title and genre, live as you
+type, and keeps the picked genre. The head counts the library's songs and
+those with a genre.
+
+The genres come from the `#GENRE` tag of the song files (`app/song_genres.py`),
+read by the [library scan](#whats-new) on every run and stored in the table
+`song_genres`, so the page is as fresh as the last scan (**Scan now** on
+[Settings](#settings) reads them right away).
+
+- The USDX Song Factory writes normalised genres (`Symphonic, Metal`), so a
+  value is only split at commas and trimmed. A genre named twice in any
+  case counts once, in its first spelling.
+- Empty tags and the Factory's placeholders for "no genre" - Unknown, No
+  idea, Other, None, Misc (any case) - are skipped; such a song isn't on the
+  page.
+- A folder with several song files has the genres of all of them.
+- Only `.txt` files directly in a song folder count, as for the song details.
+
+The admin genre lists of the request and report forms
+(`app/genres.py`) are separate and not used here.
 
 ## Report broken
 

@@ -25,6 +25,9 @@ page's mark on both its tables (updated_since_report) and the public badge's "un
 mode (app/known_broken.py). So a fix written before the first scan counts
 too.
 
+Every scan also stores each folder's genres, read from its song files, for
+the Genres page (record_genres, app/song_genres.py).
+
 The admin Settings page runs the scan on demand (run_scan) and can reset
 the history (run_reset): forget everything recorded and scan again as a
 very first scan.
@@ -46,6 +49,7 @@ from .app_logging import get_logger
 from .config import settings
 from .database import SessionLocal
 from .models import BrokenReport, LibraryFolder, PendingBrokenReport
+from .song_genres import record_genres
 from .songs import Song, parse_folder
 
 SONG_FILE_EXTENSIONS = (".txt", ".mp3", ".opus")
@@ -135,6 +139,7 @@ def scan_library(db: Session, *, root: str | Path | None = None, now: datetime |
                 row.updated_at = written
         row.follows_convention = follows_convention
         row.files = json.dumps(files)
+    record_genres(db, root, names)
     try:
         db.commit()
     except IntegrityError:

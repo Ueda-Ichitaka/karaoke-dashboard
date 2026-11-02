@@ -15,6 +15,7 @@
   <nav class="tabs">
     <a href="/songs" class="{{ 'active' if path.startswith('/songs') or path == '/' }}">Songs</a>
     <a href="/new" class="{{ 'active' if path.startswith('/new') }}">What's new</a>
+    <a href="/genres" class="{{ 'active' if path.startswith('/genres') }}">Genres</a>
     <a href="/report" class="{{ 'active' if path.startswith('/report') }}">Report broken</a>
     <a href="/request" class="{{ 'active' if path.startswith('/request') }}">Request song</a>
     {% if current_user and current_user.is_admin %}

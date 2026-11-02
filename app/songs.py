@@ -119,8 +119,12 @@ def filter_songs(songs: list[Song], query: str) -> list[Song]:
 
 
 def search(query: str = "", page: int = 1, page_size: int | None = None) -> Page:
+    return paginate(filter_songs(_index.all(), query), page, page_size)
+
+
+def paginate(matches: list[Song], page: int = 1, page_size: int | None = None) -> Page:
+    """One page of these songs (the last one for a page past the end)."""
     page_size = page_size or settings.page_size
-    matches = filter_songs(_index.all(), query)
     total = len(matches)
     pages = max(1, (total + page_size - 1) // page_size)
     page = max(1, min(page, pages))

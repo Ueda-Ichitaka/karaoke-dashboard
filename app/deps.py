@@ -1,8 +1,10 @@
-"""Shared dependencies: current user, auth guards, template rendering."""
+"""Shared dependencies: current user, auth guards (require_user,
+require_contributor for contributors and admins, require_admin), template
+rendering."""
 
 from __future__ import annotations
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -53,6 +55,18 @@ def require_user(
     return user
 
 
+def require_contributor(
+    request: Request,
+    user: User | None = Depends(get_current_user),
+) -> User:
+    if user is None:
+        raise AuthRedirect(next_url=_relative_url(request))
+    if not user.can_contribute:
+        # Logged in but not allowed - surface a real 403 rather than a login loop.
+        raise HTTPException(status_code=403, detail="Contributor access required")
+    return user
+
+
 def require_admin(
     request: Request,
     user: User | None = Depends(get_current_user),
@@ -61,8 +75,6 @@ def require_admin(
         raise AuthRedirect(next_url=_relative_url(request))
     if not user.is_admin:
         # Logged in but not allowed - surface a real 403 rather than a login loop.
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 

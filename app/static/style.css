@@ -286,6 +286,37 @@ h1 { font-size: 22px; margin: 0 0 4px; }
   .genre-song .genre-chips { margin-left: 0; justify-content: flex-start; }
 }
 
+/* -- Genres page Edit tab (genres_edit.html): a row per song - band and
+   title, the genre field with its buttons, Reset, and for an edited row a
+   note with the song file's genres. In display mode (app/static/app.js)
+   the field reads like text; Edit turns it back into a field. -- */
+.search-check { display: inline-flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: 14px; }
+.genre-edit-head { display: flex; justify-content: space-between; align-items: center; gap: 8px 16px; flex-wrap: wrap; }
+.genre-edit-head .drawing-note { margin: 0; flex: 1 1 320px; }
+.genre-edit-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.genre-edit-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 4px 16px; align-items: center;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.genre-edit-row.edited { box-shadow: inset 3px 0 0 var(--accent); padding-left: 10px; }
+.genre-edit-row [hidden] { display: none; }
+.genre-edit-fields { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.genre-edit { display: flex; gap: 6px; align-items: center; flex: 1; min-width: 0; }
+.genre-edit input[type=text] {
+  flex: 1; min-width: 0; font: inherit; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+}
+.genre-edit input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+.genre-edit input[type=text]:read-only { background: transparent; border-color: transparent; padding-left: 0; }
+.genre-edit input[type=text]:read-only:focus { outline: none; }
+.genre-edit-note, .genre-edit-error { grid-column: 2; margin: 0; font-size: 13px; color: var(--text-dim); }
+.genre-edit-note .pill { margin-right: 4px; }
+.genre-edit-error { color: var(--err); }
+@media (max-width: 640px) {
+  .genre-edit-row { grid-template-columns: minmax(0, 1fr); }
+  .genre-edit-note, .genre-edit-error { grid-column: 1; }
+}
+
 /* -- Genres page tabs: the tab row under the search (_genre_head.html), and
    the SVG drawings of the Map and Connections tabs (genres_map.html,
    genres_connections.html) - 2:1, they fill the page width. A search dims

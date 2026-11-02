@@ -16,6 +16,7 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <label><span>Username</span><input type="text" name="username" required></label>
       <label><span>Password (min 8)</span><input type="text" name="password" required minlength="8"></label>
+      <label class="check"><input type="checkbox" name="is_contributor" value="true"> contributor</label>
       <label class="check"><input type="checkbox" name="is_admin" value="true"> admin</label>
       <button type="submit" class="btn btn-primary">Create</button>
     </form>
@@ -30,7 +31,7 @@
         {% for u in users %}
           <tr class="{{ 'row-done' if not u.is_active }}">
             <td><strong>{{ u.username }}</strong>{% if u.id == current_user.id %} <span class="pill">you</span>{% endif %}</td>
-            <td>{{ 'admin' if u.is_admin else 'user' }}</td>
+            <td>{{ u.role }}</td>
             <td>{{ 'active' if u.is_active else 'disabled' }}</td>
             <td class="nowrap">{{ u.created_at.strftime('%Y-%m-%d') }}</td>
             <td class="actions">
@@ -39,6 +40,12 @@
                 <input type="text" name="password" placeholder="new password" minlength="8" required>
                 <button class="btn btn-small">Reset</button>
               </form>
+              {% if not u.is_admin %}
+                <form method="post" action="/admin/users/{{ u.id }}/contributor" class="inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button class="btn btn-small btn-ghost">{{ 'Revoke contributor' if u.is_contributor else 'Make contributor' }}</button>
+                </form>
+              {% endif %}
               {% if u.id != current_user.id %}
                 <form method="post" action="/admin/users/{{ u.id }}/admin" class="inline">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

@@ -3,7 +3,8 @@ List tab (.genre-song in app/static/style.css): on the right edge of the
 row, also when they wrap under the title, so every row lines up; on a phone
 (the 640px breakpoint of the phone layout) every row has its chips under
 the title, on the left. The song card of the Map and Connections tabs
-keeps its chips on the left.
+keeps its chips on the left. On the Edit tab, what a row hides (its
+buttons in display mode) stays hidden.
 """
 
 from __future__ import annotations
@@ -54,3 +55,9 @@ def test_on_a_phone_every_row_has_its_chips_under_the_title_on_the_left():
     chips = _rule(phone, ".genre-song .genre-chips")
     assert "margin-left: 0" in chips
     assert "justify-content: flex-start" in chips
+
+
+def test_hidden_parts_of_a_genre_edit_row_stay_hidden():
+    """The row's buttons are .btn (display: inline-flex), which would show them
+    despite the hidden attribute app/static/app.js sets."""
+    assert "display: none" in _rule(_top_level(), ".genre-edit-row [hidden]")

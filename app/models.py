@@ -21,11 +21,26 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Between a plain user and an admin: may use the Reported, Requested and
+    # Duplicates pages and edit genres (app/deps.py: require_contributor).
+    # Nullable so _sync_schema can auto-add it to an existing users table;
+    # NULL counts as False.
+    is_contributor: Mapped[bool | None] = mapped_column(Boolean, default=False, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     broken_reports: Mapped[list[BrokenReport]] = relationship(back_populates="reporter")
     song_requests: Mapped[list[SongRequest]] = relationship(back_populates="requester")
+
+    @property
+    def can_contribute(self) -> bool:
+        """A contributor or an admin."""
+        return bool(self.is_admin or self.is_contributor)
+
+    @property
+    def role(self) -> str:
+        """admin, contributor or user - the highest level the user has."""
+        return "admin" if self.is_admin else "contributor" if self.is_contributor else "user"
 
 
 class BrokenReport(Base):
@@ -257,3 +272,21 @@ class SongGenre(Base):
     folder: Mapped[str] = mapped_column(String(512), index=True)
     genre: Mapped[str] = mapped_column(String(128), index=True)
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class GenreEdit(Base):
+    """A song folder's genres as a contributor set them on the Genres page's
+    Edit tab (app/song_genres.py), until the song files say the same: the
+    Genres page shows these instead of the folder's SongGenre rows, the
+    Edit tab's export hands them to the USDX Song Factory, and the library
+    scan drops the edit once it reads the same genres from the files.
+    genres is the comma-joined list ("Symphonic, Metal").
+    """
+
+    __tablename__ = "genre_edits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    folder: Mapped[str] = mapped_column(String(512), unique=True, index=True)
+    genres: Mapped[str] = mapped_column(Text)
+    edited_by: Mapped[str] = mapped_column(String(64))
+    edited_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

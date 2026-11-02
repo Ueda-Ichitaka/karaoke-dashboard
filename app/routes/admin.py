@@ -1,5 +1,8 @@
-"""Admin-only views: broken reports, song requests, CSV export, user
-management, and settings (including the library-scan utilities)."""
+"""The admin views. For contributors and admins (require_contributor): broken
+reports, song requests, their CSV import and export, and duplicates. For
+admins only (require_admin): user management - including the contributor
+level - the integrity checks, and settings (including the library-scan
+utilities)."""
 
 from __future__ import annotations
 
@@ -32,7 +35,7 @@ from ..broken_badge import BADGE_MODE_CHOICES, BADGE_MODE_CODES
 from ..broken_categories import CATEGORY_CHOICES, CATEGORY_LABELS
 from ..config import settings
 from ..database import get_db
-from ..deps import render, require_admin
+from ..deps import render, require_admin, require_contributor
 from ..duet import DUET_CHOICES, DUET_LABELS
 from ..genre_layout import MAX_GENRE_MAP_SIZE
 from ..genres import DEFAULT_GENRE, GENRE_CHOICES, format_genres, is_valid_genre, parse_genres
@@ -219,7 +222,7 @@ def settings_library_reset(user: User = Depends(require_admin)):
 def reports_view(
     request: Request,
     show: str = "open",
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     stmt = select(BrokenReport).order_by(BrokenReport.created_at.desc())
@@ -242,7 +245,7 @@ def report_set_status(
     report_id: int,
     status: str = Form(...),
     show: str = Form("open"),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     if status not in _REPORT_STATES:
@@ -259,7 +262,7 @@ def report_set_status(
 def report_edit_form(
     report_id: int,
     request: Request,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     item = db.get(BrokenReport, report_id)
@@ -290,7 +293,7 @@ def report_edit_submit(
     cover_url: str = Form(""),
     genre: list[str] = Form([]),
     trait: list[str] = Form([]),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     item = db.get(BrokenReport, report_id)
@@ -348,7 +351,7 @@ def report_edit_submit(
 def pending_report_edit_form(
     pending_id: int,
     request: Request,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     item = db.get(PendingBrokenReport, pending_id)
@@ -386,7 +389,7 @@ def pending_report_edit_submit(
     genre: list[str] = Form([]),
     trait: list[str] = Form([]),
     after_save: str = Form(""),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     """Saves the pending report; with after_save="admit" (the form's "Save
@@ -451,7 +454,7 @@ def pending_report_edit_submit(
 def pending_report_admit(
     pending_id: int,
     request: Request,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     item = db.get(PendingBrokenReport, pending_id)
@@ -503,7 +506,7 @@ def _admit_pending_report(db: Session, item: PendingBrokenReport, status: str = 
 @router.post("/reports/pending/{pending_id}/resolve")
 def pending_report_resolve(
     pending_id: int,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     """Closes a report from Needs review in one step: admitted as resolved,
@@ -518,7 +521,7 @@ def pending_report_resolve(
 @router.post("/reports/pending/{pending_id}/discard")
 def pending_report_discard(
     pending_id: int,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     item = db.get(PendingBrokenReport, pending_id)
@@ -531,7 +534,7 @@ def pending_report_discard(
 
 
 @router.get("/reports/import")
-def reports_import_form(request: Request, user: User = Depends(require_admin)):
+def reports_import_form(request: Request, user: User = Depends(require_contributor)):
     return render(request, "admin/report_import.html", user, result=None, columns=report_import.COLUMNS)
 
 
@@ -539,7 +542,7 @@ def reports_import_form(request: Request, user: User = Depends(require_admin)):
 async def reports_import_submit(
     request: Request,
     file: UploadFile = File(...),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     text = import_merge.decode_csv(await file.read())
@@ -554,7 +557,7 @@ async def reports_import_submit(
 @router.get("/reports.csv")
 def reports_csv(
     scope: str = "open",
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     stmt = select(BrokenReport).order_by(BrokenReport.created_at.asc())
@@ -589,7 +592,7 @@ def reports_csv(
 def requests_view(
     request: Request,
     show: str = "open",
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     stmt = select(SongRequest).order_by(SongRequest.created_at.desc())
@@ -613,7 +616,7 @@ def request_set_status(
     request_id: int,
     status: str = Form(...),
     show: str = Form("open"),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     if status not in _REQUEST_STATES:
@@ -629,7 +632,7 @@ def request_set_status(
 @router.post("/requests/{request_id}/delete")
 def request_delete(
     request_id: int,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     item = db.get(SongRequest, request_id)
@@ -644,7 +647,7 @@ def request_delete(
 def request_edit_form(
     request_id: int,
     request: Request,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     item = db.get(SongRequest, request_id)
@@ -678,7 +681,7 @@ def request_edit_submit(
     duet: str = Form(""),
     genre: list[str] = Form([]),
     trait: list[str] = Form([]),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     item = db.get(SongRequest, request_id)
@@ -731,7 +734,7 @@ def request_edit_submit(
 def pending_request_edit_form(
     pending_id: int,
     request: Request,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     item = db.get(PendingSongRequest, pending_id)
@@ -772,7 +775,7 @@ def pending_request_edit_submit(
     genre: list[str] = Form([]),
     trait: list[str] = Form([]),
     after_save: str = Form(""),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     """Saves the pending request; with after_save="admit" (the form's "Save
@@ -832,7 +835,7 @@ def pending_request_edit_submit(
 def pending_request_admit(
     pending_id: int,
     request: Request,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     item = db.get(PendingSongRequest, pending_id)
@@ -889,7 +892,7 @@ def _admit_pending_request(db: Session, item: PendingSongRequest) -> None:
 @router.post("/requests/pending/{pending_id}/discard")
 def pending_request_discard(
     pending_id: int,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     item = db.get(PendingSongRequest, pending_id)
@@ -902,7 +905,7 @@ def pending_request_discard(
 
 
 @router.get("/requests/import")
-def requests_import_form(request: Request, user: User = Depends(require_admin)):
+def requests_import_form(request: Request, user: User = Depends(require_contributor)):
     return render(request, "admin/request_import.html", user, result=None, columns=request_import.COLUMNS)
 
 
@@ -910,7 +913,7 @@ def requests_import_form(request: Request, user: User = Depends(require_admin)):
 async def requests_import_submit(
     request: Request,
     file: UploadFile = File(...),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     text = import_merge.decode_csv(await file.read())
@@ -925,7 +928,7 @@ async def requests_import_submit(
 @router.get("/requests.csv")
 def requests_csv(
     scope: str = "open",
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     stmt = select(SongRequest).order_by(SongRequest.created_at.asc())
@@ -964,7 +967,7 @@ def requests_csv(
 @router.get("/duplicates")
 def duplicates_view(
     request: Request,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     return render(
@@ -977,7 +980,7 @@ def duplicates_view(
 
 
 @router.post("/duplicates/rescan")
-def duplicates_rescan(user: User = Depends(require_admin)):
+def duplicates_rescan(user: User = Depends(require_contributor)):
     duplicates.refresh_cache()
     return RedirectResponse("/admin/duplicates", status_code=303)
 
@@ -986,7 +989,7 @@ def duplicates_rescan(user: User = Depends(require_admin)):
 def duplicate_detail(
     group_id: str,
     request: Request,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     group = duplicates.get_duplicate_group(db, group_id)
@@ -1003,7 +1006,7 @@ def duplicate_detail(
 @router.post("/duplicates/{group_id}/dismiss")
 def duplicate_dismiss(
     group_id: str,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_contributor),
     db: Session = Depends(get_db),
 ):
     group = duplicates.get_duplicate_group(db, group_id)
@@ -1031,6 +1034,7 @@ def users_create(
     username: str = Form(""),
     password: str = Form(""),
     is_admin: bool = Form(False),
+    is_contributor: bool = Form(False),
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -1050,6 +1054,7 @@ def users_create(
             username=username,
             password_hash=hash_password(password),
             is_admin=bool(is_admin),
+            is_contributor=bool(is_contributor),
             is_active=True,
         )
     )
@@ -1088,6 +1093,20 @@ def users_toggle_admin(
     if target.id == user.id:
         return RedirectResponse("/admin/users?error=You+cannot+change+your+own+admin+flag", status_code=303)
     target.is_admin = not target.is_admin
+    db.commit()
+    return RedirectResponse("/admin/users", status_code=303)
+
+
+@router.post("/users/{user_id}/contributor")
+def users_toggle_contributor(
+    user_id: int,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    target = db.get(User, user_id)
+    if target is None:
+        raise HTTPException(status_code=404)
+    target.is_contributor = not target.is_contributor
     db.commit()
     return RedirectResponse("/admin/users", status_code=303)
 

@@ -10,15 +10,19 @@ song files (app/song_genres.py) with their song counts, and the songs of
 the picked genre, narrowed by a search over genre, band and title. Its
 Map and Connections tabs draw the same genres as SVG (app/genre_layout.py,
 as many as the Settings page's "Genres on the map") and mark the songs the
-search finds."""
+search finds. Its Edit tab, for contributors and admins, lists every song
+with its genres to change them (app/song_genres.py: the edit stands in for
+the file's genres on every tab until a library scan reads the same from the
+files) and exports the open edits for the USDX Song Factory."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from .. import songs as song_index
@@ -27,13 +31,25 @@ from ..app_settings import get_app_settings
 from ..broken_badge import UNTIL_UPDATED
 from ..config import settings
 from ..database import get_db
-from ..deps import get_current_user, render, require_user
+from ..deps import get_current_user, render, require_contributor, require_user
 from ..genre_layout import genre_map, genre_network
 from ..known_broken import known_broken
 from ..library_history import recent_additions, recent_updates
 from ..models import User
 from ..recent_period import describe, period_start
-from ..song_genres import companions, genre_counts, genres_by_folder, search_with_genres
+from ..song_genres import (
+    companions,
+    current_genres,
+    file_genres_by_folder,
+    folder_file_genres,
+    genre_counts,
+    genre_edit_lines,
+    genres_by_folder,
+    open_edits,
+    reset_genre_edit,
+    save_genre_edit,
+    search_with_genres,
+)
 
 router = APIRouter()
 
@@ -125,14 +141,16 @@ def whats_new_partial(
     return _whats_new(request, "_new_panels.html", q, user, db)
 
 
-# The Genres page's tabs: key, label, address.
+# The Genres page's tabs: key, label, address; the Edit tab only for contributors and admins.
 GENRE_TABS = (("list", "List", "/genres"), ("map", "Map", "/genres/map"),
               ("connections", "Connections", "/genres/connections"))
+EDIT_TAB = ("edit", "Edit", "/genres/edit")
 
 
-def _tab_context(tab: str, songs: list[song_index.Song], genres: dict[str, list[str]]) -> dict:
+def _tab_context(tab: str, songs: list[song_index.Song], genres: dict[str, list[str]], user: User) -> dict:
     """What the head every Genres tab shares (_genre_head.html) needs."""
-    return {"tab": tab, "tab_url": dict((key, url) for key, _, url in GENRE_TABS)[tab], "genre_tabs": GENRE_TABS,
+    tabs = GENRE_TABS + ((EDIT_TAB,) if user.can_contribute else ())
+    return {"tab": tab, "tab_url": dict((key, url) for key, _, url in tabs)[tab], "genre_tabs": tabs,
             "total": len(songs), "with_genre": len(genres)}
 
 
@@ -143,7 +161,7 @@ def _genres_page(request: Request, template: str, q: str, genre: str, page: int,
     listed = [song for song in matches if genre in genres[song.folder]] if genre else matches
     genre_list = genre_counts(matches, genres)
     return render(
-        request, template, user, **_tab_context("list", songs, genres),
+        request, template, user, **_tab_context("list", songs, genres, user),
         q=q, genre=genre, genres=genres, genre_list=genre_list,
         top_count=max((count for _, count in genre_list), default=0),
         companions=companions(matches, genres, genre) if genre else [],
@@ -181,7 +199,7 @@ def _genre_drawing(request: Request, tab: str, template: str, build, q: str, use
     genres = genres_by_folder(db, songs)
     hits = {song.folder for song in search_with_genres(songs, genres, q)} if q.strip() else set()
     drawing = build(songs, genres, get_app_settings(db).genre_map_size, hits)
-    return render(request, template, user, **_tab_context(tab, songs, genres),
+    return render(request, template, user, **_tab_context(tab, songs, genres, user),
                   q=q, genre="", drawing=drawing, hit_count=len(hits))
 
 
@@ -203,6 +221,98 @@ def genres_connections(
     db: Session = Depends(get_db),
 ):
     return _genre_drawing(request, "connections", "genres_connections.html", genre_network, q, user, db)
+
+
+@router.get("/genres/edit")
+def genres_edit(
+    request: Request,
+    q: str = "",
+    page: int = 1,
+    edited: str = "",
+    error: str = "",
+    user: User = Depends(require_contributor),
+    db: Session = Depends(get_db),
+):
+    """Every song with its genres to change them - the songs with an open edit only for edited=1."""
+    songs = song_index.all_songs()
+    genres = genres_by_folder(db, songs)
+    file_genres = file_genres_by_folder(db, songs)
+    edits = open_edits(db)
+    matches = search_with_genres(songs, genres, q, with_genre_only=False)
+    if edited:
+        matches = [song for song in matches if song.folder in edits]
+    known = {genre for names in (*genres.values(), *file_genres.values()) for genre in names}
+    return render(
+        request, "genres_edit.html", user, **_tab_context("edit", songs, genres, user),
+        q=q, genre="", edited=edited, error=error, genres=genres, file_genres=file_genres, edits=edits,
+        known_genres=sorted(known, key=str.casefold), result=song_index.paginate(matches, page),
+    )
+
+
+def _edit_answer(request: Request, db: Session, folder: str, q: str, page: int, edited: str, error: str = ""):
+    """After a save or reset: JSON for a fetch (the row's genres now, or the
+    error), else back to the same search, page and row."""
+    if request.headers.get("x-requested-with") == "fetch":
+        if error:
+            return JSONResponse({"error": error}, status_code=422)
+        file_genres = folder_file_genres(db, folder)
+        return JSONResponse({"genres": ", ".join(current_genres(db, folder)), "edited": folder in open_edits(db),
+                             "file_genres": ", ".join(file_genres)})
+    url = f"/genres/edit?q={quote(q, safe='')}&page={page}&edited={quote(edited, safe='')}"
+    if error:
+        url += f"&error={quote(error, safe='')}"
+    return RedirectResponse(f"{url}#{quote(folder, safe='')}", status_code=303)
+
+
+def _known_folder(folder: str) -> str:
+    if song_index.get_by_folder(folder) is None:
+        raise HTTPException(status_code=404)
+    return folder
+
+
+@router.post("/genres/edit")
+def genres_edit_save(
+    request: Request,
+    folder: str = Form(""),
+    genres: str = Form(""),
+    q: str = Form(""),
+    page: int = Form(1),
+    edited: str = Form(""),
+    user: User = Depends(require_contributor),
+    db: Session = Depends(get_db),
+):
+    """Saves a song's genres as a contributor typed them."""
+    try:
+        save_genre_edit(db, _known_folder(folder), genres, user.username)
+    except ValueError as err:
+        return _edit_answer(request, db, folder, q, page, edited, str(err))
+    return _edit_answer(request, db, folder, q, page, edited)
+
+
+@router.post("/genres/edit/reset")
+def genres_edit_reset(
+    request: Request,
+    folder: str = Form(""),
+    q: str = Form(""),
+    page: int = Form(1),
+    edited: str = Form(""),
+    user: User = Depends(require_contributor),
+    db: Session = Depends(get_db),
+):
+    """Drops a song's edit - back to the genres its files name."""
+    reset_genre_edit(db, _known_folder(folder))
+    return _edit_answer(request, db, folder, q, page, edited)
+
+
+@router.get("/genres/edit/export.tsv")
+def genres_edit_export(
+    user: User = Depends(require_contributor),
+    db: Session = Depends(get_db),
+):
+    """Every open edit for the USDX Song Factory: song file path and genres, tab-separated."""
+    return Response(genre_edit_lines(db, Path(settings.songs_dir)),
+                     media_type="text/tab-separated-values; charset=utf-8",
+                     headers={"Content-Disposition": 'attachment; filename="genre-edits.tsv"'})
 
 
 @router.get("/songs/{folder}/cover/{filename}")

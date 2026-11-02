@@ -18,11 +18,13 @@
     <a href="/genres" class="{{ 'active' if path.startswith('/genres') }}">Genres</a>
     <a href="/report" class="{{ 'active' if path.startswith('/report') }}">Report broken</a>
     <a href="/request" class="{{ 'active' if path.startswith('/request') }}">Request song</a>
-    {% if current_user and current_user.is_admin %}
+    {% if current_user and current_user.can_contribute %}
       <span class="tab-sep"></span>
       <a href="/admin/reports" class="{{ 'active' if path.startswith('/admin/reports') }}">Reported</a>
       <a href="/admin/requests" class="{{ 'active' if path.startswith('/admin/requests') }}">Requested</a>
       <a href="/admin/duplicates" class="{{ 'active' if path.startswith('/admin/duplicates') }}">Duplicates</a>
+    {% endif %}
+    {% if current_user and current_user.is_admin %}
       <a href="/admin/integrity" class="{{ 'active' if path.startswith('/admin/integrity') }}">Integrity</a>
       <a href="/admin/users" class="{{ 'active' if path.startswith('/admin/users') }}">Users</a>
       <a href="/admin/settings" class="{{ 'active' if path.startswith('/admin/settings') }}">Settings</a>
@@ -30,7 +32,7 @@
   </nav>
   <div class="account">
     {% if current_user %}
-      <span class="who">{{ current_user.username }}{% if current_user.is_admin %} <span class="pill">admin</span>{% endif %}</span>
+      <span class="who">{{ current_user.username }}{% if current_user.role != "user" %} <span class="pill">{{ current_user.role }}</span>{% endif %}</span>
       <form method="post" action="/logout"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="link-btn" type="submit">Log out</button></form>
     {% else %}
       <a class="btn btn-small" href="/login">Log in</a>

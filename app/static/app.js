@@ -1,6 +1,7 @@
 // Progressive enhancement, loaded on every page from base.html: live song
 // search/picker (the Genres tab links follow a live search), the song card
-// of the Genres map and network, the request-form duplicate check, the
+// of the Genres map and network, genre editing in place on the Genres Edit
+// tab, the request-form duplicate check, the
 // broken-report category/description toggle, and the go-to-top button. Every page works
 // without JS too - this only adds convenience on top.
 (function () {
@@ -97,6 +98,118 @@
     document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") close(); });
     document.addEventListener("click", (ev) => {
       if (!card.hidden && !card.contains(ev.target) && !ev.target.closest("a.map-dot")) close();
+    });
+  });
+
+  // ---- genre editing on the Genres page's Edit tab ---------------------
+  // Each row shows its genres read-only with an Edit button; Edit opens the
+  // field, Save stores it in place (JSON from /genres/edit), Cancel or
+  // Escape puts the old value back. Reset drops the row's edit the same way.
+  // The suggestions follow the genre being typed: the list offers the
+  // field's text up to the last comma plus each matching known genre.
+  const suggestions = document.getElementById("genre-suggestions");
+  const knownGenres = suggestions
+    ? Array.from(suggestions.options, (option) => option.value)
+    : [];
+
+  async function postForm(form) {
+    const res = await fetch(form.action, {
+      method: "POST",
+      body: new FormData(form),
+      headers: { "X-Requested-With": "fetch" },
+    });
+    const data = await res.json().catch(() => ({ error: "Saving failed." }));
+    if (!res.ok) throw new Error(data.error || "Saving failed.");
+    return data;
+  }
+
+  function suggestFor(field) {
+    if (!suggestions) return;
+    const value = field.value;
+    const cut = value.lastIndexOf(",");
+    const prefix = cut < 0 ? "" : value.slice(0, cut + 1).replace(/\s*$/, " ");
+    const typed = value.slice(cut + 1).trim().toLowerCase();
+    const used = new Set(value.slice(0, Math.max(cut, 0)).split(",").map((g) => g.trim().toLowerCase()));
+    suggestions.replaceChildren(...knownGenres
+      .filter((genre) => genre.toLowerCase().startsWith(typed) && !used.has(genre.toLowerCase()))
+      .map((genre) => {
+        const option = document.createElement("option");
+        option.value = prefix + genre;
+        return option;
+      }));
+  }
+
+  document.querySelectorAll("[data-genre-edit-list] .genre-edit-row").forEach((row) => {
+    const form = row.querySelector("[data-genre-edit]");
+    const reset = row.querySelector("[data-genre-reset]");
+    const field = form.querySelector('input[name="genres"]');
+    const start = form.querySelector("[data-edit-start]");
+    const save = form.querySelector("[data-edit-save]");
+    const cancel = form.querySelector("[data-edit-cancel]");
+    const note = row.querySelector("[data-file-genres]");
+    const noteText = row.querySelector("[data-file-genres-text]");
+    const error = row.querySelector("[data-edit-error]");
+    let before = field.value;
+
+    function showError(message) {
+      error.textContent = message || "";
+      error.hidden = !message;
+    }
+
+    function display() {
+      field.readOnly = true;
+      start.hidden = false;
+      save.hidden = true;
+      cancel.hidden = true;
+    }
+
+    function apply(data) {
+      field.value = data.genres;
+      before = data.genres;
+      row.classList.toggle("edited", data.edited);
+      note.hidden = !data.edited;
+      reset.hidden = !data.edited;
+      noteText.textContent = data.file_genres || "no genre";
+      showError("");
+      display();
+    }
+
+    display();
+    start.addEventListener("click", () => {
+      field.readOnly = false;
+      start.hidden = true;
+      save.hidden = false;
+      cancel.hidden = false;
+      field.focus();
+      field.setSelectionRange(field.value.length, field.value.length);
+      suggestFor(field);
+    });
+    cancel.addEventListener("click", () => {
+      field.value = before;
+      showError("");
+      display();
+    });
+    field.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && !field.readOnly) cancel.click();
+    });
+    field.addEventListener("input", () => suggestFor(field));
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      if (field.readOnly) return;
+      try {
+        apply(await postForm(form));
+      } catch (err) {
+        showError(err.message);
+        field.focus();
+      }
+    });
+    reset.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        apply(await postForm(reset));
+      } catch (err) {
+        showError(err.message);
+      }
     });
   });
 

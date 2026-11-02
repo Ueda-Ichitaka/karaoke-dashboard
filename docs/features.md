@@ -1,6 +1,9 @@
 # Features
 
-Every page of Karaoke Dashboard in detail. For the CSV formats and imports
+Every page of Karaoke Dashboard in detail. There are three levels of user:
+a plain **user**, a **contributor** - who also gets Reported, Requested,
+Duplicates and the genre Edit tab - and an **admin**, who gets everything
+(see [Users](#users)). For the CSV formats and imports
 see [csv.md](csv.md); for the scripts that change files on disk see
 [library-scripts.md](library-scripts.md).
 
@@ -8,12 +11,12 @@ see [csv.md](csv.md); for the scripts that change files on disk see
 | --- | --- | --- |
 | [Songs](#songs) | everyone | Browse and search the library |
 | [What's new](#whats-new) | everyone | Songs recently added and recently updated |
-| [Genres](#genres) | logged-in users | The library by genre: list, map and genre connections |
+| [Genres](#genres) | logged-in users | The library by genre: list, map and genre connections; contributors also edit genres |
 | [Report broken](#report-broken) | logged-in users | Report a broken song |
 | [Request song](#request-song) | logged-in users | Ask for a new song |
-| [Reported](#reported-and-requested) | admins | Review, edit, resolve and export broken-song reports |
-| [Requested](#reported-and-requested) | admins | Review, edit, close and export song requests |
-| [Duplicates](#duplicates) | admins | Songs that exist more than once |
+| [Reported](#reported-and-requested) | contributors, admins | Review, edit, resolve and export broken-song reports |
+| [Requested](#reported-and-requested) | contributors, admins | Review, edit, close and export song requests |
+| [Duplicates](#duplicates) | contributors, admins | Songs that exist more than once |
 | [Integrity](#integrity) | admins | Format, folder structure and misplaced-song checks |
 | [Users](#users) | admins | Accounts |
 | [Settings](#settings) | admins | Form profiles, app mode, logging, badge mode, library scan, genres on the map |
@@ -74,9 +77,9 @@ song's genres for the [Genres](#genres) page.
 ## Genres
 
 The library by genre, for logged-in users (the tab is shown to everyone; a
-visitor is sent to the login page). Three tabs share one head - the song
-counts, the search bar and the tab row **List | Map | Connections**; the
-tab links keep the search.
+visitor is sent to the login page). The tabs share one head - the song
+counts, the search bar and the tab row **List | Map | Connections**, plus
+**Edit** for contributors and admins; the tab links keep the search.
 
 ### List
 
@@ -128,6 +131,35 @@ hover, song card and links work as on the Map.
 Both drawings are SVG computed on the server (`app/genre_layout.py`): the
 same library always gives the same picture. Both are spread out wide (2:1,
 the shape of the page) and fill the page width.
+
+### Edit
+
+`/genres/edit`, for contributors and admins: every song - also those
+without a genre - paged like the Songs page, with its genres in a text
+field. The search narrows by band, title and genre; **Only edited** shows
+just the songs with an open edit.
+
+- A row shows its genres as text; **Edit** opens the field, **Save** stores
+  it in place, **Cancel** or Escape puts the old value back. Without
+  JavaScript every field is open and Save reloads the page at the same
+  search and page.
+- The field suggests the genres already in the library, for the genre being
+  typed (after the last comma), so spellings stay the same.
+- The text is split like a `#GENRE` tag - at commas, trimmed, placeholders
+  and repeats dropped, runs of white space made one space. An empty field,
+  or one with only placeholders, is refused ("Enter at least one genre.").
+- An edited row is marked and names the genres its song file has;
+  **Reset** drops the edit. Saving the file's own genres drops it too.
+- An edit shows on every tab at once - List, Map and Connections use the
+  edited genres. It ends by itself when a [library scan](#whats-new) reads
+  the same genres (same order, any case) from the song files.
+- **Export N edits** downloads `genre-edits.tsv` for the USDX Song
+  Factory: every open edit, one line per `.txt` file directly in the song
+  folder - the file's path relative to the library root, a tab, the genres
+  (`Nightwish - Nemo/Nightwish - Nemo.txt<TAB>Symphonic, Metal`). No
+  header; exporting again gives the same file until scans end the edits.
+
+Edits are stored in the table `genre_edits` (`app/song_genres.py`).
 
 ### Where the genres come from
 
@@ -200,7 +232,8 @@ song can exist side by side. Submissions land in **Needs review**.
 
 ## Reported and Requested
 
-Both admin tabs work the same way.
+Both tabs work the same way, for contributors and admins alike - including
+status changes, discarding, deleting, the CSV import and the export.
 
 **Needs review.** Newly submitted reports and requests aren't exportable
 yet. Edit one to fill in anything missing, then **Admit** it into the
@@ -215,15 +248,15 @@ under **All**, is in **Export all CSV** and can be reopened. A new report for
 the song through the form is a new report; the CSV import skips a song whose
 only report is resolved.
 
-**Genre and trait** (`app/genres.py`, `app/traits.py`) are admin-only tags,
-never on the public forms. A song can have several genres (e.g. `metal`,
+**Genre and trait** (`app/genres.py`, `app/traits.py`) are review-only tags,
+set by contributors and admins, never on the public forms. A song can have several genres (e.g. `metal`,
 `gothic`) and several vocal/instrument traits (e.g. `harsh_vocals`, `choir`).
 They default to "Default"/"None" and show in their own table columns.
 Checking a trait unchecks "None", and checking "None" clears the traits.
 
-**What admitting requires.** The admin Edit form and **Admit** use their own
+**What admitting requires.** The review Edit form and **Admit** use their own
 fixed rules, independent of the public form's profile, so switching a
-profile never changes what an admin must fill in:
+profile never changes what a reviewer must fill in:
 
 - **Reports**: a language and a lyrics link for every category, plus the
   category's own rule (a description, or a cover image link for `cover`).
@@ -326,8 +359,12 @@ Apply it with `scripts/apply_moves.sh` - see
 
 ## Users
 
-Create users, reset passwords, grant or revoke admin, disable and delete
-accounts. There's no self-registration; the first admin is created from
+Create users, reset passwords, grant or revoke contributor and admin,
+disable and delete accounts. The Role column names the highest level: admin,
+contributor or user (an admin's contributor flag doesn't matter, so admins
+get no contributor button). A contributor may use Reported, Requested,
+Duplicates and the genre [Edit](#edit) tab, but not Integrity, Users or
+Settings. There's no self-registration; the first admin is created from
 `ADMIN_USERNAME`/`ADMIN_PASSWORD` on first start.
 
 ## Settings

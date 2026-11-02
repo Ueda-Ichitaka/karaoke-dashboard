@@ -1,8 +1,10 @@
 {# About me: the head every tab of the Genres page shares (genres.html,
-   genres_map.html, genres_connections.html) - title, the library's song
-   counts, the search (on the List tab live via /genres/partial) and the tab
-   row. The tab links keep the search; app/static/app.js keeps them in step
-   with a live search (data-keep-q). #}
+   genres_map.html, genres_connections.html, genres_edit.html) - title, the
+   library's song counts, the search (on the List tab live via
+   /genres/partial; on the Edit tab with "Only edited") and the tab row,
+   whose Edit tab only contributors and admins get. The tab links keep the
+   search; app/static/app.js keeps them in step with a live search
+   (data-keep-q). #}
 <div class="page-head">
   <h1>Genres</h1>
   <p class="subtle">{{ total }} song{{ '' if total == 1 else 's' }}, {{ with_genre }} with a genre from their song file.</p>
@@ -14,6 +16,9 @@
          autocomplete="off" autofocus aria-label="Search genres, bands and songs"
          {% if tab == "list" %}data-live-search data-target="#genre-results"
          data-endpoint="/genres/partial{% if genre %}?genre={{ genre|urlencode }}{% endif %}"{% endif %}>
+  {% if tab == "edit" %}
+    <label class="check search-check"><input type="checkbox" name="edited" value="1" {{ 'checked' if edited }}> Only edited</label>
+  {% endif %}
   <button type="submit" class="btn">Search</button>
   {% if q %}<a class="btn btn-ghost" href="{{ tab_url }}{% if genre %}?genre={{ genre|urlencode }}{% endif %}">Clear</a>{% endif %}
 </form>

@@ -1,0 +1,90 @@
+{# About me: the Edit tab of the Genres page, for contributors and admins -
+   every song (also those without a genre), paged and searchable, each with
+   its genres in a text field and Save (app/routes/songs.py, POST
+   /genres/edit). An edited row is marked, names the genres its song file
+   has and offers Reset (POST /genres/edit/reset). The head links the
+   export of every open edit for the USDX Song Factory. The genre field
+   suggests the library's genres (#genre-suggestions). app/static/app.js
+   turns each row into display mode with an Edit button and saves in place;
+   without JS every field is editable and Save posts the form. #}
+{% extends "base.html" %}
+{% block title %}Edit genres · {{ app_title }}{% endblock %}
+{% block content_class %} with-panels{% endblock %}
+{% block content %}
+<section class="page">
+  {% include "_genre_head.html" %}
+
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+  <div class="genre-edit-head">
+    <p class="drawing-note">
+      {{ result.total }} song{{ '' if result.total == 1 else 's' }}{% if q %} matching "{{ q }}"{% endif %}{% if edited %} with an open edit{% endif %}.
+      An edit shows on every tab at once and ends when a library scan reads the same genres from the song file.
+    </p>
+    {% if edits %}
+      <a class="btn" href="/genres/edit/export.tsv" download>Export {{ edits|length }} edit{{ '' if edits|length == 1 else 's' }}</a>
+    {% else %}
+      <span class="subtle">No open edits</span>
+    {% endif %}
+  </div>
+
+  <datalist id="genre-suggestions">
+    {% for name in known_genres %}<option value="{{ name }}">{% endfor %}
+  </datalist>
+
+  {% if result.total == 0 %}
+    <p class="empty">No songs{% if q %} match "{{ q }}"{% endif %}{% if edited %} with an open edit{% endif %}.</p>
+  {% else %}
+    <ul class="genre-edit-list" data-genre-edit-list>
+      {% for song in result.items %}
+        {% set is_edited = song.folder in edits %}
+        <li class="genre-edit-row{{ ' edited' if is_edited }}" data-folder="{{ song.folder }}" id="{{ song.folder }}">
+          <a class="genre-song-link" href="/songs?q={{ song.folder|urlencode }}">
+            {% if song.artist %}<span class="song-artist">{{ song.artist }}</span>{% endif %}
+            <span class="song-title">{{ song.title }}</span>
+          </a>
+          <div class="genre-edit-fields">
+            <form class="genre-edit" method="post" action="/genres/edit" data-genre-edit>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="folder" value="{{ song.folder }}">
+              <input type="hidden" name="q" value="{{ q }}">
+              <input type="hidden" name="page" value="{{ result.page }}">
+              <input type="hidden" name="edited" value="{{ edited }}">
+              <input type="text" name="genres" value="{{ genres.get(song.folder, [])|join(', ') }}"
+                     list="genre-suggestions" autocomplete="off" placeholder="No genre"
+                     aria-label="Genres of {{ song.display }}">
+              <button type="button" class="btn btn-small" data-edit-start hidden>Edit</button>
+              <button type="submit" class="btn btn-small btn-primary" data-edit-save>Save</button>
+              <button type="button" class="btn btn-small btn-ghost" data-edit-cancel hidden>Cancel</button>
+            </form>
+            <form class="genre-reset" method="post" action="/genres/edit/reset" data-genre-reset{% if not is_edited %} hidden{% endif %}>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="folder" value="{{ song.folder }}">
+              <input type="hidden" name="q" value="{{ q }}">
+              <input type="hidden" name="page" value="{{ result.page }}">
+              <input type="hidden" name="edited" value="{{ edited }}">
+              <button type="submit" class="btn btn-small btn-ghost">Reset</button>
+            </form>
+          </div>
+          <p class="genre-edit-note" data-file-genres{% if not is_edited %} hidden{% endif %}>
+            <span class="pill">edited</span>
+            In the song file: <span data-file-genres-text>{{ file_genres.get(song.folder, [])|join(', ') or 'no genre' }}</span>
+          </p>
+          <p class="genre-edit-error" data-edit-error role="alert" hidden></p>
+        </li>
+      {% endfor %}
+    </ul>
+    {% if result.pages > 1 %}
+      <nav class="pager">
+        {% if result.has_prev %}
+          <a href="/genres/edit?q={{ q|urlencode }}&edited={{ edited }}&page={{ result.page - 1 }}">&larr; Prev</a>
+        {% else %}<span class="disabled">&larr; Prev</span>{% endif %}
+        <span class="pager-pos">Page {{ result.page }} of {{ result.pages }}</span>
+        {% if result.has_next %}
+          <a href="/genres/edit?q={{ q|urlencode }}&edited={{ edited }}&page={{ result.page + 1 }}">Next &rarr;</a>
+        {% else %}<span class="disabled">Next &rarr;</span>{% endif %}
+      </nav>
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

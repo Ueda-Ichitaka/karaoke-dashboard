@@ -221,6 +221,7 @@ def reports_view(
         reports=reports, show=show, open_count=open_count or 0, category_labels=CATEGORY_LABELS,
         language_labels=LANGUAGE_LABELS, pending_reports=pending,
         updated_since=library_history.updated_since_report(db, reports),
+        pending_updated_since=library_history.updated_since_report(db, pending),
     )
 
 
@@ -459,9 +460,10 @@ def _pending_report_admit_errors(item: PendingBrokenReport) -> list[str]:
     )
 
 
-def _admit_pending_report(db: Session, item: PendingBrokenReport) -> None:
-    """Moves a pending report that passed _pending_report_admit_errors into
-    the exportable list."""
+def _admit_pending_report(db: Session, item: PendingBrokenReport, status: str = "open") -> None:
+    """Moves a pending report into the admitted list with this status - "open"
+    once it passed _pending_report_admit_errors (Admit), "resolved" as it is
+    (the Resolved button)."""
     song = song_index.get_by_folder(item.song_folder)
     db.add(
         BrokenReport(
@@ -478,11 +480,27 @@ def _admit_pending_report(db: Session, item: PendingBrokenReport) -> None:
             reporter_id=item.reporter_id,
             reporter_username=item.reporter_username,
             created_at=item.created_at,  # when it was drafted, compared with later song-file writes
+            status=status,
         )
     )
-    logger.info("admitting broken report id=%s %s", item.id, item.song_folder)
+    logger.info("admitting broken report id=%s %s as %s", item.id, item.song_folder, status)
     db.delete(item)
     db.commit()
+
+
+@router.post("/reports/pending/{pending_id}/resolve")
+def pending_report_resolve(
+    pending_id: int,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Closes a report from Needs review in one step: admitted as resolved,
+    without Admit's required-field checks."""
+    item = db.get(PendingBrokenReport, pending_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+    _admit_pending_report(db, item, status="resolved")
+    return RedirectResponse("/admin/reports", status_code=303)
 
 
 @router.post("/reports/pending/{pending_id}/discard")

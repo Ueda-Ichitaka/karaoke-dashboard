@@ -18,9 +18,10 @@ def _write(tmp_path: Path, name: str, body: str) -> Path:
 
 def test_valid_file_has_no_issues(tmp_path):
     (tmp_path / "song.mp3").write_bytes(b"fake-mp3")
+    (tmp_path / "song.mp4").write_bytes(b"fake-mp4")
     path = _write(
         tmp_path, "song.txt",
-        "#VERSION:1.0.0\n#TITLE:Bohemian Rhapsody\n#ARTIST:Queen\n#MP3:song.mp3\n"
+        "#VERSION:1.0.0\n#TITLE:Bohemian Rhapsody\n#ARTIST:Queen\n#MP3:song.mp3\n#VIDEO:song.mp4\n"
         "#BPM:200\n#GAP:0\n: 0 4 0 La\nE\n",
     )
     report = format_check.check_file(path)
@@ -45,9 +46,10 @@ def test_missing_mandatory_tags_are_errors(tmp_path):
 
 def test_missing_version_is_a_warning_not_an_error(tmp_path):
     (tmp_path / "song.mp3").write_bytes(b"fake-mp3")
+    (tmp_path / "song.mp4").write_bytes(b"fake-mp4")
     path = _write(
         tmp_path, "song.txt",
-        "#TITLE:X\n#ARTIST:Y\n#MP3:song.mp3\n#BPM:200\n#GAP:0\n: 0 4 0 La\nE\n",
+        "#TITLE:X\n#ARTIST:Y\n#MP3:song.mp3\n#VIDEO:song.mp4\n#BPM:200\n#GAP:0\n: 0 4 0 La\nE\n",
     )
     report = format_check.check_file(path)
     assert not report.has_errors
@@ -112,8 +114,9 @@ def test_check_library_only_reports_files_with_issues(tmp_path):
     good_dir = tmp_path / "Good - Song"
     good_dir.mkdir()
     (good_dir / "song.mp3").write_bytes(b"fake-mp3")
+    (good_dir / "song.mp4").write_bytes(b"fake-mp4")
     (good_dir / "Song.txt").write_text(
-        "#VERSION:1.0.0\n#TITLE:X\n#ARTIST:Y\n#MP3:song.mp3\n#BPM:200\n#GAP:0\n: 0 4 0 La\nE\n",
+        "#VERSION:1.0.0\n#TITLE:X\n#ARTIST:Y\n#MP3:song.mp3\n#VIDEO:song.mp4\n#BPM:200\n#GAP:0\n: 0 4 0 La\nE\n",
         encoding="utf-8",
     )
     bad_dir = tmp_path / "Bad - Song"
@@ -131,8 +134,9 @@ def test_check_library_hides_a_file_whose_only_issue_is_missing_version(tmp_path
     folder = tmp_path / "Solo - Song"
     folder.mkdir()
     (folder / "song.mp3").write_bytes(b"fake-mp3")
+    (folder / "song.mp4").write_bytes(b"fake-mp4")
     (folder / "Song.txt").write_text(
-        "#TITLE:X\n#ARTIST:Y\n#MP3:song.mp3\n#BPM:200\n#GAP:0\n: 0 4 0 La\nE\n",
+        "#TITLE:X\n#ARTIST:Y\n#MP3:song.mp3\n#VIDEO:song.mp4\n#BPM:200\n#GAP:0\n: 0 4 0 La\nE\n",
         encoding="utf-8",
     )
     reports = format_check.check_library(root=tmp_path)
@@ -157,8 +161,10 @@ def test_check_library_still_shows_version_warning_alongside_a_real_issue(tmp_pa
 # details) so the integrity view can filter the table by issue type.
 def _song(folder: Path, body_tags: str) -> None:
     folder.mkdir(parents=True, exist_ok=True)
+    (folder / "song.mp4").write_bytes(b"fake-mp4")
     (folder / "song.txt").write_text(
-        f"#VERSION:1.0.0\n#TITLE:T\n#ARTIST:A\n{body_tags}#GAP:0\n: 0 4 0 La\nE\n", encoding="utf-8"
+        f"#VERSION:1.0.0\n#TITLE:T\n#ARTIST:A\n#VIDEO:song.mp4\n{body_tags}#GAP:0\n: 0 4 0 La\nE\n",
+        encoding="utf-8",
     )
 
 
@@ -173,7 +179,8 @@ def test_each_issue_has_a_stable_kind(tmp_path):
         "Voice change without header", "Unrecognized body line", "No note lines",
     }
     no_audio = _write(tmp_path, "b.txt", "#VERSION:1\n#ARTIST:A\n#BPM:1\n#GAP:0\n: 0 1 0 a\n")
-    assert {i.kind for i in format_check.check_file(no_audio).issues} == {"Missing #TITLE", "No audio reference"}
+    assert {i.kind for i in format_check.check_file(no_audio).issues} == {
+        "Missing #TITLE", "No audio reference", "Missing #VIDEO"}
 
 
 def test_issue_kind_counts_count_files_most_common_first(tmp_path):

@@ -93,6 +93,11 @@ The database schema is created and updated automatically on startup: new
 tables are created, new columns added and lengthened text columns widened.
 There are no manual migration steps.
 
+Browsers check `/static` files (styles and scripts) for changes on every page
+load (`Cache-Control: no-cache`), so the new look shows right after an
+update. A browser that saved `style.css` under an image from before this
+setting may still show the old styling once - reload with Ctrl+Shift+R.
+
 ## Running a specific version
 
 Every build gets a date-based version tag, `YYYY.MM.DD-<run number>` (e.g.

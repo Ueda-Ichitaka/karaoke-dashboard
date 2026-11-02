@@ -1,8 +1,9 @@
 {# About me: the admin Reported page - reports awaiting review (Needs
-   review), and the admitted list with its CSV export/import links. An
-   admitted report whose song files were written after it was drafted
-   (updated_since, app/library_history.py) is marked "Updated since report",
-   so the fix can be checked and the report resolved. #}
+   review: Edit, Admit, Resolved - admitted as resolved in one step - or
+   Discard), and the admitted list with its CSV export/import links. In both
+   tables, a report whose song files were written after it was drafted
+   (pending_updated_since and updated_since, app/library_history.py) is
+   marked "Updated since report", so the fix can be checked. #}
 {% extends "base.html" %}
 {% block title %}Reported broken songs · {{ app_title }}{% endblock %}
 {% block content_class %} wide{% endblock %}
@@ -21,7 +22,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>When</th><th>Song</th><th>Category</th><th>Language</th><th>Description</th><th>Lyrics ref</th><th>Cover</th><th>Genre</th><th>Trait</th><th>By</th><th></th></tr>
+          <tr><th>When</th><th>Song</th><th>Category</th><th>Language</th><th>Description</th><th>Lyrics ref</th><th>Cover</th><th>Genre</th><th>Trait</th><th>By</th><th>Song files</th><th></th></tr>
         </thead>
         <tbody>
           {% for r in pending_reports %}
@@ -40,11 +41,20 @@
               <td>{{ r.genre|genre_text }}</td>
               <td>{{ r.trait|trait_text }}</td>
               <td class="nowrap">{{ r.reporter_username }}</td>
+              <td class="nowrap">
+                {% if r.id in pending_updated_since %}
+                  <span class="pill pill-ok" title="Song files written {{ pending_updated_since[r.id].strftime('%Y-%m-%d %H:%M') }}">Updated since report</span>
+                {% else %}-{% endif %}
+              </td>
               <td class="nowrap actions">
                 <a class="btn btn-small btn-ghost" href="/admin/reports/pending/{{ r.id }}/edit">Edit</a>
                 <form method="post" action="/admin/reports/pending/{{ r.id }}/admit" class="inline">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <button class="btn btn-small">Admit</button>
+                </form>
+                <form method="post" action="/admin/reports/pending/{{ r.id }}/resolve" class="inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button class="btn btn-small btn-ghost">Resolved</button>
                 </form>
                 <form method="post" action="/admin/reports/pending/{{ r.id }}/discard" class="inline"
                       onsubmit="return confirm('Discard this report for {{ r.song_folder }}?')">

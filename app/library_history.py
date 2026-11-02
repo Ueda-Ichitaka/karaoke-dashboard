@@ -21,7 +21,7 @@ Every scan, the very first included, also records each folder's newest
 song-file write time (last_write_at; it only ever moves forward).
 last_writes() - the newer of that and the last detected change - is what
 the "is it fixed" checks compare a report's time with: the admin Reported
-page's mark (updated_since_report) and the public badge's "until updated"
+page's mark on both its tables (updated_since_report) and the public badge's "until updated"
 mode (app/known_broken.py). So a fix written before the first scan counts
 too.
 
@@ -45,7 +45,7 @@ from sqlalchemy.orm import Session
 from .app_logging import get_logger
 from .config import settings
 from .database import SessionLocal
-from .models import BrokenReport, LibraryFolder
+from .models import BrokenReport, LibraryFolder, PendingBrokenReport
 from .songs import Song, parse_folder
 
 SONG_FILE_EXTENSIONS = (".txt", ".mp3", ".opus")
@@ -201,9 +201,10 @@ def last_writes(db: Session, folders: set[str]) -> dict[str, datetime]:
     return {folder: max(times) for folder, times in writes.items() if times}
 
 
-def updated_since_report(db: Session, reports: list[BrokenReport]) -> dict[int, datetime]:
-    """Maps each report whose song had a recorded update after the report
-    was drafted to that update's time."""
+def updated_since_report(db: Session, reports: list[BrokenReport] | list[PendingBrokenReport]) -> dict[int, datetime]:
+    """Maps the id of each report - all admitted or all awaiting review, the
+    two tables' ids overlap - whose song had a recorded update after the
+    report was drafted to that update's time."""
     updates = last_writes(db, {report.song_folder for report in reports})
     return {
         report.id: updates[report.song_folder]

@@ -1,8 +1,9 @@
-"""Tests for the "Updated since report" mark in the admitted reports table on
-/admin/reports: a report is marked when the library scan recorded a write to
-its song's files (LibraryFolder.last_write_at or a detected change,
-updated_at - app/library_history.py) after the report was drafted - so an
-admin can check the fix and resolve it. That includes a fix written before
+"""Tests for the "Updated since report" mark in both report tables on
+/admin/reports (Needs review and admitted): a report is marked when the
+library scan recorded a write to its song's files
+(LibraryFolder.last_write_at or a detected change, updated_at -
+app/library_history.py) after the report was drafted - so an admin can
+check the fix and resolve it. That includes a fix written before
 the library scan's first run. Admitting keeps the time the report was
 drafted, which is what counts.
 """
@@ -68,13 +69,41 @@ def test_the_admitted_table_has_the_column(admin_client):
     assert "<th>Song files</th>" in admin_client.get("/admin/reports").text
 
 
-def test_needs_review_shows_no_mark(admin_client):
+def _pending(created_at: datetime = REPORTED, folder: str = FOLDER) -> None:
     with SessionLocal() as db:
-        db.add(PendingBrokenReport(song_folder=FOLDER, category="audio", description="x",
-                                   reporter_username="admin", created_at=REPORTED))
+        db.add(PendingBrokenReport(song_folder=folder, category="audio", description="x",
+                                   reporter_username="admin", created_at=created_at))
         db.commit()
-    _updated(datetime(2026, 10, 5, tzinfo=UTC))
+
+
+def _needs_review(html: str) -> str:
+    return html.split('id="all-reports"')[0]
+
+
+def test_needs_review_marks_a_song_written_after_its_report(admin_client):
+    _pending()
+    _updated(datetime(2026, 10, 5, 9, 30, tzinfo=UTC))
+    html = _needs_review(admin_client.get("/admin/reports").text)
+    assert "<th>Song files</th>" in html
+    row = _row(html)
+    assert MARK in row
+    assert 'title="Song files written 2026-10-05 09:30"' in row
+
+
+def test_needs_review_leaves_a_song_written_before_its_report_unmarked(admin_client):
+    _pending()
+    _updated(datetime(2026, 9, 30, tzinfo=UTC))
     assert MARK not in admin_client.get("/admin/reports").text
+
+
+def test_the_two_tables_are_marked_independently(admin_client):
+    # a pending and an admitted report can share an id - each table uses its own
+    _report(folder="Toto - Africa")
+    _pending()
+    _updated(datetime(2026, 10, 5, tzinfo=UTC))
+    html = admin_client.get("/admin/reports").text
+    assert MARK in _row(_needs_review(html))
+    assert MARK not in _row(html, "Toto - Africa")
 
 
 def test_admitting_keeps_the_time_the_report_was_drafted(admin_client):

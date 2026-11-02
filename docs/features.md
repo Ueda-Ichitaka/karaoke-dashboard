@@ -129,6 +129,13 @@ exportable list, or **Discard** it. The edit form's **Save and admit** button
 saves first and then admits; if the admit check still finds something
 missing, you stay on the form with the error shown.
 
+A report in Needs review also has **Resolved**, for an issue that's already
+fixed or not worth admitting: it goes straight to the admitted list as
+resolved, without the admit check, keeping when it was submitted. It shows
+under **All**, is in **Export all CSV** and can be reopened. A new report for
+the song through the form is a new report; the CSV import skips a song whose
+only report is resolved.
+
 **Genre and trait** (`app/genres.py`, `app/traits.py`) are admin-only tags,
 never on the public forms. A song can have several genres (e.g. `metal`,
 `gothic`) and several vocal/instrument traits (e.g. `harsh_vocals`, `choir`).
@@ -156,8 +163,8 @@ profile never changes what an admin must fill in:
 Each tab exports open entries only or all of them, and imports a CSV in the
 same format. See [csv.md](csv.md).
 
-**Updated since report.** An admitted report is marked **Updated since
-report** in its *Song files* column when the library scan (see
+**Updated since report.** A report - in **Needs review** as well as
+admitted - is marked **Updated since report** in its *Song files* column when the library scan (see
 [What's new](#whats-new)) read a write to the song's `.txt`, `.mp3` or
 `.opus` files that is newer than the report - a sign the song was fixed, so you can
 check it and resolve the report. Hovering shows when the files were
@@ -202,7 +209,11 @@ Three checks, computed on every view (**Rescan** forces a fresh look):
 against the [UltraStar format spec](https://github.com/UltraStar-Deluxe/format):
 missing mandatory tags, broken media references, malformed numbers,
 unparsable lines. An **error** breaks playback, a **warning** is a spec
-deviation that doesn't. A file whose only issue is a missing `#VERSION` tag
+deviation that doesn't. A missing or empty `#VIDEO` tag is an error
+("Missing #VIDEO"); when a video file (`.mp4`, `.mkv`, `.avi`, `.webm`,
+`.mpg`, `.mpeg`, `.m4v`, `.mov`, `.flv`, `.divx`, `.wmv`) sits in the song's
+folder, the file also gets "Video file not referenced", naming the videos
+the tag could point at. A file whose only issue is a missing `#VERSION` tag
 is left out, since that's true of most older libraries. The page shows the
 number of affected files and filters by issue type (e.g. only "#VIDEO file
 not found").

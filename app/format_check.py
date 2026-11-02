@@ -2,7 +2,8 @@
 spec (https://github.com/UltraStar-Deluxe/format), for the admin integrity
 view (which can filter its table by issue kind - issue_kind_counts,
 filter_reports). Not a full grammar validator - it catches the deviations that matter
-in practice: missing mandatory tags, broken media references, malformed
+in practice: missing mandatory tags, broken media references, a missing
+#VIDEO tag (and a video file in the folder it doesn't reference), malformed
 numeric fields, and body lines that don't parse as notes/phrase-breaks/voice
 changes. A .txt with no "#KEY:VALUE" header lines at all is assumed not to
 be a song file (e.g. a stray readme) and is silently skipped, not flagged.
@@ -20,6 +21,8 @@ from .ultrastar import parse_header_tags, read_song_text
 _MANDATORY_TAGS = ("TITLE", "ARTIST", "BPM")
 _FILE_REF_TAGS = ("MP3", "AUDIO", "COVER", "BACKGROUND", "VIDEO")
 _NUMERIC_TAGS = ("BPM", "GAP", "START", "END", "YEAR")
+# the same list as scripts/repair_library.py
+_VIDEO_EXTS = (".mp4", ".mkv", ".avi", ".webm", ".mpg", ".mpeg", ".m4v", ".mov", ".flv", ".divx", ".wmv")
 _NUMERIC_RE = re.compile(r"^-?\d+([.,]\d+)?$")
 _NOTE_TYPES = (":", "*", "F", "R", "G")
 
@@ -76,6 +79,23 @@ def _check_file_references(tags: dict[str, str], folder: Path) -> list[FormatIss
     return issues
 
 
+def _check_video_tag(tags: dict[str, str], folder: Path) -> list[FormatIssue]:
+    """#VIDEO absent or empty is an error; a video file in the folder makes
+    it a second one, naming the videos the tag could point at."""
+    if tags.get("VIDEO", "").strip():
+        return []
+    issues = [FormatIssue("error", "Missing #VIDEO tag.", "Missing #VIDEO")]
+    try:
+        videos = sorted(p.name for p in folder.iterdir() if p.is_file() and p.suffix.lower() in _VIDEO_EXTS)
+    except OSError:
+        videos = []
+    if videos:
+        names = ", ".join(repr(name) for name in videos)
+        message = f"A video file is in the folder but not referenced by #VIDEO: {names}."
+        issues.append(FormatIssue("error", message, "Video file not referenced"))
+    return issues
+
+
 def _check_body(text: str, tags: dict[str, str]) -> list[FormatIssue]:
     issues = []
     declared_voices = {tag for tag in tags if re.fullmatch(r"P[1-9]", tag)}
@@ -121,6 +141,7 @@ def check_file(path: Path) -> FileReport:
         *_check_mandatory_tags(tags),
         *_check_numeric_tags(tags),
         *_check_file_references(tags, path.parent),
+        *_check_video_tag(tags, path.parent),
         *_check_body(text, tags),
     ]
     return FileReport(folder=path.parent.name, filename=path.name, issues=issues)

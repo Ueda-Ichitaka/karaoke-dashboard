@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import __version__
@@ -20,6 +19,7 @@ from .deps import AuthRedirect, render
 from .routes import admin, auth, reports, requests, songs
 from .scheduler import create_scheduler
 from .security import seed_admin
+from .static_files import RevalidatedStaticFiles
 
 logger = get_logger(__name__)
 
@@ -124,7 +124,7 @@ app.add_middleware(
     max_age=60 * 60 * 24 * 14,  # 14 days
 )
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", RevalidatedStaticFiles(directory="app/static"), name="static")
 
 app.include_router(songs.router)
 app.include_router(auth.router)

@@ -3,10 +3,15 @@ Connections tabs, computed on the server as SVG coordinates.
 
 - The biggest `size` genres are shown; a song's place follows its shown
   genres, and a song with none of them goes to "Other genres".
-- arrange() puts genres that share songs close together (their clusters
-  overlap) and keeps the others apart - the same input, the same picture.
-- Map: one dot per song, inside its cluster, or between its clusters when
-  it has several shown genres.
+- arrange() (the network) puts genres that share songs close together and
+  keeps the others apart; arrange_map() (the map) pulls genres together by
+  how many songs they share, at most until they touch, and keeps the others
+  MAP_GAP apart - the same input, the same picture.
+- Map: one dot per song, inside the circle of its first shown genre (its
+  home; "Other genres" when it has none), leaning towards the circles of its
+  next three shown genres; no two dots overlap, no two circles overlap and
+  no circle drifts far from the others. A circle is sized by its dots and
+  labelled with all songs of its genre.
 - Connections: one circle per shown genre, a line per pair of genres that
   songs share, one dot per song and pair (a song with three shown genres
   has three dots), a dot around the circle for a song with one genre, and a
@@ -20,10 +25,14 @@ import math
 import pytest
 
 from app.genre_layout import (
+    CLUSTER_MIN,
+    CLUSTER_SCALE,
+    MAP_GAP,
     OTHER_COLOR,
     OTHER_GENRES,
     PALETTE,
     arrange,
+    arrange_map,
     genre_map,
     genre_network,
     label_box,
@@ -104,27 +113,6 @@ def test_the_map_has_one_dot_per_song_with_its_genres():
     dots = genre_map(songs, genres, 3, hits=set()).dots
     assert sorted(dot.song.folder for dot in dots) == sorted(LIBRARY)
     assert {dot.song.folder: dot.genres for dot in dots}["Mix - Three"] == ["Folk", "Heavy", "Metal"]
-
-
-def test_a_song_with_one_shown_genre_sits_inside_its_cluster():
-    songs, genres = _library(LIBRARY)
-    drawing = genre_map(songs, genres, 3, hits=set())
-    clusters = {c.genre: c for c in drawing.clusters}
-    for dot in drawing.dots:
-        place = placement(dot.genres, ["Metal", "Pop", "Heavy"])
-        if len(place) == 1:
-            cluster = clusters[place[0]]
-            assert _dist((dot.x, dot.y), (cluster.x, cluster.y)) <= cluster.r
-
-
-def test_a_song_with_two_shown_genres_sits_between_its_clusters():
-    songs, genres = _library(LIBRARY)
-    drawing = genre_map(songs, genres, 3, hits=set())
-    clusters = {c.genre: c for c in drawing.clusters}
-    metal, heavy = clusters["Metal"], clusters["Heavy"]
-    for dot in drawing.dots:
-        if dot.song.folder.startswith("Heavy Band"):
-            assert _segment_distance((dot.x, dot.y), (metal.x, metal.y), (heavy.x, heavy.y)) < heavy.r
 
 
 def test_the_search_hits_are_marked():
@@ -253,3 +241,105 @@ def test_a_network_label_sits_inside_its_circle():
     for node in genre_network(songs, genres, 3, hits=set()).nodes:
         assert node.y - node.r < node.label_y < node.y + node.r
         assert abs(node.label_y - node.y) <= 6
+
+
+def _many(count: int, names: list[str]) -> dict[str, list[str]]:
+    return {f"{'-'.join(names)} {i} - Song": names for i in range(count)}
+
+
+def _gap(one, other) -> float:
+    return _dist((one.x, one.y), (other.x, other.y)) - one.r - other.r
+
+
+def _home(dot, shown: list[str]) -> str:
+    return placement(dot.genres, shown)[0]
+
+
+def test_every_dot_sits_inside_the_circle_of_its_first_shown_genre():
+    songs, genres = _library(LIBRARY)
+    drawing = genre_map(songs, genres, 3, hits=set())
+    clusters = {c.genre: c for c in drawing.clusters}
+    homes = {dot.song.folder: _home(dot, ["Metal", "Pop", "Heavy"]) for dot in drawing.dots}
+    assert homes["Mix - Three"] == "Heavy"  # Folk is folded, Heavy comes before Metal
+    assert homes["Rare - Two"] == OTHER_GENRES
+    for dot in drawing.dots:
+        home = clusters[homes[dot.song.folder]]
+        assert _dist((dot.x, dot.y), (home.x, home.y)) + dot.r <= home.r + 0.1
+
+
+def test_a_circle_is_sized_by_its_dots_and_labelled_with_all_songs_of_its_genre():
+    songs, genres = _library(LIBRARY)
+    clusters = {c.genre: c for c in genre_map(songs, genres, 3, hits=set()).clusters}
+    assert clusters["Metal"].count == 31  # every song with Metal
+    assert clusters["Metal"].r == round(CLUSTER_SCALE * math.sqrt(20), 1)  # the 20 whose home it is
+    assert clusters["Heavy"].r == round(max(CLUSTER_MIN, CLUSTER_SCALE * math.sqrt(11)), 1)
+
+
+def test_no_two_map_circles_overlap():
+    songs, genres = _library(LIBRARY)
+    clusters = genre_map(songs, genres, 3, hits=set()).clusters
+    for one, other in [(a, b) for i, a in enumerate(clusters) for b in clusters[i + 1:]]:
+        assert _gap(one, other) >= -0.1
+
+
+def test_no_two_dots_overlap():
+    spec = {**LIBRARY, **_many(120, ["Pop", "Heavy"]), **_many(80, ["Metal", "Pop", "Heavy"])}
+    songs, genres = _library(spec)
+    dots = genre_map(songs, genres, 3, hits=set()).dots
+    for i, one in enumerate(dots):
+        for other in dots[i + 1:]:
+            assert _dist((one.x, one.y), (other.x, other.y)) >= one.r + other.r - 0.1
+
+
+def _middle(dots) -> tuple[float, float]:
+    return sum(d.x for d in dots) / len(dots), sum(d.y for d in dots) / len(dots)
+
+
+def test_a_dot_leans_towards_the_circles_of_its_next_three_genres():
+    spec = {**_many(40, ["Metal"]), **_many(30, ["Pop"]), **_many(30, ["Folk"]), **_many(25, ["Rock"]),
+            **_many(20, ["Metal", "Folk"]), **_many(20, ["Metal", "Pop", "Rock"])}
+    songs, genres = _library(spec)
+    drawing = genre_map(songs, genres, 4, hits=set())
+    clusters = {c.genre: c for c in drawing.clusters}
+    by_kind = {}
+    for dot in drawing.dots:
+        by_kind.setdefault(tuple(dot.genres), []).append(dot)
+    alone = _middle(by_kind[("Metal",)])
+    folk = clusters["Folk"]
+    assert _dist(_middle(by_kind[("Metal", "Folk")]), (folk.x, folk.y)) < _dist(alone, (folk.x, folk.y)) - 5
+    pop, rock = clusters["Pop"], clusters["Rock"]
+    towards = ((pop.x + rock.x) / 2, (pop.y + rock.y) / 2)
+    assert _dist(_middle(by_kind[("Metal", "Pop", "Rock")]), towards) < _dist(alone, towards) - 5
+
+
+def test_the_map_is_the_same_for_the_same_library():
+    songs, genres = _library(LIBRARY)
+    assert genre_map(songs, genres, 3, hits=set()) == genre_map(songs, genres, 3, hits=set())
+
+
+def test_arrange_map_brings_genres_closer_the_more_songs_they_share_but_never_overlaps():
+    sizes = {"A": 40.0, "B": 40.0, "C": 40.0, "D": 40.0, "E": 40.0}
+    links = {frozenset({"A", "B"}): 1.0, frozenset({"C", "D"}): 0.2}
+    places = arrange_map(sizes, links)
+    assert _dist(places["A"], places["B"]) <= 80 + 1
+    assert _dist(places["A"], places["B"]) < _dist(places["C"], places["D"])
+    for one, other in [(a, b) for i, a in enumerate(sizes) for b in list(sizes)[i + 1:]]:
+        assert _dist(places[one], places[other]) >= sizes[one] + sizes[other] - 0.01
+        if frozenset({one, other}) not in links:
+            assert _dist(places[one], places[other]) >= sizes[one] + sizes[other] + MAP_GAP - 0.01
+
+
+def test_no_genre_drifts_far_from_the_others_on_the_map():
+    spec = {
+        **_many(60, ["Pop"]), **_many(50, ["Metal"]), **_many(35, ["Rock"]), **_many(6, ["Rock", "Metal"]),
+        **_many(4, ["Rock", "Pop"]), **_many(8, ["Folk"]), **_many(3, ["Folk", "Rock"]),
+        **_many(6, ["Gothic", "Metal"]), **_many(4, ["Gothic"]), **_many(8, ["Classical"]),
+        **_many(1, ["Classical", "Pop"]), **_many(5, ["RnB"]), **_many(25, ["Odd"]),
+        **{f"Folded {i} - Song": [f"Rare {i}"] for i in range(30)},
+    }
+    songs, genres = _library(spec)
+    clusters = genre_map(songs, genres, 9, hits=set()).clusters
+    assert clusters[-1].genre == OTHER_GENRES
+    for one in clusters:
+        nearest = min(_gap(one, other) for other in clusters if other is not one)
+        assert nearest <= MAP_GAP * 1.5, one.genre

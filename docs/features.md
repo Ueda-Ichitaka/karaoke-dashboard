@@ -95,10 +95,14 @@ type, and keeps the picked genre.
 
 ### Map
 
-`/genres/map`. Every song with a genre is a dot in its genre's cluster; a
-song with several shown genres sits between their clusters, and genres that
-share many songs are placed close together, so their clusters overlap. A
-cluster's size follows its songs. The biggest genres get a cluster each -
+`/genres/map`. Every song with a genre is one dot, in the circle of its
+first shown genre in the song file; inside it, the dot leans towards the
+circles of the song's next three shown genres, so songs that also are
+Heavy gather on the side facing Heavy. Genres that share many songs sit
+close together - touching at most, circles never overlap - and genres that
+share none keep some space between them. A circle's size follows the dots
+inside it; its label counts every song with the genre, as the List tab
+does. The biggest genres get a cluster each -
 as many as **Genres on the map** on [Settings](#settings), 12 by default; the
 songs whose genres are all smaller gather in a grey **Other genres** cluster,
 and the genres folded into it are listed below the map. The first 12

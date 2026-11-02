@@ -6,13 +6,21 @@ templates only draw them - the same library always gives the same picture.
   the Settings page, DEFAULT_GENRE_MAP_SIZE until saved). A song's place
   is its shown genres; a song with none of them goes to "Other genres"
   (placement), and the genres not shown are listed as folded.
-- arrange() places one circle per shown genre: genres that share songs are
-  pulled together (their map clusters overlap, the more the larger the
-  shared part of the smaller genre), the others are pushed apart. A small
-  deterministic force layout - no randomness.
-- genre_map(): a cluster per genre sized by its songs, one dot per song -
-  spread over its cluster, or around the middle of its clusters when it has
-  several shown genres.
+- arrange() places the network's circles: genres that share songs are
+  pulled together, the others are pushed apart. arrange_map() places the
+  map's: genres are pulled together by how many songs they share (the
+  shared part of the smaller genre), at most until they touch, and genres
+  that share no songs keep MAP_GAP apart; they start close together and the
+  pull to the middle is stronger up and down - as strong as brings the
+  circles closest to ASPECT (MAP_PULLS_UP_DOWN) - so they spread out wide
+  by themselves, evenly, without one drifting off. Small deterministic
+  force layouts - no randomness.
+- genre_map(): a circle per genre and one dot per song, inside the circle of
+  its first shown genre (its home; "Other genres" when it has none). A
+  circle is sized by its dots and labelled with all songs of its genre. A
+  dot sits at a scattered spot of its own (from its folder name), leaning
+  towards the circles of its song's next three shown genres; then the dots
+  are pushed apart until none overlap.
 - genre_network(): its own places - circles with the ring of their
   one-genre songs never overlap, linked ones a little apart - with a line per pair of
   genres that songs share (thicker for more songs), a dot per song and pair
@@ -32,6 +40,7 @@ are marked on the dots.
 from __future__ import annotations
 
 import math
+import zlib
 from collections import Counter
 from dataclasses import dataclass, field, replace
 from itertools import combinations
@@ -48,16 +57,21 @@ PALETTE = (
 )
 OTHER_COLOR = "#7d8592"
 
-CLUSTER_SCALE = 7.2      # map cluster radius per square root of its songs
+CLUSTER_SCALE = 7.2      # map circle radius per square root of its dots
 CLUSTER_MIN = 14.0
 NODE_BASE, NODE_SCALE = 8.0, 2.6   # network circle radius
 MAP_DOT, NET_DOT = 3.0, 2.2        # dot radii
-GROUP_SPACING = 6.0      # spiral step of the songs between clusters
+DOT_ROOM = 1.0           # map: space kept between two dots
+LEAN = 0.5               # map: how far a dot leans towards its other genres (0..1)
 RING_SPACING = 4.5       # spiral step of the songs around a network circle
-GAP = 14.0               # space kept between genres that share no songs
+GAP = 14.0               # network: space kept between genres that share no songs
+MAP_GAP = 40.0           # map: space kept between genres that share no songs
 NETWORK_LINK_GAP = 40.0  # room for the song dots on a line of the network
 MARGIN = 16.0
 GOLDEN_ANGLE = math.pi * (3 - math.sqrt(5))
+MAP_PULL_SIDEWAYS = 0.995                          # map: pull to the middle per step, sideways
+MAP_PULLS_UP_DOWN = (0.985, 0.97, 0.95, 0.93, 0.9)  # and up and down, tried for the closest to ASPECT
+MAP_START = 0.3          # map: the circles start on a ring this part of the network's
 ASPECT = 2.0             # width : height of a drawing, about that of the page
 LABEL_CHAR = 7.6         # width of a label character (13px, bold) - an estimate
 LABEL_ABOVE = 8.0        # baseline of a label above its circle
@@ -151,6 +165,29 @@ def placement(song_genres: list[str], shown: list[str]) -> list[str]:
     return places or [OTHER_GENRES]
 
 
+def _start(radii: dict[str, float], scale: float) -> dict[str, list[float]]:
+    """The circles on a wide ring, in the order of radii."""
+    spread = sum(radii.values()) * scale
+    return {name: [spread * 0.9 * math.cos(2 * math.pi * i / len(radii)) + 1e-3 * i,
+                   spread * 0.45 * math.sin(2 * math.pi * i / len(radii))]
+            for i, name in enumerate(radii)}
+
+
+def _push(pos: dict[str, list[float]], a: str, b: str, amount: float) -> None:
+    """Moves a and b along their line, closer for a positive amount."""
+    dx, dy = pos[b][0] - pos[a][0], pos[b][1] - pos[a][1]
+    d = math.hypot(dx, dy) or 1e-6
+    ux, uy = dx / d, dy / d
+    pos[a][0] += ux * amount / 2
+    pos[a][1] += uy * amount / 2
+    pos[b][0] -= ux * amount / 2
+    pos[b][1] -= uy * amount / 2
+
+
+def _distance(pos: dict[str, list[float]], a: str, b: str) -> float:
+    return math.hypot(pos[b][0] - pos[a][0], pos[b][1] - pos[a][1])
+
+
 def arrange(radii: dict[str, float], links: dict[frozenset[str], float], steps: int = 400,
             overlap: float = 0.5, linked_gap: float = 0.0) -> dict[str, tuple[float, float]]:
     """A centre per circle: linked circles are pulled together - to overlap
@@ -158,38 +195,20 @@ def arrange(radii: dict[str, float], links: dict[frozenset[str], float], steps: 
     means closer), plus linked_gap - and never closer than that overlap
     plus half the gap allows; the others are kept at least GAP apart. Deterministic; the order
     of radii decides the start."""
-    names = list(radii)
-    if not names:
+    if not radii:
         return {}
-    spread = sum(radii.values())
-    pos = {name: [spread * 0.9 * math.cos(2 * math.pi * i / len(names)) + 1e-3 * i,
-                  spread * 0.45 * math.sin(2 * math.pi * i / len(names))]
-           for i, name in enumerate(names)}
-    pairs = list(combinations(names, 2))
-
-    def push(a: str, b: str, amount: float) -> None:
-        """Moves a and b along their line, closer for a positive amount."""
-        dx, dy = pos[b][0] - pos[a][0], pos[b][1] - pos[a][1]
-        d = math.hypot(dx, dy) or 1e-6
-        ux, uy = dx / d, dy / d
-        pos[a][0] += ux * amount / 2
-        pos[a][1] += uy * amount / 2
-        pos[b][0] -= ux * amount / 2
-        pos[b][1] -= uy * amount / 2
-
-    def distance(a: str, b: str) -> float:
-        return math.hypot(pos[b][0] - pos[a][0], pos[b][1] - pos[a][1])
-
+    pos = _start(radii, 1.0)
+    pairs = list(combinations(radii, 2))
     for _ in range(steps):
         for a, b in pairs:
             touching = radii[a] + radii[b]
-            d = distance(a, b)
+            d = _distance(pos, a, b)
             strength = min(1.0, links.get(frozenset((a, b)), 0.0))
             if strength > 0:
-                push(a, b, (d - touching * (1 - overlap * strength) - linked_gap) * 0.1)
+                _push(pos, a, b, (d - touching * (1 - overlap * strength) - linked_gap) * 0.1)
             elif d < touching + GAP:
-                push(a, b, (d - touching - GAP) * 0.5)
-        for name in names:  # a pull to the middle, stronger up and down: a wide picture
+                _push(pos, a, b, (d - touching - GAP) * 0.5)
+        for name in radii:  # a pull to the middle, stronger up and down: a wide picture
             pos[name][0] *= 0.995
             pos[name][1] *= 0.985
     for _ in range(200):  # the last word: no circles closer than allowed
@@ -197,12 +216,63 @@ def arrange(radii: dict[str, float], links: dict[frozenset[str], float], steps: 
         for a, b in pairs:
             touching = radii[a] + radii[b]
             closest = touching * (1 - overlap) + linked_gap / 2 if frozenset((a, b)) in links else touching
-            if distance(a, b) < closest:
-                push(a, b, distance(a, b) - closest - GAP / 2)
+            if _distance(pos, a, b) < closest:
+                _push(pos, a, b, _distance(pos, a, b) - closest - GAP / 2)
                 moved = True
         if not moved:
             break
-    return {name: (pos[name][0], pos[name][1]) for name in names}
+    return {name: (pos[name][0], pos[name][1]) for name in radii}
+
+
+def arrange_map(radii: dict[str, float], links: dict[frozenset[str], float],
+                room_above: float = 0.0) -> dict[str, tuple[float, float]]:
+    """A centre per map circle (see _arrange_map), with the pull up and down
+    that brings the circles closest to ASPECT (room_above: the space a label
+    takes above a circle)."""
+    if not radii:
+        return {}
+    tries = [_arrange_map(radii, links, pull) for pull in MAP_PULLS_UP_DOWN]
+    return min(tries, key=lambda centres: abs(math.log(_ratio(centres, radii, room_above) / ASPECT)))
+
+
+def _arrange_map(radii: dict[str, float], links: dict[frozenset[str], float], pull_up_down: float,
+                 steps: int = 400) -> dict[str, tuple[float, float]]:
+    """A centre per map circle: each pair is kept MAP_GAP apart, less the
+    stronger their link (0..1) - touching at the strongest - and pulled
+    together up to there by the strength of their link only, so a few shared
+    songs barely pull. No two circles overlap. Deterministic; the order of
+    radii decides the start."""
+    pos = _start(radii, MAP_START)
+    pairs = [(a, b, radii[a] + radii[b] + MAP_GAP * (1 - min(1.0, links.get(frozenset((a, b)), 0.0))),
+              min(1.0, links.get(frozenset((a, b)), 0.0)))
+             for a, b in combinations(radii, 2)]
+    for _ in range(steps):
+        for a, b, apart, strength in pairs:
+            d = _distance(pos, a, b)
+            if d < apart:
+                _push(pos, a, b, (d - apart) * 0.5)
+            elif strength > 0:
+                _push(pos, a, b, (d - apart) * 0.1 * strength)
+        for name in radii:
+            pos[name][0] *= MAP_PULL_SIDEWAYS
+            pos[name][1] *= pull_up_down
+    for _ in range(200):  # the last word: no circles closer than allowed
+        moved = False
+        for a, b, apart, _ in pairs:
+            if _distance(pos, a, b) < apart - 1e-6:
+                _push(pos, a, b, _distance(pos, a, b) - apart)
+                moved = True
+        if not moved:
+            break
+    return {name: (pos[name][0], pos[name][1]) for name in radii}
+
+
+def _ratio(centres, radii: dict[str, float], room_above: float) -> float:
+    """Width : height of the circles (room_above: the space a label takes above a circle)."""
+    width = max(x + radii[n] for n, (x, _) in centres.items()) - min(x - radii[n] for n, (x, _) in centres.items())
+    height = (max(y + radii[n] for n, (_, y) in centres.items())
+              - min(y - radii[n] - room_above for n, (_, y) in centres.items()))
+    return width / height
 
 
 def widen(centres: dict[str, tuple[float, float]], radii: dict[str, float],
@@ -214,10 +284,7 @@ def widen(centres: dict[str, tuple[float, float]], radii: dict[str, float],
     if len(pos) < 2:
         return centres
     for _ in range(40):
-        width = max(x + radii[n] for n, (x, _) in pos.items()) - min(x - radii[n] for n, (x, _) in pos.items())
-        height = (max(y + radii[n] for n, (_, y) in pos.items())
-                  - min(y - radii[n] - room_above for n, (_, y) in pos.items()))
-        ratio = width / height
+        ratio = _ratio(pos, radii, room_above)
         if abs(ratio - ASPECT) <= ASPECT * 0.01:
             break
         axis, factor = (0, min(1.25, ASPECT / ratio)) if ratio < ASPECT else (1, min(1.25, ratio / ASPECT))
@@ -251,11 +318,6 @@ def _place_labels(circles: list[Circle]) -> list[Circle]:
 
 def _color(index: int) -> str:
     return PALETTE[index] if index < len(PALETTE) else OTHER_COLOR
-
-
-def _spiral(k: int, step: float) -> tuple[float, float]:
-    rho = step * math.sqrt(k + 0.5)
-    return rho * math.cos(k * GOLDEN_ANGLE), rho * math.sin(k * GOLDEN_ANGLE)
 
 
 def _view_box(circles: list[Circle], dots: list[Dot]) -> str:
@@ -298,10 +360,12 @@ def _groups(songs: list[Song], genres: dict[str, list[str]], size: int) -> _Grou
     return _Groups(order, places, counts, shared, folded, links)
 
 
-def _circles(groups: _Groups, centres: dict[str, tuple[float, float]], radius, label) -> list[Circle]:
+def _circles(groups: _Groups, centres: dict[str, tuple[float, float]], radii: dict[str, float],
+             label) -> list[Circle]:
+    """A circle per genre, counting all songs of its genre."""
     return [
         Circle(genre, groups.counts[genre], OTHER_COLOR if genre == OTHER_GENRES else _color(i),
-               round(centres[genre][0], 1), round(centres[genre][1], 1), round(radius(groups.counts[genre]), 1),
+               round(centres[genre][0], 1), round(centres[genre][1], 1), round(radii[genre], 1),
                label(genre, groups.counts[genre]))
         for i, genre in enumerate(groups.order)
     ]
@@ -315,29 +379,88 @@ def _node_radius(songs: int) -> float:
     return NODE_BASE + NODE_SCALE * math.sqrt(songs)
 
 
+def _scatter(folder: str) -> tuple[float, float]:
+    """A song's own spot in a circle of radius 1, the same for the same
+    folder name and spread evenly over the area."""
+    h = zlib.crc32(folder.encode())
+    angle = 2 * math.pi * (h & 0xFFFF) / 0x10000
+    reach = math.sqrt(((h >> 16) + 0.5) / 0x10000)
+    return reach * math.cos(angle), reach * math.sin(angle)
+
+
+def _lean(home: Circle, others: list[Circle]) -> tuple[float, float]:
+    """The way from a circle's middle towards the other circles, each
+    counting the same - length 1, or nothing without others."""
+    x = y = 0.0
+    for other in others:
+        d = math.hypot(other.x - home.x, other.y - home.y) or 1e-6
+        x, y = x + (other.x - home.x) / d, y + (other.y - home.y) / d
+    length = math.hypot(x, y)
+    return (x / length, y / length) if length > 1e-9 else (0.0, 0.0)
+
+
+def _settle(points: list[list[float]], room: float, steps: int = 80) -> None:
+    """Pushes the points (relative to a circle's middle) apart until no two
+    are closer than two dots and DOT_ROOM, keeping each within `room` of
+    the middle."""
+    apart = 2 * MAP_DOT + DOT_ROOM
+    for _ in range(steps):
+        cells: dict[tuple[int, int], list[int]] = {}
+        for i, (x, y) in enumerate(points):
+            cells.setdefault((math.floor(x / apart), math.floor(y / apart)), []).append(i)
+        moved = False
+        for (cx, cy), members in cells.items():
+            near = [j for dx in (-1, 0, 1) for dy in (-1, 0, 1) for j in cells.get((cx + dx, cy + dy), ())]
+            for i in members:
+                for j in near:
+                    if j <= i:
+                        continue
+                    dx, dy = points[j][0] - points[i][0], points[j][1] - points[i][1]
+                    d = math.hypot(dx, dy)
+                    if d < apart:
+                        if d < 1e-9:
+                            dx, dy, d = math.cos(i), math.sin(i), 1.0
+                        shift = (apart - d) / 2 + 1e-3
+                        points[i][0] -= dx / d * shift
+                        points[i][1] -= dy / d * shift
+                        points[j][0] += dx / d * shift
+                        points[j][1] += dy / d * shift
+                        moved = True
+        for point in points:
+            d = math.hypot(point[0], point[1])
+            if d > room:
+                point[0], point[1] = point[0] * room / d, point[1] * room / d
+        if not moved:
+            return
+
+
 def genre_map(songs: list[Song], genres: dict[str, list[str]], size: int, hits: set[str]) -> GenreMap:
-    """The Map tab: a cluster per genre and one dot per song with a genre."""
+    """The Map tab: a circle per genre and one dot per song with a genre, in
+    the circle of its first shown genre and leaning towards its next three."""
     groups = _groups(songs, genres, size)
-    radii = {genre: _cluster_radius(groups.counts[genre]) for genre in groups.order}
-    centres = widen(arrange(radii, groups.links), radii, room_above=LABEL_ABOVE + 14)
-    clusters = _place_labels(_circles(groups, centres, _cluster_radius, lambda genre, count: f"{genre} {count}"))
+    homes = Counter(place[0] for _, place in groups.places)
+    radii = {genre: _cluster_radius(homes[genre]) for genre in groups.order}
+    centres = widen(arrange_map(radii, groups.links, room_above=LABEL_ABOVE + 14), radii,
+                    room_above=LABEL_ABOVE + 14)
+    clusters = _place_labels(_circles(groups, centres, radii, lambda genre, count: f"{genre} {count}"))
     by_genre = {c.genre: c for c in clusters}
-    members: dict[tuple[str, ...], list[Song]] = {}
-    for song, place in groups.places:
-        members.setdefault(tuple(sorted(place, key=groups.order.index)), []).append(song)
+    members: dict[str, list[tuple[Song, list[str]]]] = {}
+    for song, place in sorted(groups.places, key=lambda item: item[0].folder):
+        members.setdefault(place[0], []).append((song, place))
     dots = []
-    for key, group in members.items():
-        circles = [by_genre[genre] for genre in key]
-        cx = sum(c.x for c in circles) / len(circles)
-        cy = sum(c.y for c in circles) / len(circles)
-        for k, song in enumerate(group):
-            if len(circles) == 1:
-                reach = (circles[0].r - MAP_DOT) * math.sqrt((k + 0.5) / len(group))
-                dx, dy = reach * math.cos(k * GOLDEN_ANGLE), reach * math.sin(k * GOLDEN_ANGLE)
-            else:
-                dx, dy = _spiral(k, GROUP_SPACING)
-            dots.append(Dot(song, genres[song.folder], round(cx + dx, 1), round(cy + dy, 1), MAP_DOT,
-                            circles[0].color, song.folder in hits))
+    for genre in groups.order:
+        home = by_genre[genre]
+        room = home.r - MAP_DOT
+        points = []
+        for song, place in members.get(genre, []):
+            sx, sy = _scatter(song.folder)
+            lx, ly = _lean(home, [by_genre[other] for other in place[1:4]])
+            points.append([room * (sx * (1 - LEAN) + lx * LEAN) if lx or ly else room * sx,
+                           room * (sy * (1 - LEAN) + ly * LEAN) if lx or ly else room * sy])
+        _settle(points, room)
+        for (song, _), (x, y) in zip(members.get(genre, []), points, strict=True):
+            dots.append(Dot(song, genres[song.folder], round(home.x + x, 1), round(home.y + y, 1), MAP_DOT,
+                            home.color, song.folder in hits))
     return GenreMap(clusters, dots, _view_box(clusters, dots), groups.folded)
 
 
@@ -354,8 +477,9 @@ def genre_network(songs: list[Song], genres: dict[str, list[str]], size: int, hi
     reach = {genre: _node_radius(groups.counts[genre]) + 7 + RING_SPACING * math.sqrt(singles[genre] + 0.5)
              for genre in groups.order}  # a circle with the ring of its one-genre songs
     centres = widen(arrange(reach, groups.links, overlap=0.0, linked_gap=NETWORK_LINK_GAP), reach)
+    radii = {genre: _node_radius(groups.counts[genre]) for genre in groups.order}
     nodes = [replace(node, label_y=round(node.y + LABEL_CENTRE, 1))
-             for node in _circles(groups, centres, _node_radius, lambda genre, count: genre)]
+             for node in _circles(groups, centres, radii, lambda genre, count: genre)]
     by_genre = {n.genre: n for n in nodes}
     top = max(groups.shared.values(), default=1)
     edges = []

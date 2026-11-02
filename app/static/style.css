@@ -237,7 +237,9 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 
 /* -- Genres page: the genre list with song counts on the left, the picked
    genre's songs with genre chips on the right (app/templates/genres.html,
-   _genre_panels.html); on a narrow screen the list sits above the songs. -- */
+   _genre_panels.html); on a narrow screen the list sits above the songs. A
+   song's chips sit on the row's right edge, also when they wrap under the
+   title; on a phone every row has its chips under the title. -- */
 .genre-panels { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); gap: 24px; align-items: start; }
 .genre-index { padding: 14px 8px; }
 .genre-index h2 {
@@ -268,6 +270,7 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .genre-song-link .song-artist { font-size: 12px; font-weight: 400; color: var(--text-dim); }
 .genre-song-link .song-title { color: var(--text); }
 .genre-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.genre-song .genre-chips { margin-left: auto; justify-content: flex-end; }
 .genre-chip {
   font-size: 12px; padding: 2px 8px; border-radius: 999px;
   background: var(--surface-2); border: 1px solid var(--border); color: var(--text-dim);
@@ -276,6 +279,11 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .genre-chip-current { border-color: var(--accent); color: var(--text); }
 @media (max-width: 760px) {
   .genre-panels { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .genre-song { flex-direction: column; align-items: flex-start; }
+  .genre-song-link { flex: none; width: 100%; }
+  .genre-song .genre-chips { margin-left: 0; justify-content: flex-start; }
 }
 
 /* -- Genres page tabs: the tab row under the search (_genre_head.html), and

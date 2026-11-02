@@ -48,3 +48,9 @@ def test_saving_without_the_field_keeps_the_number(admin_client):
     _save(admin_client, genre_map_size="5")
     _save(admin_client)
     assert _stored() == 5
+
+
+def test_the_settings_page_has_no_map_spacing_fields(admin_client):
+    html = admin_client.get("/admin/settings").text
+    assert 'name="genre_map_gap"' not in html
+    assert 'name="genre_map_overlap"' not in html

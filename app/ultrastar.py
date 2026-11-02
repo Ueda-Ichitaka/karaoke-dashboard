@@ -6,6 +6,11 @@ parses the header tags of one such file into a SongMeta record, and scans a
 folder for every song it contains. Results are cached in memory for
 settings.scan_cache_seconds, mirroring the folder-index cache in songs.py.
 
+A .txt is a song file when it has the one header tag the format spec
+(https://usdx.eu/format/) makes mandatory and a song can't play without:
+#BPM. A UTF-8 byte order mark at the start - against the spec, but common -
+is skipped when reading (read_song_text).
+
 A song's length is read from the audio/video file it actually plays back
 (#AUDIO/#MP3/#VIDEO), not from the UltraStar #START/#END tags - those are
 rarely present, and the media file's own duration is what the karaoke system
@@ -23,9 +28,11 @@ import mutagen
 
 from .config import settings
 
-# The two tags every valid UltraStar file carries. Their absence means the
-# .txt is not a song file (e.g. a stray readme dropped into the folder).
-_MANDATORY_TAGS = ("BPM", "GAP")
+# The tag every playable UltraStar file carries (#GAP is optional in the
+# spec). Its absence means the .txt is not a song file (e.g. a stray readme
+# dropped into the folder).
+_MANDATORY_TAGS = ("BPM",)
+UTF8_BOM = b"\xef\xbb\xbf"
 
 # Tags that can reference the song's playback media, checked in this order:
 # a dedicated audio file first, then the legacy #MP3 tag, then the video.
@@ -68,7 +75,9 @@ def parse_header_tags(text: str) -> dict[str, str]:
 
 
 def read_song_text(path: Path) -> str:
+    """The file's text - UTF-8 without a leading byte order mark, else cp1252."""
     raw = path.read_bytes()[:2_000_000]  # small metadata files; cap defensively
+    raw = raw.removeprefix(UTF8_BOM)
     try:
         return raw.decode("utf-8")
     except UnicodeDecodeError:

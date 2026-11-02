@@ -300,7 +300,10 @@ Three sections, with a sidebar to jump between them (`app/duplicates.py`):
   `(...)`/`[...]` aside or punctuation, like "Skyfall" and "Skyfall (Full
   Length)". These are often kept on purpose.
 - **Folders without a song** - folders with no UltraStar song file (empty,
-  or media only), except the set-aside folder `-`.
+  or media only), except the set-aside folder `-`. A `.txt` counts as a song
+  file when it has `#BPM`, the one mandatory tag a song can't play without
+  (`#GAP` is optional in the [format spec](https://usdx.eu/format/)); a
+  file starting with a UTF-8 byte order mark is read normally.
 
 Artist and title are compared case-insensitively with collapsed whitespace.
 A duet arrangement is never grouped with a solo one - that's an intentional
@@ -320,7 +323,9 @@ Three checks, computed on every view (**Rescan** forces a fresh look):
 **Song file format** (`app/format_check.py`). Every `.txt` file is checked
 against the [UltraStar format spec](https://github.com/UltraStar-Deluxe/format):
 missing mandatory tags, broken media references, malformed numbers,
-unparsable lines. An **error** breaks playback, a **warning** is a spec
+unparsable lines, a UTF-8 byte order mark at the start (a warning - the
+spec wants UTF-8 without one; the dashboard itself reads such files
+normally). An **error** breaks playback, a **warning** is a spec
 deviation that doesn't. A missing or empty `#VIDEO` tag is an error
 ("Missing #VIDEO"); when a video file (`.mp4`, `.mkv`, `.avi`, `.webm`,
 `.mpg`, `.mpeg`, `.m4v`, `.mov`, `.flv`, `.divx`, `.wmv`) sits in the song's

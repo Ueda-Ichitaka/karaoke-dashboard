@@ -1,12 +1,14 @@
 """About me: checks UltraStar .txt song files for conformity to the format
 spec (https://github.com/UltraStar-Deluxe/format), for the admin integrity
 view (which can filter its table by issue kind - issue_kind_counts,
-filter_reports). Not a full grammar validator - it catches the deviations that matter
-in practice: missing mandatory tags, broken media references, a missing
-#VIDEO tag (and a video file in the folder it doesn't reference), malformed
-numeric fields, and body lines that don't parse as notes/phrase-breaks/voice
-changes. A .txt with no "#KEY:VALUE" header lines at all is assumed not to
-be a song file (e.g. a stray readme) and is silently skipped, not flagged.
+filter_reports). Not a full grammar validator - it catches the deviations
+that matter in practice: missing mandatory tags, broken media references, a
+missing #VIDEO tag (and a video file in the folder it doesn't reference),
+malformed numeric fields, body lines that don't parse as
+notes/phrase-breaks/voice changes, and a UTF-8 byte order mark (the spec
+wants UTF-8 without one). A .txt with no "#KEY:VALUE" header lines at all
+is assumed not to be a song file (e.g. a stray readme) and is silently
+skipped, not flagged.
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .config import settings
-from .ultrastar import parse_header_tags, read_song_text
+from .ultrastar import UTF8_BOM, parse_header_tags, read_song_text
 
 _MANDATORY_TAGS = ("TITLE", "ARTIST", "BPM")
 _FILE_REF_TAGS = ("MP3", "AUDIO", "COVER", "BACKGROUND", "VIDEO")
@@ -131,6 +133,14 @@ def _check_body(text: str, tags: dict[str, str]) -> list[FormatIssue]:
     return issues
 
 
+def _check_byte_order_mark(path: Path) -> list[FormatIssue]:
+    with path.open("rb") as file:
+        if file.read(len(UTF8_BOM)) != UTF8_BOM:
+            return []
+    return [FormatIssue("warning", "Starts with a UTF-8 byte order mark - the format wants UTF-8 without one.",
+                        "Byte order mark")]
+
+
 def check_file(path: Path) -> FileReport:
     text = read_song_text(path)
     tags = parse_header_tags(text)
@@ -143,6 +153,7 @@ def check_file(path: Path) -> FileReport:
         *_check_file_references(tags, path.parent),
         *_check_video_tag(tags, path.parent),
         *_check_body(text, tags),
+        *_check_byte_order_mark(path),
     ]
     return FileReport(folder=path.parent.name, filename=path.name, issues=issues)
 

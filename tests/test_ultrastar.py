@@ -193,3 +193,21 @@ def test_scan_folder_songs_single_solo_song():
     assert meta.title == "Solo Song"
     assert meta.cover_file == "cover.jpg"
     assert meta.length_display == "3:00"
+
+
+def test_gap_is_optional_as_in_the_format_spec(tmp_path):
+    """https://usdx.eu/format/: #BPM is mandatory, #GAP optional."""
+    meta = ultrastar.parse_song_file(_write(tmp_path, "song.txt", "#TITLE:X\n#ARTIST:Y\n#BPM:100\n: 0 4 0 La\nE\n"))
+    assert meta is not None and meta.title == "X"
+
+
+def test_without_bpm_it_is_not_a_song_file(tmp_path):
+    assert ultrastar.parse_song_file(_write(tmp_path, "song.txt", "#TITLE:X\n#ARTIST:Y\n#GAP:0\nE\n")) is None
+
+
+def test_a_file_with_a_byte_order_mark_is_read_normally(tmp_path):
+    path = tmp_path / "song.txt"
+    path.write_bytes(b"\xef\xbb\xbf" + "#ARTIST:Ärzte\n#TITLE:X\n#GENRE:Punk\n#BPM:100\nE\n".encode())
+    assert ultrastar.read_song_text(path).startswith("#ARTIST:Ärzte")
+    meta = ultrastar.parse_song_file(path)
+    assert meta is not None and (meta.artist, meta.genre) == ("Ärzte", "Punk")

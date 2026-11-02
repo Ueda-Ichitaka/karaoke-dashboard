@@ -200,3 +200,15 @@ def test_filter_reports_keeps_only_files_with_that_kind(tmp_path):
     filtered = format_check.filter_reports(reports, "Malformed #BPM")
     assert [r.folder for r in filtered] == ["A - Three"]
     assert format_check.filter_reports(reports, "") == reports
+
+
+def test_a_byte_order_mark_is_a_warning_and_the_file_is_still_checked(tmp_path):
+    """https://usdx.eu/format/: "Encoding has to be UTF-8 (without BOM)"."""
+    (tmp_path / "song.mp3").write_bytes(b"fake-mp3")
+    (tmp_path / "song.mp4").write_bytes(b"fake-mp4")
+    path = tmp_path / "song.txt"
+    path.write_bytes(b"\xef\xbb\xbf" + b"#VERSION:1.0.0\n#TITLE:T\n#ARTIST:A\n#MP3:song.mp3\n#VIDEO:song.mp4\n"
+                     b"#GAP:0\n: 0 4 0 La\nE\n")
+    issues = format_check.check_file(path).issues
+    assert [(i.severity, i.kind) for i in issues] == [("error", "Missing #BPM"), ("warning", "Byte order mark")]
+    assert issues[1].message == "Starts with a UTF-8 byte order mark - the format wants UTF-8 without one."

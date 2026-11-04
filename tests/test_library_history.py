@@ -236,3 +236,13 @@ def test_a_detected_change_counts_as_a_write_too(root):
     (folder / "song.txt").unlink()
     _scan(root, LATER)
     assert _last_writes("Old - Song") == {"Old - Song": (NOW - timedelta(days=4)).strftime("%Y-%m-%d %H:%M")}
+
+
+@pytest.mark.parametrize("name", ["language.txt", "lyrics.txt", "Song_End.txt", "anchors.txt"])
+def test_a_write_to_a_factory_helper_file_is_not_an_update(root, name):
+    folder = root / "Old - Song"
+    _write(folder / name, OLD)
+    _scan(root, NOW)
+    _write(folder / name, NOW + timedelta(hours=2), "changed")
+    _scan(root, LATER)
+    assert _updated(root) == []

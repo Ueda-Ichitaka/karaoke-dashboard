@@ -3,7 +3,8 @@
 Every page of Karaoke Dashboard in detail. There are three levels of user:
 a plain **user**, a **contributor** - who also gets Reported, Requested,
 Duplicates and the genre Edit tab - and an **admin**, who gets everything
-(see [Users](#users)). For the CSV formats and imports
+(see [Users](#users)). Diagrams of the workflows - what goes in and out,
+what's done by hand - are in [workflows/](workflows/index.html). For the CSV formats and imports
 see [csv.md](csv.md); for the scripts that change files on disk see
 [library-scripts.md](library-scripts.md).
 
@@ -70,7 +71,9 @@ song's genres for the [Genres](#genres) page.
   song folder - a changed write time or size, or a new file - is an update,
   dated by that file's write time. A copy that keeps the original file time
   carries that older time. Deleting a file, or writing any other file type,
-  is not an update.
+  is not an update - nor is a write to one of the USDX Song Factory's
+  helper files `language.txt`, `lyrics.txt`, `song_end.txt` or
+  `anchors.txt` (any case). `song.txt` is a real song file and counts.
 - **Grace period**: writes within 1 hour after a new folder was first seen
   count as part of adding it (files still being copied in), not as updates.
 
@@ -154,8 +157,9 @@ just the songs with an open edit.
   edited genres. It ends by itself when a [library scan](#whats-new) reads
   the same genres (same order, any case) from the song files.
 - **Export N edits** downloads `genre-edits.tsv` for the USDX Song
-  Factory: every open edit, one line per `.txt` file directly in the song
-  folder - the file's path relative to the library root, a tab, the genres
+  Factory: every open edit, one line per song file directly in the song
+  folder (not the Factory's `language.txt` or `lyrics.txt`) - the file's
+  path relative to the library root, a tab, the genres
   (`Nightwish - Nemo/Nightwish - Nemo.txt<TAB>Symphonic, Metal`). No
   header; exporting again gives the same file until scans end the edits.
 
@@ -175,7 +179,12 @@ read by the [library scan](#whats-new) on every run and stored in the table
   idea, Other, None, Misc (any case) - are skipped; such a song isn't on the
   page.
 - A folder with several song files has the genres of all of them.
-- Only `.txt` files directly in a song folder count, as for the song details.
+- Only song files directly in a song folder count, as for the song details:
+  a `.txt` with `#BPM`. The Factory's helper files (`language.txt`,
+  `lyrics.txt`, `song_end.txt`, `anchors.txt`) are skipped by name, unread,
+  everywhere in the dashboard - song details, duplicates, genres, the
+  Integrity checks; a readme or any other `.txt` without `#BPM` never
+  counts either.
 
 The admin genre lists of the request and report forms
 (`app/genres.py`) are separate and not used here.
@@ -325,7 +334,8 @@ against the [UltraStar format spec](https://github.com/UltraStar-Deluxe/format):
 missing mandatory tags, broken media references, malformed numbers,
 unparsable lines, a UTF-8 byte order mark at the start (a warning - the
 spec wants UTF-8 without one; the dashboard itself reads such files
-normally). An **error** breaks playback, a **warning** is a spec
+normally). The USDX Song Factory's helper files (`language.txt`,
+`lyrics.txt`, `song_end.txt`, `anchors.txt`) are never checked. An **error** breaks playback, a **warning** is a spec
 deviation that doesn't. A missing or empty `#VIDEO` tag is an error
 ("Missing #VIDEO"); when a video file (`.mp4`, `.mkv`, `.avi`, `.webm`,
 `.mpg`, `.mpeg`, `.m4v`, `.mov`, `.flv`, `.divx`, `.wmv`) sits in the song's

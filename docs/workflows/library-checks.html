@@ -1,0 +1,252 @@
+<!doctype html>
+<!--
+  About me: how the Duplicates and Integrity pages check the song library, what they export and which scripts act on it by hand - drawn as one figure, for opening in a browser.
+  Part of the karaoke-dashboard workflow pages (docs/workflows/, index.html
+  lists them all); the first figure is also library-checks.svg next to this file.
+  The numbers are from the dev database of 2026-11-04.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library checks and scripts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root { --bg: #f3f4f1; --surface: #ffffff; --fg: #1d2421; --muted: #5c6862; --line: #36403b; --rule: #d5dad5; --lane: #e8ebe6; --file: #f7f8f5; --online: #2f62a8; --human: #a86412; --write: #b3361f; --db: #2c7a57; --tint-online: #e6eef9; --tint-human: #fbefdf; --tint-write: #fbe7e2; --tint-db: #e2f1e9; --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif; --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #151a18; --surface: #1d2421; --fg: #e4e9e5; --muted: #9aa69f; --line: #c3ccc6; --rule: #2f3834; --lane: #1a201d; --file: #222a26; --online: #7fa9e8; --human: #e2a457; --write: #f07a62; --db: #6cc79c; --tint-online: #1d2a3d; --tint-human: #33281a; --tint-write: #3a221d; --tint-db: #1a2e24; color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #151a18; --surface: #1d2421; --fg: #e4e9e5; --muted: #9aa69f; --line: #c3ccc6; --rule: #2f3834; --lane: #1a201d; --file: #222a26; --online: #7fa9e8; --human: #e2a457; --write: #f07a62; --db: #6cc79c; --tint-online: #1d2a3d; --tint-human: #33281a; --tint-write: #3a221d; --tint-db: #1a2e24; color-scheme: dark; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+.page { max-width: 1200px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.1; }
+h2 { font-size: 22px; }
+h3 { font-size: 16px; font-family: var(--mono); font-weight: 600; letter-spacing: 0; }
+p { margin: 0; max-width: 72ch; }
+a { color: var(--online); text-underline-offset: 2px; }
+code { font-family: var(--mono); font-size: 0.92em; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+header { display: grid; gap: 10px; }
+header p { color: var(--muted); }
+nav.pages { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+nav.pages a[aria-current] { color: var(--fg); font-weight: 600; text-decoration: none; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.stat { padding: 14px 16px 14px 0; display: grid; gap: 2px; min-width: 0; }
+.stat + .stat { padding-left: 16px; border-left: 1px solid var(--rule); }
+.stat b { font-family: var(--display); font-size: 28px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat span { color: var(--muted); font-size: 13px; }
+@media (max-width: 700px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat:nth-child(3) { padding-left: 0; border-left: 0; }
+  .stat:nth-child(n+3) { border-top: 1px solid var(--rule); }
+}
+figure { margin: 0; display: grid; gap: 12px; }
+.scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
+.scroll svg { display: block; width: 100%; height: auto; color: var(--line); }
+figcaption { color: var(--muted); font-size: 14px; max-width: 80ch; }
+
+svg text { font-family: var(--body); font-size: 12px; fill: var(--fg); }
+svg .t-tool { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+svg .t-file { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+svg .t-small { font-size: 11px; fill: var(--muted); }
+svg .t-lane { font-family: var(--display); font-size: 15px; font-weight: 700; }
+svg .t-label { font-size: 11px; fill: var(--muted); }
+svg .t-write { font-size: 11.5px; fill: var(--write); font-weight: 600; }
+svg .t-online { fill: var(--online); font-weight: 600; }
+svg .t-human { fill: var(--human); font-weight: 600; }
+svg .t-db { font-family: var(--mono); font-size: 12px; font-weight: 600; fill: var(--db); }
+svg .lane { fill: var(--lane); }
+svg .tool { fill: var(--surface); stroke: var(--line); stroke-width: 1.6; }
+svg .file { fill: var(--file); stroke: var(--line); stroke-width: 1; }
+svg .db { fill: var(--tint-db); stroke: var(--db); stroke-width: 1.4; }
+svg .online { fill: var(--tint-online); stroke: var(--online); stroke-width: 1.3; stroke-dasharray: 5 4; }
+svg .human { fill: var(--tint-human); stroke: var(--human); stroke-width: 1.3; stroke-dasharray: 5 4; }
+svg .lib { fill: var(--surface); stroke: var(--line); stroke-width: 1.6; }
+svg .lib-w { fill: var(--tint-write); stroke: var(--write); stroke-width: 1.6; }
+svg .flow { fill: none; stroke: var(--line); stroke-width: 1.4; }
+svg .flow-w { fill: none; stroke: var(--write); stroke-width: 2.2; }
+svg .flow-o { fill: none; stroke: var(--online); stroke-width: 1.4; }
+svg .flow-d { fill: none; stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 4 4; }
+svg .ah { fill: var(--line); }
+svg .ah-w { fill: var(--write); }
+svg .ah-o { fill: var(--online); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 26px; height: 14px; border-radius: 2px; display: inline-block; flex: none; }
+.sw-tool { background: var(--surface); border: 1.6px solid var(--line); }
+.sw-file { background: var(--file); border: 1px solid var(--line); }
+.sw-db { background: var(--tint-db); border: 1.4px solid var(--db); }
+.sw-online { background: var(--tint-online); border: 1.3px dashed var(--online); }
+.sw-human { background: var(--tint-human); border: 1.3px dashed var(--human); }
+.sw-write { height: 0; border-top: 2.2px solid var(--write); border-radius: 0; }
+section { display: grid; gap: 16px; }
+.sheets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 820px) { .sheets { grid-template-columns: minmax(0, 1fr); } }
+.sheet { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.sheet-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.pill { font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill-read { background: var(--lane); color: var(--muted); }
+.pill-db { background: var(--tint-db); color: var(--db); }
+.pill-write { background: var(--tint-write); color: var(--write); }
+.pill-human { background: var(--tint-human); color: var(--human); }
+.sheet p { color: var(--muted); font-size: 14px; }
+dl { margin: 0; display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 6px 12px; font-size: 14px; }
+dt { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; padding-top: 2px; }
+dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+pre { margin: 0; overflow-x: auto; background: var(--lane); border-radius: 4px; padding: 10px 12px; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; }
+.steps { display: grid; gap: 14px; counter-reset: step; padding: 0; margin: 0; list-style: none; }
+.steps li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: start; counter-increment: step; }
+.steps li::before { content: counter(step); font-family: var(--display); font-weight: 700; font-size: 15px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--line); }
+.steps li > div { display: grid; gap: 6px; min-width: 0; }
+.steps .who { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.who-you { color: var(--human); }
+.who-tool { color: var(--muted); }
+.who-write { color: var(--write); }
+.who-db { color: var(--db); }
+.note { font-size: 14px; color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 820px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; display: grid; gap: 8px; }
+.card p { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main class="page">
+  <header>
+    <span class="eyebrow">karaoke-dashboard · workflows</span>
+    <h1>Library checks and scripts</h1>
+    <p>The dashboard never changes a song file. Its Duplicates and Integrity pages find what's wrong and export playlists and move lists; the scripts in <code>scripts/</code> and UltraStar Manager fix the files, by hand. Details: <a href="../features.md#duplicates">features.md</a>, <a href="../library-scripts.md">library-scripts.md</a>.</p>
+    <nav class="pages" aria-label="Workflow pages"><a href="index.html">Overview</a> <a href="reports-and-requests.html">Reports and requests</a> <a href="library-scan.html">Library scan and What&#x27;s new</a> <a href="genre-editing.html">Genre editing</a> <a href="library-checks.html" aria-current="page">Library checks and scripts</a></nav>
+  </header>
+  <div class="stats" aria-label="Current numbers"><div class="stat"><b>47</b><span>duplicate groups to review</span></div><div class="stat"><b>10</b><span>folders without a song file</span></div><div class="stat"><b>185</b><span>song files with format issues</span></div><div class="stat"><b>1</b><span>dismissed duplicate group</span></div></div>
+  <figure>
+    <div class="scroll">
+<svg viewBox="0 0 1250 590" style="min-width:1000px" role="img" aria-label="Duplicates (contributors and admins) scans the library monthly or on Rescan for duplicate songs, possible duplicate versions and folders without a song file; a group is reviewed and dismissed into dismissed_duplicates, extra copies are removed by hand. Integrity (admins) checks every view: the song file format, exported as a .upl playlist for UltraStar Manager, and the folder structure and misplaced songs, exported as move lists for scripts/apply_moves.sh. fix_case_mismatches.py and repair_library.py run by hand; repair_library.py writes broken.csv rows for the Reported tab."><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker><marker id="arr-w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="ah-w" d="M0 0 L10 5 L0 10 z"/></marker><marker id="arr-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-o" d="M0 0 L10 5 L0 10 z"/></marker></defs>
+<rect class="lib-w" x="20" y="280" width="170" height="100" rx="5"/>
+<text class="t-write" x="105.0" y="313.0" text-anchor="middle">Song library</text>
+<text class="t-small" x="105.0" y="329.0" text-anchor="middle">read-only for</text>
+<text class="t-small" x="105.0" y="343.0" text-anchor="middle">the dashboard;</text>
+<text class="t-small" x="105.0" y="357.0" text-anchor="middle">these change it</text>
+<rect class="lane" x="220" y="14" width="640" height="222" rx="6"/>
+<text class="t-lane" x="234" y="36">Duplicates</text>
+<text class="t-label" x="234" y="52">contributors and admins</text>
+<rect class="tool" x="236" y="60" width="160" height="66" rx="5"/>
+<text class="t-tool" x="316.0" y="83.0" text-anchor="middle">Duplicates scan</text>
+<text class="t-small" x="316.0" y="99.0" text-anchor="middle">monthly (day 1, 03:00)</text>
+<text class="t-small" x="316.0" y="113.0" text-anchor="middle">or Rescan; kept in memory</text>
+<rect class="tool" x="420" y="50" width="200" height="86" rx="5"/>
+<text class="t-tool" x="520.0" y="76.0" text-anchor="middle">Three lists</text>
+<text class="t-small" x="520.0" y="92.0" text-anchor="middle">duplicates: same artist + title</text>
+<text class="t-small" x="520.0" y="106.0" text-anchor="middle">versions: (Live), [..] aside</text>
+<text class="t-small" x="520.0" y="120.0" text-anchor="middle">folders without a song file</text>
+<rect class="human" x="644" y="60" width="200" height="66" rx="5"/>
+<text class="t-human" x="744.0" y="83.0" text-anchor="middle">Review</text>
+<text class="t-small" x="744.0" y="99.0" text-anchor="middle">field-by-field comparison,</text>
+<text class="t-small" x="744.0" y="113.0" text-anchor="middle">then one of:</text>
+<rect class="db" x="644" y="166" width="200" height="44" rx="5"/>
+<text class="t-db" x="744.0" y="185.0" text-anchor="middle">Dismiss</text>
+<text class="t-small" x="744.0" y="201.0" text-anchor="middle">dismissed_duplicates</text>
+<rect class="human" x="420" y="162" width="200" height="58" rx="5"/>
+<text class="t-human" x="520.0" y="181.0" text-anchor="middle">Remove an extra copy</text>
+<text class="t-small" x="520.0" y="197.0" text-anchor="middle">by hand - the dashboard</text>
+<text class="t-small" x="520.0" y="211.0" text-anchor="middle">deletes nothing</text>
+<path class="flow" d="M396 93 L420 93" marker-end="url(#arr)"/>
+<path class="flow" d="M620 93 L644 93" marker-end="url(#arr)"/>
+<path class="flow" d="M744 126 L744 166" marker-end="url(#arr)"/>
+<path class="flow" d="M664 126 L664 146 L520 146 L520 162" marker-end="url(#arr)"/>
+<path class="flow" d="M190 300 L206 300 L206 93 L236 93" marker-end="url(#arr)"/>
+<rect class="lane" x="220" y="254" width="640" height="262" rx="6"/>
+<text class="t-lane" x="234" y="276">Integrity</text>
+<text class="t-label" x="234" y="292">admins - checked on every view</text>
+<rect class="tool" x="236" y="300" width="190" height="56" rx="5"/>
+<text class="t-tool" x="331.0" y="318.0" text-anchor="middle">Song file format</text>
+<text class="t-small" x="331.0" y="334.0" text-anchor="middle">UltraStar spec: tags, media,</text>
+<text class="t-small" x="331.0" y="348.0" text-anchor="middle">notes, byte order mark</text>
+<rect class="tool" x="236" y="372" width="190" height="56" rx="5"/>
+<text class="t-tool" x="331.0" y="397.0" text-anchor="middle">Library structure</text>
+<text class="t-small" x="331.0" y="413.0" text-anchor="middle">&quot;Artist - Title&quot;, no nesting</text>
+<rect class="tool" x="236" y="444" width="190" height="56" rx="5"/>
+<text class="t-tool" x="331.0" y="469.0" text-anchor="middle">Misplaced songs</text>
+<text class="t-small" x="331.0" y="485.0" text-anchor="middle">song in the wrong folder</text>
+<path class="flow" d="M190 352 L214 352 L214 328 L236 328" marker-end="url(#arr)"/>
+<path class="flow" d="M214 352 L214 400 L236 400" marker-end="url(#arr)"/>
+<path class="flow" d="M214 400 L214 472 L236 472" marker-end="url(#arr)"/>
+<rect class="file" x="456" y="306" width="170" height="44" rx="3"/>
+<text class="t-file" x="541.0" y="325.0" text-anchor="middle">format-issues.upl</text>
+<text class="t-small" x="541.0" y="341.0" text-anchor="middle">UltraStar Manager playlist</text>
+<rect class="file" x="456" y="378" width="170" height="44" rx="3"/>
+<text class="t-file" x="541.0" y="404.0" text-anchor="middle">non-conforming.moves</text>
+<rect class="file" x="456" y="450" width="170" height="44" rx="3"/>
+<text class="t-file" x="541.0" y="476.0" text-anchor="middle">misplaced.moves</text>
+<path class="flow" d="M426 328 L456 328" marker-end="url(#arr)"/>
+<path class="flow" d="M426 400 L456 400" marker-end="url(#arr)"/>
+<path class="flow" d="M426 472 L456 472" marker-end="url(#arr)"/>
+<rect class="online" x="656" y="300" width="190" height="56" rx="5"/>
+<text class="t-online" x="751.0" y="318.0" text-anchor="middle">UltraStar Manager</text>
+<text class="t-small" x="751.0" y="334.0" text-anchor="middle">open the playlist,</text>
+<text class="t-small" x="751.0" y="348.0" text-anchor="middle">fix the songs by hand</text>
+<path class="flow-o" d="M626 328 L656 328" marker-end="url(#arr-o)"/>
+<text class="t-label" x="751" y="392" text-anchor="middle">move lists: NUL-separated path pairs</text>
+<path class="flow-w" d="M751 300 L751 245 L100 245 L100 280" marker-end="url(#arr-w)"/>
+<path class="flow-w" d="M520 220 L520 245" marker-end="url(#arr-w)"/>
+<text class="t-write" x="330" y="240" text-anchor="middle">changes files in the library</text>
+<rect class="lane" x="890" y="14" width="340" height="530" rx="6"/>
+<text class="t-lane" x="904" y="36">Scripts</text>
+<text class="t-label" x="904" y="52">scripts/ - by hand, outside the container</text>
+<rect class="online" x="906" y="60" width="308" height="70" rx="5"/>
+<text class="t-online" x="1060.0" y="85.0" text-anchor="middle">fix_case_mismatches.py</text>
+<text class="t-small" x="1060.0" y="101.0" text-anchor="middle">renames files whose name differs from</text>
+<text class="t-small" x="1060.0" y="115.0" text-anchor="middle">the .txt tag only in letter case</text>
+<rect class="online" x="906" y="152" width="308" height="84" rx="5"/>
+<text class="t-online" x="1060.0" y="177.0" text-anchor="middle">repair_library.py</text>
+<text class="t-small" x="1060.0" y="193.0" text-anchor="middle">links missing audio/video, moves duets</text>
+<text class="t-small" x="1060.0" y="207.0" text-anchor="middle">to their own [DUET] folder; writes what</text>
+<text class="t-small" x="1060.0" y="221.0" text-anchor="middle">it can&#x27;t fix as broken.csv rows</text>
+<rect class="file" x="906" y="258" width="308" height="40" rx="3"/>
+<text class="t-file" x="1060.0" y="275.0" text-anchor="middle">broken.csv</text>
+<text class="t-small" x="1060.0" y="291.0" text-anchor="middle">-&gt; Reported tab, Import CSV</text>
+<path class="flow" d="M1060 236 L1060 258" marker-end="url(#arr)"/>
+<rect class="online" x="906" y="380" width="308" height="70" rx="5"/>
+<text class="t-online" x="1060.0" y="405.0" text-anchor="middle">apply_moves.sh</text>
+<text class="t-small" x="1060.0" y="421.0" text-anchor="middle">moves files as the lists say,</text>
+<text class="t-small" x="1060.0" y="435.0" text-anchor="middle">never overwrites</text>
+<path class="flow" d="M626 400 L870 400 L870 404 L906 404" marker-end="url(#arr)"/>
+<path class="flow" d="M626 472 L870 472 L870 426 L906 426" marker-end="url(#arr)"/>
+<rect class="human" x="906" y="466" width="308" height="60" rx="5"/>
+<text class="t-human" x="1060.0" y="493.0" text-anchor="middle">Run by hand, --dry-run first</text>
+<text class="t-small" x="1060.0" y="509.0" text-anchor="middle">fix_case_mismatches.py before repair_library.py</text>
+<path class="flow-w" d="M1060 544 L1060 566 L60 566 L60 380" marker-end="url(#arr-w)"/>
+<text class="t-write" x="560" y="558" text-anchor="middle">all three scripts change files in the library</text>
+<text class="t-label" x="1060" y="324" text-anchor="middle">continues as reports: see Reports and requests</text>
+</svg>
+    </div>
+    <div class="legend" aria-label="Legend">
+  <span><i class="sw sw-tool"></i>dashboard page or step</span>
+  <span><i class="sw sw-db"></i>database table</span>
+  <span><i class="sw sw-file"></i>file</span>
+  <span><i class="sw sw-human"></i>done by hand</span>
+  <span><i class="sw sw-online"></i>other program</span>
+  <span><i class="sw sw-write"></i>writes into the song library</span>
+</div>
+    <figcaption>Left: the library. Middle: Duplicates and Integrity in the dashboard with their exports. Right: the scripts that act on the library; red lines change files.</figcaption>
+  </figure>
+  <section>
+    <h2>Step by step</h2>
+    <ol class="steps"><li><div><span class="who who-tool">Duplicates</span><p>Scans every song file's artist and title once a month (day 1, 03:00 - <code>DUPLICATES_RESCAN_*</code>) or on <b>Rescan</b>, and keeps the result in memory: duplicates, possible duplicate versions, and folders without a song file (a <code>.txt</code> with <code>#BPM</code>).</p></div></li><li><div><span class="who who-you">Contributor or admin</span><p>Opens a group with <b>Review</b> (a field-by-field comparison) and either removes the extra copy from the library by hand or <b>Dismiss</b>es the group - stored in <code>dismissed_duplicates</code>, it stays dismissed after a rescan.</p></div></li><li><div><span class="who who-tool">Integrity</span><p>Checks on every view: each song file against the UltraStar format, the folders against the "Artist - Title" convention, and songs sitting in the wrong folder.</p></div></li><li><div><span class="who who-you">Admin</span><p>Exports the format issues as a <code>.upl</code> playlist for UltraStar Manager, and the structure and misplaced checks as move lists (<code>non-conforming.moves</code>, <code>misplaced.moves</code>).</p></div></li><li><div><span class="who who-write">You</span><p>Runs the scripts against the real library, outside the container, <code>--dry-run</code> first: <code>fix_case_mismatches.py</code>, then <code>repair_library.py --csv repairs.csv</code>, and <code>apply_moves.sh</code> with the move lists. Fixes the playlist's songs in UltraStar Manager.</p></div></li><li><div><span class="who who-tool">Reported tab</span><p><b>Import CSV</b> takes the rows <code>repair_library.py</code> couldn't fix - they continue as reports (see <a href="reports-and-requests.html">reports and requests</a>).</p></div></li></ol>
+  </section>
+  <section>
+    <h2>Files</h2>
+    <div class="sheets">
+      <div class="sheet"><div class="sheet-head"><h3>format-issues.upl</h3><span class="pill pill-read">export</span></div><dl><dt>What</dt><dd>an UltraStar Deluxe playlist of the songs with format issues</dd><dt>Use</dt><dd>open it in UltraStar Manager to jump to just those songs</dd><dt>Lines</dt><dd><code>#Artist : Title</code> - a song without both tags is left out</dd></dl></div>
+      <div class="sheet"><div class="sheet-head"><h3>*.moves</h3><span class="pill pill-read">export</span></div><dl><dt>What</dt><dd><code>non-conforming.moves</code> and <code>misplaced.moves</code></dd><dt>Format</dt><dd>NUL-terminated paths relative to the library root: current path, then correct path</dd><dt>Use</dt><dd><code>scripts/apply_moves.sh [--dry-run] [--root DIR] FILE...</code>; never overwrites</dd></dl></div>
+      <div class="sheet"><div class="sheet-head"><h3>broken.csv from repair_library.py</h3><span class="pill pill-write">import</span></div><dl><dt>What</dt><dd>one report row per song it can't fix (category audio, video or other)</dd><dt>Use</dt><dd>Reported tab -> Import CSV; rows land in Needs review</dd><dt>Also</dt><dd><code>.txt.bak</code> copies next to every song file it edits</dd></dl></div>
+      <div class="sheet"><div class="sheet-head"><h3>dismissed_duplicates</h3><span class="pill pill-db">database</span></div><dl><dt>Row</dt><dd>the group's normalised artist, title and duet key - who and when</dd><dt>Effect</dt><dd>the group stays hidden until the tags themselves change</dd></dl></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

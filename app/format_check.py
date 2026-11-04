@@ -8,7 +8,8 @@ malformed numeric fields, body lines that don't parse as
 notes/phrase-breaks/voice changes, and a UTF-8 byte order mark (the spec
 wants UTF-8 without one). A .txt with no "#KEY:VALUE" header lines at all
 is assumed not to be a song file (e.g. a stray readme) and is silently
-skipped, not flagged.
+skipped, not flagged; the USDX Song Factory's helper files (language.txt,
+lyrics.txt, ... - app/ultrastar.py: is_helper_file) are never checked.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .config import settings
-from .ultrastar import UTF8_BOM, parse_header_tags, read_song_text
+from .ultrastar import UTF8_BOM, is_helper_file, parse_header_tags, read_song_text
 
 _MANDATORY_TAGS = ("TITLE", "ARTIST", "BPM")
 _FILE_REF_TAGS = ("MP3", "AUDIO", "COVER", "BACKGROUND", "VIDEO")
@@ -179,7 +180,7 @@ def check_library(root: str | Path | None = None) -> list[FileReport]:
     for folder in entries:
         if not folder.is_dir() or folder.name.startswith(".") or folder.name in ignore:
             continue
-        for txt_file in sorted(folder.rglob("*.txt")):
+        for txt_file in sorted(p for p in folder.rglob("*.txt") if not is_helper_file(p.name)):
             report = check_file(txt_file)
             if report.issues and not _only_missing_version_warning(report.issues):
                 # Use the path relative to the top-level song folder (not just

@@ -211,3 +211,9 @@ def test_a_file_with_a_byte_order_mark_is_read_normally(tmp_path):
     assert ultrastar.read_song_text(path).startswith("#ARTIST:Ärzte")
     meta = ultrastar.parse_song_file(path)
     assert meta is not None and (meta.artist, meta.genre) == ("Ärzte", "Punk")
+
+
+def test_the_factory_helper_files_are_never_song_files():
+    assert [name for name in ("language.txt", "Lyrics.TXT", "song_end.txt", "anchors.txt", "song.txt",
+                              "Band - Song.txt") if ultrastar.is_helper_file(name)] == \
+        ["language.txt", "Lyrics.TXT", "song_end.txt", "anchors.txt"]

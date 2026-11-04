@@ -8,7 +8,10 @@ settings.scan_cache_seconds, mirroring the folder-index cache in songs.py.
 
 A .txt is a song file when it has the one header tag the format spec
 (https://usdx.eu/format/) makes mandatory and a song can't play without:
-#BPM. A UTF-8 byte order mark at the start - against the spec, but common -
+#BPM. The USDX Song Factory's helper files beside it (FACTORY_HELPER_FILES:
+language.txt, lyrics.txt, song_end.txt, anchors.txt, any case) never are -
+is_helper_file() lets every walk over a folder's .txt files skip them by
+name, unread. A UTF-8 byte order mark at the start - against the spec, but common -
 is skipped when reading (read_song_text).
 
 A song's length is read from the audio/video file it actually plays back
@@ -32,6 +35,9 @@ from .config import settings
 # spec). Its absence means the .txt is not a song file (e.g. a stray readme
 # dropped into the folder).
 _MANDATORY_TAGS = ("BPM",)
+# The .txt files the USDX Song Factory reads or writes next to a song file,
+# lowercase. "song.txt" is not one - some Factory songs are named that.
+FACTORY_HELPER_FILES = frozenset({"language.txt", "lyrics.txt", "song_end.txt", "anchors.txt"})
 UTF8_BOM = b"\xef\xbb\xbf"
 
 # Tags that can reference the song's playback media, checked in this order:
@@ -126,10 +132,20 @@ def _cover_file(tags: dict[str, str], folder: Path) -> str | None:
     return candidate.name if candidate.is_file() else None
 
 
+def is_helper_file(name: str) -> bool:
+    """Whether a file name is one of the Factory's helper files (FACTORY_HELPER_FILES), in any case."""
+    return name.lower() in FACTORY_HELPER_FILES
+
+
+def is_song_tags(tags: dict[str, str]) -> bool:
+    """Whether a .txt's header tags make it a song file (_MANDATORY_TAGS)."""
+    return all(tag in tags for tag in _MANDATORY_TAGS)
+
+
 def parse_song_file(path: Path) -> SongMeta | None:
     """Parse one UltraStar .txt file, or return None if it isn't one."""
     tags = parse_header_tags(read_song_text(path))
-    if not all(tag in tags for tag in _MANDATORY_TAGS):
+    if not is_song_tags(tags):
         return None
 
     # #P1/#P2 is the modern, short tag name for the duet singers; #DUETSINGERP1/
@@ -173,7 +189,7 @@ class _MetaCache:
     def _scan(folder_name: str) -> list[SongMeta]:
         folder = Path(settings.songs_dir) / folder_name
         try:
-            txt_files = sorted(p for p in folder.iterdir() if p.suffix.lower() == ".txt")
+            txt_files = sorted(p for p in folder.iterdir() if p.suffix.lower() == ".txt" and not is_helper_file(p.name))
         except OSError:
             return []
         metas = [parse_song_file(p) for p in txt_files]

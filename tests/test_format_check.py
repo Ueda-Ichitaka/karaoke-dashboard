@@ -212,3 +212,11 @@ def test_a_byte_order_mark_is_a_warning_and_the_file_is_still_checked(tmp_path):
     issues = format_check.check_file(path).issues
     assert [(i.severity, i.kind) for i in issues] == [("error", "Missing #BPM"), ("warning", "Byte order mark")]
     assert issues[1].message == "Starts with a UTF-8 byte order mark - the format wants UTF-8 without one."
+
+
+def test_check_library_never_checks_the_factory_helper_files(tmp_path):
+    folder = tmp_path / "Band - Song"
+    folder.mkdir()
+    for name in ("lyrics.txt", "language.txt", "song_end.txt", "ANCHORS.txt"):
+        (folder / name).write_text("#note: not a song\nsome text\n", encoding="utf-8")
+    assert format_check.check_library(root=tmp_path) == []

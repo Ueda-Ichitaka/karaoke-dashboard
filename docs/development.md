@@ -91,11 +91,11 @@ app/
   database.py           engine, session, wait-for-db, schema creation and sync
   models.py             database tables
   security.py           password hashing, admin seed
-  deps.py               current user, auth guards, template rendering
+  deps.py               current user, auth guards (user, contributor, admin), template rendering
   csrf.py               CSRF tokens
   rate_limit.py         login lockout
   scheduler.py          background jobs: duplicates rescan, library scan
-  app_settings.py       the admin settings row (profiles, mode, logging)
+  app_settings.py       the admin settings row (profiles, mode, logging, badge, scan, period, map)
   app_mode.py           production/debug mode choices
   app_logging.py        log level, tied to the app mode
   profiles.py           karaoke-night/strict required fields for both forms and the admit check
@@ -104,12 +104,17 @@ app/
   ultrastar.py          UltraStar .txt metadata parsing (cover, length, duet, ...)
   known_broken.py       songs with a pending or open report, for the badge
   library_history.py    library scan for the "Recently added"/"Recently updated" panels
+  recent_period.py      the What's new period (amount and unit)
+  broken_badge.py       how long the "Reported broken" badge stays
+  static_files.py       /static with Cache-Control: no-cache
+  song_genres.py        genres read from the song files, genre edits and their export
+  genre_layout.py       the Genres Map and Connections drawings as SVG coordinates
 
   validation.py         shared form field validation
   languages.py          language choices (ISO 639-1 + "Mixed")
   broken_categories.py  report categories
-  genres.py             admin-only genre choices and storage
-  traits.py             admin-only vocal/instrument trait choices
+  genres.py             review-only genre choices for requests and reports
+  traits.py             review-only vocal/instrument trait choices
   duet.py               yes/no duet choice
   musicbrainz.py        bare MBID from a pasted musicbrainz.org URL
   request_matching.py   does a request already exist (library, pending, admitted)?
@@ -130,6 +135,6 @@ app/
   static/               style.css, app.js, checkbox-groups.js
 scripts/                standalone library tools, not in the image (see library-scripts.md)
 tests/                  pytest tests
-docs/                   this documentation; screenshots in docs/screenshots/
+docs/                   this documentation; screenshots in docs/screenshots/, workflow diagrams in docs/workflows/
 third_party/            UltraStar Manager as a read-only reference (git submodule)
 ```

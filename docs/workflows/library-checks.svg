@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1250 590" width="1250" height="590" role="img" aria-label="Duplicates (contributors and admins) scans the library monthly or on Rescan for duplicate songs, possible duplicate versions and folders without a song file; a group is reviewed and dismissed into dismissed_duplicates, extra copies are removed by hand. Integrity (admins) checks every view: the song file format, exported as a .upl playlist for UltraStar Manager, and the folder structure and misplaced songs, exported as move lists for scripts/apply_moves.sh. fix_case_mismatches.py and repair_library.py run by hand; repair_library.py writes broken.csv rows for the Reported tab.">
+<title>Library checks and scripts</title>
+<style>svg { --bg: #f3f4f1; --surface: #ffffff; --fg: #1d2421; --muted: #5c6862; --line: #36403b; --rule: #d5dad5; --lane: #e8ebe6; --file: #f7f8f5; --online: #2f62a8; --human: #a86412; --write: #b3361f; --db: #2c7a57; --tint-online: #e6eef9; --tint-human: #fbefdf; --tint-write: #fbe7e2; --tint-db: #e2f1e9; --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif; --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+text { font-family: var(--body); font-size: 12px; fill: var(--fg); }
+.t-tool { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+.t-file { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+.t-small { font-size: 11px; fill: var(--muted); }
+.t-lane { font-family: var(--display); font-size: 15px; font-weight: 700; }
+.t-label { font-size: 11px; fill: var(--muted); }
+.t-write { font-size: 11.5px; fill: var(--write); font-weight: 600; }
+.t-online { fill: var(--online); font-weight: 600; }
+.t-human { fill: var(--human); font-weight: 600; }
+.t-db { font-family: var(--mono); font-size: 12px; font-weight: 600; fill: var(--db); }
+.lane { fill: var(--lane); }
+.tool { fill: var(--surface); stroke: var(--line); stroke-width: 1.6; }
+.file { fill: var(--file); stroke: var(--line); stroke-width: 1; }
+.db { fill: var(--tint-db); stroke: var(--db); stroke-width: 1.4; }
+.online { fill: var(--tint-online); stroke: var(--online); stroke-width: 1.3; stroke-dasharray: 5 4; }
+.human { fill: var(--tint-human); stroke: var(--human); stroke-width: 1.3; stroke-dasharray: 5 4; }
+.lib { fill: var(--surface); stroke: var(--line); stroke-width: 1.6; }
+.lib-w { fill: var(--tint-write); stroke: var(--write); stroke-width: 1.6; }
+.flow { fill: none; stroke: var(--line); stroke-width: 1.4; }
+.flow-w { fill: none; stroke: var(--write); stroke-width: 2.2; }
+.flow-o { fill: none; stroke: var(--online); stroke-width: 1.4; }
+.flow-d { fill: none; stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 4 4; }
+.ah { fill: var(--line); }
+.ah-w { fill: var(--write); }
+.ah-o { fill: var(--online); }
+</style>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker><marker id="arr-w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="ah-w" d="M0 0 L10 5 L0 10 z"/></marker><marker id="arr-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-o" d="M0 0 L10 5 L0 10 z"/></marker></defs>
+<rect x="0" y="0" width="1250" height="590" fill="#ffffff"/>
+<rect class="lib-w" x="20" y="280" width="170" height="100" rx="5"/>
+<text class="t-write" x="105.0" y="313.0" text-anchor="middle">Song library</text>
+<text class="t-small" x="105.0" y="329.0" text-anchor="middle">read-only for</text>
+<text class="t-small" x="105.0" y="343.0" text-anchor="middle">the dashboard;</text>
+<text class="t-small" x="105.0" y="357.0" text-anchor="middle">these change it</text>
+<rect class="lane" x="220" y="14" width="640" height="222" rx="6"/>
+<text class="t-lane" x="234" y="36">Duplicates</text>
+<text class="t-label" x="234" y="52">contributors and admins</text>
+<rect class="tool" x="236" y="60" width="160" height="66" rx="5"/>
+<text class="t-tool" x="316.0" y="83.0" text-anchor="middle">Duplicates scan</text>
+<text class="t-small" x="316.0" y="99.0" text-anchor="middle">monthly (day 1, 03:00)</text>
+<text class="t-small" x="316.0" y="113.0" text-anchor="middle">or Rescan; kept in memory</text>
+<rect class="tool" x="420" y="50" width="200" height="86" rx="5"/>
+<text class="t-tool" x="520.0" y="76.0" text-anchor="middle">Three lists</text>
+<text class="t-small" x="520.0" y="92.0" text-anchor="middle">duplicates: same artist + title</text>
+<text class="t-small" x="520.0" y="106.0" text-anchor="middle">versions: (Live), [..] aside</text>
+<text class="t-small" x="520.0" y="120.0" text-anchor="middle">folders without a song file</text>
+<rect class="human" x="644" y="60" width="200" height="66" rx="5"/>
+<text class="t-human" x="744.0" y="83.0" text-anchor="middle">Review</text>
+<text class="t-small" x="744.0" y="99.0" text-anchor="middle">field-by-field comparison,</text>
+<text class="t-small" x="744.0" y="113.0" text-anchor="middle">then one of:</text>
+<rect class="db" x="644" y="166" width="200" height="44" rx="5"/>
+<text class="t-db" x="744.0" y="185.0" text-anchor="middle">Dismiss</text>
+<text class="t-small" x="744.0" y="201.0" text-anchor="middle">dismissed_duplicates</text>
+<rect class="human" x="420" y="162" width="200" height="58" rx="5"/>
+<text class="t-human" x="520.0" y="181.0" text-anchor="middle">Remove an extra copy</text>
+<text class="t-small" x="520.0" y="197.0" text-anchor="middle">by hand - the dashboard</text>
+<text class="t-small" x="520.0" y="211.0" text-anchor="middle">deletes nothing</text>
+<path class="flow" d="M396 93 L420 93" marker-end="url(#arr)"/>
+<path class="flow" d="M620 93 L644 93" marker-end="url(#arr)"/>
+<path class="flow" d="M744 126 L744 166" marker-end="url(#arr)"/>
+<path class="flow" d="M664 126 L664 146 L520 146 L520 162" marker-end="url(#arr)"/>
+<path class="flow" d="M190 300 L206 300 L206 93 L236 93" marker-end="url(#arr)"/>
+<rect class="lane" x="220" y="254" width="640" height="262" rx="6"/>
+<text class="t-lane" x="234" y="276">Integrity</text>
+<text class="t-label" x="234" y="292">admins - checked on every view</text>
+<rect class="tool" x="236" y="300" width="190" height="56" rx="5"/>
+<text class="t-tool" x="331.0" y="318.0" text-anchor="middle">Song file format</text>
+<text class="t-small" x="331.0" y="334.0" text-anchor="middle">UltraStar spec: tags, media,</text>
+<text class="t-small" x="331.0" y="348.0" text-anchor="middle">notes, byte order mark</text>
+<rect class="tool" x="236" y="372" width="190" height="56" rx="5"/>
+<text class="t-tool" x="331.0" y="397.0" text-anchor="middle">Library structure</text>
+<text class="t-small" x="331.0" y="413.0" text-anchor="middle">&quot;Artist - Title&quot;, no nesting</text>
+<rect class="tool" x="236" y="444" width="190" height="56" rx="5"/>
+<text class="t-tool" x="331.0" y="469.0" text-anchor="middle">Misplaced songs</text>
+<text class="t-small" x="331.0" y="485.0" text-anchor="middle">song in the wrong folder</text>
+<path class="flow" d="M190 352 L214 352 L214 328 L236 328" marker-end="url(#arr)"/>
+<path class="flow" d="M214 352 L214 400 L236 400" marker-end="url(#arr)"/>
+<path class="flow" d="M214 400 L214 472 L236 472" marker-end="url(#arr)"/>
+<rect class="file" x="456" y="306" width="170" height="44" rx="3"/>
+<text class="t-file" x="541.0" y="325.0" text-anchor="middle">format-issues.upl</text>
+<text class="t-small" x="541.0" y="341.0" text-anchor="middle">UltraStar Manager playlist</text>
+<rect class="file" x="456" y="378" width="170" height="44" rx="3"/>
+<text class="t-file" x="541.0" y="404.0" text-anchor="middle">non-conforming.moves</text>
+<rect class="file" x="456" y="450" width="170" height="44" rx="3"/>
+<text class="t-file" x="541.0" y="476.0" text-anchor="middle">misplaced.moves</text>
+<path class="flow" d="M426 328 L456 328" marker-end="url(#arr)"/>
+<path class="flow" d="M426 400 L456 400" marker-end="url(#arr)"/>
+<path class="flow" d="M426 472 L456 472" marker-end="url(#arr)"/>
+<rect class="online" x="656" y="300" width="190" height="56" rx="5"/>
+<text class="t-online" x="751.0" y="318.0" text-anchor="middle">UltraStar Manager</text>
+<text class="t-small" x="751.0" y="334.0" text-anchor="middle">open the playlist,</text>
+<text class="t-small" x="751.0" y="348.0" text-anchor="middle">fix the songs by hand</text>
+<path class="flow-o" d="M626 328 L656 328" marker-end="url(#arr-o)"/>
+<text class="t-label" x="751" y="392" text-anchor="middle">move lists: NUL-separated path pairs</text>
+<path class="flow-w" d="M751 300 L751 245 L100 245 L100 280" marker-end="url(#arr-w)"/>
+<path class="flow-w" d="M520 220 L520 245" marker-end="url(#arr-w)"/>
+<text class="t-write" x="330" y="240" text-anchor="middle">changes files in the library</text>
+<rect class="lane" x="890" y="14" width="340" height="530" rx="6"/>
+<text class="t-lane" x="904" y="36">Scripts</text>
+<text class="t-label" x="904" y="52">scripts/ - by hand, outside the container</text>
+<rect class="online" x="906" y="60" width="308" height="70" rx="5"/>
+<text class="t-online" x="1060.0" y="85.0" text-anchor="middle">fix_case_mismatches.py</text>
+<text class="t-small" x="1060.0" y="101.0" text-anchor="middle">renames files whose name differs from</text>
+<text class="t-small" x="1060.0" y="115.0" text-anchor="middle">the .txt tag only in letter case</text>
+<rect class="online" x="906" y="152" width="308" height="84" rx="5"/>
+<text class="t-online" x="1060.0" y="177.0" text-anchor="middle">repair_library.py</text>
+<text class="t-small" x="1060.0" y="193.0" text-anchor="middle">links missing audio/video, moves duets</text>
+<text class="t-small" x="1060.0" y="207.0" text-anchor="middle">to their own [DUET] folder; writes what</text>
+<text class="t-small" x="1060.0" y="221.0" text-anchor="middle">it can&#x27;t fix as broken.csv rows</text>
+<rect class="file" x="906" y="258" width="308" height="40" rx="3"/>
+<text class="t-file" x="1060.0" y="275.0" text-anchor="middle">broken.csv</text>
+<text class="t-small" x="1060.0" y="291.0" text-anchor="middle">-&gt; Reported tab, Import CSV</text>
+<path class="flow" d="M1060 236 L1060 258" marker-end="url(#arr)"/>
+<rect class="online" x="906" y="380" width="308" height="70" rx="5"/>
+<text class="t-online" x="1060.0" y="405.0" text-anchor="middle">apply_moves.sh</text>
+<text class="t-small" x="1060.0" y="421.0" text-anchor="middle">moves files as the lists say,</text>
+<text class="t-small" x="1060.0" y="435.0" text-anchor="middle">never overwrites</text>
+<path class="flow" d="M626 400 L870 400 L870 404 L906 404" marker-end="url(#arr)"/>
+<path class="flow" d="M626 472 L870 472 L870 426 L906 426" marker-end="url(#arr)"/>
+<rect class="human" x="906" y="466" width="308" height="60" rx="5"/>
+<text class="t-human" x="1060.0" y="493.0" text-anchor="middle">Run by hand, --dry-run first</text>
+<text class="t-small" x="1060.0" y="509.0" text-anchor="middle">fix_case_mismatches.py before repair_library.py</text>
+<path class="flow-w" d="M1060 544 L1060 566 L60 566 L60 380" marker-end="url(#arr-w)"/>
+<text class="t-write" x="560" y="558" text-anchor="middle">all three scripts change files in the library</text>
+<text class="t-label" x="1060" y="324" text-anchor="middle">continues as reports: see Reports and requests</text>
+</svg>

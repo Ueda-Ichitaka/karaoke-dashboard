@@ -12,7 +12,8 @@ that.
   name has the separator and there's no nested subfolder, the same rule as
   app/structure_check.py).
 - A write to a .txt, .mp3 or .opus file directly in a folder - a changed
-  write time or size, or a new file - is an update, dated by that file's
+  write time or size, or a new file - is an update (not to the USDX Song
+  Factory's helper files, app/ultrastar.py: is_helper_file), dated by that file's
   write time. Writes within ADD_GRACE after a new folder was first seen are
   part of adding it (files still being copied in). Deleting a file is not
   an update.
@@ -51,6 +52,7 @@ from .database import SessionLocal
 from .models import BrokenReport, LibraryFolder, PendingBrokenReport
 from .song_genres import record_genres
 from .songs import Song, parse_folder
+from .ultrastar import is_helper_file
 
 SONG_FILE_EXTENSIONS = (".txt", ".mp3", ".opus")
 DEFAULT_LIBRARY_SCAN_CRON = "0 11 * * *"  # daily at 11:00
@@ -87,7 +89,8 @@ def _read_folder(path: Path) -> tuple[bool, dict[str, list[float]]]:
                 try:
                     if entry.is_dir():
                         nested = nested or entry.name not in ignore
-                    elif entry.is_file() and os.path.splitext(entry.name)[1].lower() in SONG_FILE_EXTENSIONS:
+                    elif (entry.is_file() and os.path.splitext(entry.name)[1].lower() in SONG_FILE_EXTENSIONS
+                          and not is_helper_file(entry.name)):
                         stat = entry.stat()
                         files[entry.name] = [stat.st_mtime, stat.st_size]
                 except OSError:

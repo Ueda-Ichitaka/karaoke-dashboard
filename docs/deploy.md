@@ -158,6 +158,7 @@ All settings are environment variables (see `.env.example` and
 | `SESSION_COOKIE_SECURE` | `true` | Send the session cookie over HTTPS only. |
 | `SONGS_DIR` | `/songs` | Directory scanned for song folders. Mount it read-only. |
 | `SONG_SEPARATOR` | `" - "` | Splits `Artist - Title` folder names. |
+| `SONG_IGNORE_NAMES` | `["@eaDir", "#recycle", "#snapshot", "lost+found"]` | Folder names in the library that are never songs (Synology system folders). A JSON list; setting it replaces the whole list. |
 | `SCAN_CACHE_SECONDS` | `30` | How long the folder listing is cached before rescanning. |
 | `PAGE_SIZE` | `60` | Songs per page. |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / *(empty)* | First-run admin account. No admin is created while the password is empty. |

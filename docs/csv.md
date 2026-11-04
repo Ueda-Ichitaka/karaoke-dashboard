@@ -1,7 +1,9 @@
 # CSV export and import
 
 The **Reported** and **Requested** tabs export their lists as CSV for the
-song pipeline, and import CSV files in the same formats.
+song pipeline, and import CSV files in the same formats. The Genres page's
+**Edit** tab exports genre edits as a tab-separated file
+([genre-edits.tsv](#genre-editstsv), export only).
 
 All files are comma-separated, UTF-8, with `\n` row endings and a header row
 (unless `CSV_INCLUDE_HEADER=false`). Each tab offers **Export open CSV** and
@@ -24,8 +26,8 @@ band name, song name, youtube link, language, musicbrainz_id, lyrics_url, cover_
 | `lyrics_url` | Optional. Tried before an online lyrics search. A genius.com song page (`genius.com/...-lyrics`), an lrclib.net track page (`lrclib.net/tracks/<id>`) or - set by a contributor or admin - a filesystem path to a `.txt` file; nothing else is accepted. |
 | `cover_url` | Optional, an http(s) link. |
 | `duet` | `yes`, `no`, or blank. Blank appears on older requests and is treated as `no`, here and downstream. |
-| `genre` | Admin-only, comma-joined codes from `app/genres.py`, e.g. `metal,gothic`. Never blank: `default` when none is set. |
-| `trait` | Admin-only, comma-joined codes from `app/traits.py`, e.g. `harsh_vocals,choir`. Never blank: `none` when none is set. |
+| `genre` | Set when reviewing (contributors and admins), comma-joined codes from `app/genres.py`, e.g. `metal,gothic`. Never blank: `default` when none is set. |
+| `trait` | Set when reviewing (contributors and admins), comma-joined codes from `app/traits.py`, e.g. `harsh_vocals,choir`. Never blank: `none` when none is set. |
 
 The optional columns are consumed by the UltraSinger batch pipeline (see
 [UPSTREAM_REQUESTS.md](../UPSTREAM_REQUESTS.md)). The genre and trait lists
@@ -108,3 +110,25 @@ import.
 - A row is skipped if the song is already in the library (exact
   `band - song` folder), if the same request is already done, or if a value
   fails the request form's own checks.
+
+## genre-edits.tsv
+
+**Export N edits** on the Genres page's Edit tab (contributors and admins,
+`/genres/edit/export.tsv`) downloads every open genre edit for the USDX Song
+Factory, which writes the genres into the song files (`factory.sh
+pull-genres`, then `factory.sh genres`). There is no import.
+
+- UTF-8, `\n` line endings, no header, one line per song file:
+  the file's path relative to the library root, a tab, the genres.
+- Only song files count - a `.txt` with `#BPM` directly in the song folder.
+  The Factory's helper files (`language.txt`, `lyrics.txt`, `song_end.txt`,
+  `anchors.txt`) never appear. A folder with two song files gets two lines.
+- The genres are comma-separated as the Edit tab saved them, e.g.
+  `Symphonic, Metal`.
+- An edit stays in the export until a library scan reads the same genres
+  from the song files; exporting twice gives the same file.
+
+```
+Nightwish - Nemo/Nightwish - Nemo.txt	Symphonic, Metal
+AC-DC - Hells Bells/HellsBells-638.txt	Rock, Hard
+```

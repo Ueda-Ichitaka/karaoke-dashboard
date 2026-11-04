@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1250 470" width="1250" height="470" role="img" aria-label="The library scan runs on its schedule, at app start, or by Scan now; Reset forgets all dates first. It reads the song library&#x27;s folders, the write times of the song files and their #GENRE tags, and writes library_folders, song_genres and ends matching genre_edits. What&#x27;s new, the Reported page, the Reported broken badge and the Genres page read those tables.">
+<title>Library scan and What&#x27;s new</title>
+<style>svg { --bg: #f3f4f1; --surface: #ffffff; --fg: #1d2421; --muted: #5c6862; --line: #36403b; --rule: #d5dad5; --lane: #e8ebe6; --file: #f7f8f5; --online: #2f62a8; --human: #a86412; --write: #b3361f; --db: #2c7a57; --tint-online: #e6eef9; --tint-human: #fbefdf; --tint-write: #fbe7e2; --tint-db: #e2f1e9; --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif; --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+text { font-family: var(--body); font-size: 12px; fill: var(--fg); }
+.t-tool { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+.t-file { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+.t-small { font-size: 11px; fill: var(--muted); }
+.t-lane { font-family: var(--display); font-size: 15px; font-weight: 700; }
+.t-label { font-size: 11px; fill: var(--muted); }
+.t-write { font-size: 11.5px; fill: var(--write); font-weight: 600; }
+.t-online { fill: var(--online); font-weight: 600; }
+.t-human { fill: var(--human); font-weight: 600; }
+.t-db { font-family: var(--mono); font-size: 12px; font-weight: 600; fill: var(--db); }
+.lane { fill: var(--lane); }
+.tool { fill: var(--surface); stroke: var(--line); stroke-width: 1.6; }
+.file { fill: var(--file); stroke: var(--line); stroke-width: 1; }
+.db { fill: var(--tint-db); stroke: var(--db); stroke-width: 1.4; }
+.online { fill: var(--tint-online); stroke: var(--online); stroke-width: 1.3; stroke-dasharray: 5 4; }
+.human { fill: var(--tint-human); stroke: var(--human); stroke-width: 1.3; stroke-dasharray: 5 4; }
+.lib { fill: var(--surface); stroke: var(--line); stroke-width: 1.6; }
+.lib-w { fill: var(--tint-write); stroke: var(--write); stroke-width: 1.6; }
+.flow { fill: none; stroke: var(--line); stroke-width: 1.4; }
+.flow-w { fill: none; stroke: var(--write); stroke-width: 2.2; }
+.flow-o { fill: none; stroke: var(--online); stroke-width: 1.4; }
+.flow-d { fill: none; stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 4 4; }
+.ah { fill: var(--line); }
+.ah-w { fill: var(--write); }
+.ah-o { fill: var(--online); }
+</style>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker><marker id="arr-w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="ah-w" d="M0 0 L10 5 L0 10 z"/></marker><marker id="arr-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-o" d="M0 0 L10 5 L0 10 z"/></marker></defs>
+<rect x="0" y="0" width="1250" height="470" fill="#ffffff"/>
+<rect class="tool" x="20" y="50" width="186" height="52" rx="5"/>
+<text class="t-tool" x="113.0" y="66.0" text-anchor="middle">Schedule</text>
+<text class="t-small" x="113.0" y="82.0" text-anchor="middle">cron on Settings,</text>
+<text class="t-small" x="113.0" y="96.0" text-anchor="middle">default 0 11 * * * (11:00)</text>
+<rect class="tool" x="20" y="116" width="186" height="44" rx="5"/>
+<text class="t-tool" x="113.0" y="135.0" text-anchor="middle">App start</text>
+<text class="t-small" x="113.0" y="151.0" text-anchor="middle">LIBRARY_SCAN_ON_START</text>
+<rect class="human" x="20" y="174" width="186" height="44" rx="5"/>
+<text class="t-human" x="113.0" y="193.0" text-anchor="middle">Scan now</text>
+<text class="t-small" x="113.0" y="209.0" text-anchor="middle">button on Settings</text>
+<rect class="human" x="20" y="232" width="186" height="56" rx="5"/>
+<text class="t-human" x="113.0" y="250.0" text-anchor="middle">Reset</text>
+<text class="t-small" x="113.0" y="266.0" text-anchor="middle">Settings: forget all dates,</text>
+<text class="t-small" x="113.0" y="280.0" text-anchor="middle">then scan as a first scan</text>
+<path class="flow" d="M206 76 L236 76" marker-end="url(#arr)"/>
+<path class="flow" d="M206 138 L236 138" marker-end="url(#arr)"/>
+<path class="flow" d="M206 196 L236 196" marker-end="url(#arr)"/>
+<path class="flow" d="M206 260 L236 260" marker-end="url(#arr)"/>
+<rect class="lane" x="236" y="14" width="400" height="300" rx="6"/>
+<text class="t-lane" x="250" y="36">Library scan</text>
+<text class="t-label" x="250" y="52">one at a time - never two at once</text>
+<rect class="tool" x="252" y="62" width="368" height="66" rx="5"/>
+<text class="t-tool" x="436.0" y="85.0" text-anchor="middle">Folders</text>
+<text class="t-small" x="436.0" y="101.0" text-anchor="middle">every top-level folder of the library;</text>
+<text class="t-small" x="436.0" y="115.0" text-anchor="middle">follows &quot;Artist - Title&quot;, no nested subfolder?</text>
+<rect class="tool" x="252" y="142" width="368" height="66" rx="5"/>
+<text class="t-tool" x="436.0" y="165.0" text-anchor="middle">Song file writes</text>
+<text class="t-small" x="436.0" y="181.0" text-anchor="middle">.txt, .mp3, .opus directly in the folder: write time + size;</text>
+<text class="t-small" x="436.0" y="195.0" text-anchor="middle">not the Factory&#x27;s language.txt, lyrics.txt, song_end.txt, anchors.txt</text>
+<rect class="tool" x="252" y="222" width="368" height="76" rx="5"/>
+<text class="t-tool" x="436.0" y="243.0" text-anchor="middle">Genres</text>
+<text class="t-small" x="436.0" y="259.0" text-anchor="middle">#GENRE of every song file (a .txt with #BPM),</text>
+<text class="t-small" x="436.0" y="273.0" text-anchor="middle">split at commas, placeholders (Unknown, Other, ...) dropped;</text>
+<text class="t-small" x="436.0" y="287.0" text-anchor="middle">an open edit whose genres the files now name ends</text>
+<rect class="lib" x="252" y="366" width="368" height="56" rx="5"/>
+<text class="t-tool" x="436.0" y="391.0" text-anchor="middle">Song library</text>
+<text class="t-small" x="436.0" y="407.0" text-anchor="middle">read-only mount /songs (SONGS_DIR)</text>
+<path class="flow" d="M436 366 L436 314" marker-end="url(#arr)"/>
+<text class="t-label" x="446" y="344" text-anchor="start">reads</text>
+<rect class="db" x="676" y="40" width="210" height="108" rx="5"/>
+<text class="t-db" x="781.0" y="70.0" text-anchor="middle">library_folders</text>
+<text class="t-small" x="781.0" y="86.0" text-anchor="middle">first_seen_at: added</text>
+<text class="t-small" x="781.0" y="100.0" text-anchor="middle">updated_at: last update</text>
+<text class="t-small" x="781.0" y="114.0" text-anchor="middle">last_write_at: newest write</text>
+<text class="t-small" x="781.0" y="128.0" text-anchor="middle">files, follows_convention</text>
+<rect class="db" x="676" y="184" width="210" height="50" rx="5"/>
+<text class="t-db" x="781.0" y="206.0" text-anchor="middle">song_genres</text>
+<text class="t-small" x="781.0" y="222.0" text-anchor="middle">folder, genre, position</text>
+<rect class="db" x="676" y="250" width="210" height="50" rx="5"/>
+<text class="t-db" x="781.0" y="272.0" text-anchor="middle">genre_edits</text>
+<text class="t-small" x="781.0" y="288.0" text-anchor="middle">a matching edit is deleted</text>
+<path class="flow" d="M620 95 L676 95" marker-end="url(#arr)"/>
+<path class="flow" d="M620 175 L650 175 L650 120 L676 120" marker-end="url(#arr)"/>
+<path class="flow" d="M620 250 L650 250 L650 209 L676 209" marker-end="url(#arr)"/>
+<path class="flow" d="M620 284 L676 284" marker-end="url(#arr)"/>
+<rect class="file" x="676" y="352" width="210" height="70" rx="3"/>
+<text class="t-file" x="781.0" y="370.0" text-anchor="middle">Rules</text>
+<text class="t-small" x="781.0" y="386.0" text-anchor="middle">first scan: every folder is old</text>
+<text class="t-small" x="781.0" y="400.0" text-anchor="middle">new folder: added (renames too)</text>
+<text class="t-small" x="781.0" y="414.0" text-anchor="middle">a write 1 h after adding: still adding</text>
+<rect class="tool" x="930" y="40" width="300" height="62" rx="5"/>
+<text class="t-tool" x="1080.0" y="61.0" text-anchor="middle">What&#x27;s new</text>
+<text class="t-small" x="1080.0" y="77.0" text-anchor="middle">Recently added: first_seen_at, convention ok</text>
+<text class="t-small" x="1080.0" y="91.0" text-anchor="middle">Recently updated: updated_at - within the period</text>
+<rect class="tool" x="930" y="116" width="300" height="50" rx="5"/>
+<text class="t-tool" x="1080.0" y="138.0" text-anchor="middle">Reported page</text>
+<text class="t-small" x="1080.0" y="154.0" text-anchor="middle">Updated since report: a write after it</text>
+<rect class="tool" x="930" y="180" width="300" height="50" rx="5"/>
+<text class="t-tool" x="1080.0" y="202.0" text-anchor="middle">Reported broken badge</text>
+<text class="t-small" x="1080.0" y="218.0" text-anchor="middle">&quot;until updated&quot; mode drops fixed songs</text>
+<rect class="tool" x="930" y="250" width="300" height="62" rx="5"/>
+<text class="t-tool" x="1080.0" y="271.0" text-anchor="middle">Genres page</text>
+<text class="t-small" x="1080.0" y="287.0" text-anchor="middle">List, Map, Connections, Edit:</text>
+<text class="t-small" x="1080.0" y="301.0" text-anchor="middle">song_genres, an open edit instead</text>
+<path class="flow" d="M886 71 L930 71" marker-end="url(#arr)"/>
+<path class="flow" d="M886 120 L908 120 L908 141 L930 141" marker-end="url(#arr)"/>
+<path class="flow" d="M886 132 L900 132 L900 205 L930 205" marker-end="url(#arr)"/>
+<path class="flow" d="M886 209 L914 209 L914 272 L930 272" marker-end="url(#arr)"/>
+<path class="flow" d="M886 275 L930 290" marker-end="url(#arr)"/>
+<rect class="file" x="930" y="352" width="300" height="70" rx="3"/>
+<text class="t-file" x="1080.0" y="377.0" text-anchor="middle">app_settings</text>
+<text class="t-small" x="1080.0" y="393.0" text-anchor="middle">scan schedule, What&#x27;s new period,</text>
+<text class="t-small" x="1080.0" y="407.0" text-anchor="middle">badge mode, genres on the map</text>
+<path class="flow-d" d="M1080 352 L1080 312" marker-end="url(#arr)"/>
+</svg>

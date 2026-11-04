@@ -30,7 +30,7 @@ from pathlib import Path
 from .config import settings
 from .duplicates import loose_key
 from .songs import parse_folder
-from .ultrastar import parse_song_file
+from .ultrastar import is_helper_file, parse_song_file
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +62,7 @@ def find_misplaced_songs(root: str | Path | None = None) -> list[MisplacedSong]:
 
         folder_key = loose_key(folder.name)
 
-        songs = (parse_song_file(p) for p in sorted(folder.glob("*.txt")))
+        songs = (parse_song_file(p) for p in sorted(folder.glob("*.txt")) if not is_helper_file(p.name))
         for meta in (m for m in songs if m is not None):
             if not meta.artist or not meta.title:
                 continue  # can't judge placement without both tags

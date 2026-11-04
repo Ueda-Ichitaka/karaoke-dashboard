@@ -5,8 +5,12 @@ The USDX Song Factory writes normalised genres into the #GENRE tag of the
 song files ("Symphonic, Metal"), so a value is only split at commas and
 trimmed here (split_genre_tag); the Factory's placeholders for "no genre"
 (PLACEHOLDERS, the same list as its genre_lookup.py) are left out. A song
-folder's genres are those of every .txt directly in it, in file order, each
-once (folder_genres).
+folder's genres are those of every song file directly in it, in file order,
+each once (folder_genres). A song file is a .txt the UltraStar parser
+accepts (app/ultrastar.py: is_song_tags - it has #BPM) and not one of the
+Factory's helper files (is_helper_file: language.txt, lyrics.txt, ...),
+which are skipped unread; any other .txt beside it, a readme, never counts
+either (song_files).
 
 The library scan (app/library_history.py) calls record_genres() for every
 folder it sees and stores the result in SongGenre; a folder that is gone or
@@ -36,7 +40,7 @@ from sqlalchemy.orm import Session
 
 from .models import GenreEdit, SongGenre
 from .songs import Song
-from .ultrastar import parse_header_tags, read_song_text
+from .ultrastar import is_helper_file, is_song_tags, parse_header_tags, read_song_text
 
 PLACEHOLDERS = frozenset({"unknown", "no idea", "other", "none", "misc"})
 GENRE_MAX_LENGTH = 128  # SongGenre.genre
@@ -61,23 +65,32 @@ def _same(one: list[str], other: list[str]) -> bool:
     return [genre.casefold() for genre in one] == [genre.casefold() for genre in other]
 
 
-def song_files(folder: Path) -> list[Path]:
-    """The .txt files directly in the folder, by name."""
+def _song_file_tags(folder: Path) -> list[tuple[Path, dict[str, str]]]:
+    """Each song file directly in the folder with its header tags, by name."""
     try:
-        return sorted(p for p in folder.iterdir() if p.suffix.lower() == ".txt" and p.is_file())
+        txt_files = sorted(p for p in folder.iterdir()
+                           if p.suffix.lower() == ".txt" and not is_helper_file(p.name) and p.is_file())
     except OSError:
         return []
+    found = []
+    for path in txt_files:
+        try:
+            tags = parse_header_tags(read_song_text(path))
+        except OSError:
+            continue
+        if is_song_tags(tags):
+            found.append((path, tags))
+    return found
+
+
+def song_files(folder: Path) -> list[Path]:
+    """The song files directly in the folder, by name - no other .txt."""
+    return [path for path, _ in _song_file_tags(folder)]
 
 
 def folder_genres(folder: Path) -> list[str]:
-    """The genres of every .txt directly in the folder, in file order, each once."""
-    tags = []
-    for path in song_files(folder):
-        try:
-            tags.append(parse_header_tags(read_song_text(path)).get("GENRE", ""))
-        except OSError:
-            continue
-    return split_genre_tag(",".join(tags))
+    """The genres of every song file directly in the folder, in file order, each once."""
+    return split_genre_tag(",".join(tags.get("GENRE", "") for _, tags in _song_file_tags(folder)))
 
 
 def record_genres(db: Session, root: Path, folders: Iterable[str]) -> None:

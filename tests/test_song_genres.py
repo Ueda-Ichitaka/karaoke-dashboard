@@ -5,8 +5,11 @@ and stored in SongGenre.
 The song files hold normalised genres (the USDX Song Factory writes them),
 so a #GENRE value is only split at commas and trimmed; the placeholders the
 Factory uses for "no genre" (Unknown, No idea, Other, None, Misc - any case)
-are left out. A folder's genres are those of every .txt directly in it, in
-file order, each once.
+are left out. A folder's genres are those of every song file directly in
+it, in file order, each once - a .txt beside them that is no song file
+(language.txt, lyrics.txt, a readme) never counts.
+
+The export of the open genre edits lists those same song files.
 """
 
 from __future__ import annotations
@@ -18,8 +21,8 @@ from sqlalchemy import select
 
 from app.database import SessionLocal
 from app.library_history import scan_library
-from app.models import SongGenre
-from app.song_genres import folder_genres, split_genre_tag
+from app.models import GenreEdit, SongGenre
+from app.song_genres import folder_genres, genre_edit_lines, song_files, split_genre_tag
 
 
 def _song(folder: Path, name: str, genre: str | None) -> None:
@@ -125,3 +128,39 @@ def test_a_scan_of_an_unreadable_library_keeps_the_stored_genres(tmp_path, fresh
         scan_library(db, root=tmp_path)
         scan_library(db, root=tmp_path / "missing")
     assert _stored() == {"A - One": ["Pop"]}
+
+
+
+def _factory_folder(root: Path, name: str) -> Path:
+    """A song folder as the USDX Song Factory writes it: the song file next to
+    its language.txt and lyrics.txt."""
+    folder = root / name
+    _song(folder, f"{name}.txt", "Folk, Metal")
+    (folder / "language.txt").write_text("de\n", encoding="utf-8")
+    (folder / "lyrics.txt").write_text("#GENRE:Pop\nWir trinken\n", encoding="utf-8")
+    (folder / "readme.TXT").write_text("#NOTE: a header without #BPM\n", encoding="utf-8")
+    return folder
+
+
+def test_only_song_files_count_not_the_other_txt_files(tmp_path):
+    folder = _factory_folder(tmp_path, "Equilibrium - Wirtshaus Gaudi")
+    assert [p.name for p in song_files(folder)] == ["Equilibrium - Wirtshaus Gaudi.txt"]
+    assert folder_genres(folder) == ["Folk", "Metal"]
+
+
+def test_the_edit_export_names_the_song_file_not_language_txt(fresh_db, tmp_path):
+    _factory_folder(tmp_path, "Equilibrium - Wirtshaus Gaudi")
+    with SessionLocal() as db:
+        db.add(GenreEdit(folder="Equilibrium - Wirtshaus Gaudi", genres="Folk, Metal, Medieval", edited_by="x"))
+        db.commit()
+        assert genre_edit_lines(db, tmp_path) == \
+            "Equilibrium - Wirtshaus Gaudi/Equilibrium - Wirtshaus Gaudi.txt\tFolk, Metal, Medieval\n"
+
+
+
+def test_a_factory_helper_file_never_counts_even_with_song_tags(tmp_path):
+    folder = tmp_path / "Band - Song"
+    _song(folder, "song.txt", "Rock")  # a real song file, whatever its name
+    _song(folder, "lyrics.txt", "Pop")
+    assert [p.name for p in song_files(folder)] == ["song.txt"]
+    assert folder_genres(folder) == ["Rock"]

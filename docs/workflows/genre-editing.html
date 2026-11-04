@@ -1,0 +1,225 @@
+<!doctype html>
+<!--
+  About me: how a genre edit goes from the dashboard's Edit tab through genre-edits.tsv and the USDX Song Factory into the song files, and how the library scan ends it - drawn as one figure, for opening in a browser.
+  Part of the karaoke-dashboard workflow pages (docs/workflows/, index.html
+  lists them all); the first figure is also genre-editing.svg next to this file.
+  The numbers are from the dev database of 2026-11-04.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Genre editing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root { --bg: #f3f4f1; --surface: #ffffff; --fg: #1d2421; --muted: #5c6862; --line: #36403b; --rule: #d5dad5; --lane: #e8ebe6; --file: #f7f8f5; --online: #2f62a8; --human: #a86412; --write: #b3361f; --db: #2c7a57; --tint-online: #e6eef9; --tint-human: #fbefdf; --tint-write: #fbe7e2; --tint-db: #e2f1e9; --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif; --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #151a18; --surface: #1d2421; --fg: #e4e9e5; --muted: #9aa69f; --line: #c3ccc6; --rule: #2f3834; --lane: #1a201d; --file: #222a26; --online: #7fa9e8; --human: #e2a457; --write: #f07a62; --db: #6cc79c; --tint-online: #1d2a3d; --tint-human: #33281a; --tint-write: #3a221d; --tint-db: #1a2e24; color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #151a18; --surface: #1d2421; --fg: #e4e9e5; --muted: #9aa69f; --line: #c3ccc6; --rule: #2f3834; --lane: #1a201d; --file: #222a26; --online: #7fa9e8; --human: #e2a457; --write: #f07a62; --db: #6cc79c; --tint-online: #1d2a3d; --tint-human: #33281a; --tint-write: #3a221d; --tint-db: #1a2e24; color-scheme: dark; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+.page { max-width: 1200px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.1; }
+h2 { font-size: 22px; }
+h3 { font-size: 16px; font-family: var(--mono); font-weight: 600; letter-spacing: 0; }
+p { margin: 0; max-width: 72ch; }
+a { color: var(--online); text-underline-offset: 2px; }
+code { font-family: var(--mono); font-size: 0.92em; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+header { display: grid; gap: 10px; }
+header p { color: var(--muted); }
+nav.pages { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+nav.pages a[aria-current] { color: var(--fg); font-weight: 600; text-decoration: none; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.stat { padding: 14px 16px 14px 0; display: grid; gap: 2px; min-width: 0; }
+.stat + .stat { padding-left: 16px; border-left: 1px solid var(--rule); }
+.stat b { font-family: var(--display); font-size: 28px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat span { color: var(--muted); font-size: 13px; }
+@media (max-width: 700px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat:nth-child(3) { padding-left: 0; border-left: 0; }
+  .stat:nth-child(n+3) { border-top: 1px solid var(--rule); }
+}
+figure { margin: 0; display: grid; gap: 12px; }
+.scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
+.scroll svg { display: block; width: 100%; height: auto; color: var(--line); }
+figcaption { color: var(--muted); font-size: 14px; max-width: 80ch; }
+
+svg text { font-family: var(--body); font-size: 12px; fill: var(--fg); }
+svg .t-tool { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+svg .t-file { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+svg .t-small { font-size: 11px; fill: var(--muted); }
+svg .t-lane { font-family: var(--display); font-size: 15px; font-weight: 700; }
+svg .t-label { font-size: 11px; fill: var(--muted); }
+svg .t-write { font-size: 11.5px; fill: var(--write); font-weight: 600; }
+svg .t-online { fill: var(--online); font-weight: 600; }
+svg .t-human { fill: var(--human); font-weight: 600; }
+svg .t-db { font-family: var(--mono); font-size: 12px; font-weight: 600; fill: var(--db); }
+svg .lane { fill: var(--lane); }
+svg .tool { fill: var(--surface); stroke: var(--line); stroke-width: 1.6; }
+svg .file { fill: var(--file); stroke: var(--line); stroke-width: 1; }
+svg .db { fill: var(--tint-db); stroke: var(--db); stroke-width: 1.4; }
+svg .online { fill: var(--tint-online); stroke: var(--online); stroke-width: 1.3; stroke-dasharray: 5 4; }
+svg .human { fill: var(--tint-human); stroke: var(--human); stroke-width: 1.3; stroke-dasharray: 5 4; }
+svg .lib { fill: var(--surface); stroke: var(--line); stroke-width: 1.6; }
+svg .lib-w { fill: var(--tint-write); stroke: var(--write); stroke-width: 1.6; }
+svg .flow { fill: none; stroke: var(--line); stroke-width: 1.4; }
+svg .flow-w { fill: none; stroke: var(--write); stroke-width: 2.2; }
+svg .flow-o { fill: none; stroke: var(--online); stroke-width: 1.4; }
+svg .flow-d { fill: none; stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 4 4; }
+svg .ah { fill: var(--line); }
+svg .ah-w { fill: var(--write); }
+svg .ah-o { fill: var(--online); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 26px; height: 14px; border-radius: 2px; display: inline-block; flex: none; }
+.sw-tool { background: var(--surface); border: 1.6px solid var(--line); }
+.sw-file { background: var(--file); border: 1px solid var(--line); }
+.sw-db { background: var(--tint-db); border: 1.4px solid var(--db); }
+.sw-online { background: var(--tint-online); border: 1.3px dashed var(--online); }
+.sw-human { background: var(--tint-human); border: 1.3px dashed var(--human); }
+.sw-write { height: 0; border-top: 2.2px solid var(--write); border-radius: 0; }
+section { display: grid; gap: 16px; }
+.sheets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 820px) { .sheets { grid-template-columns: minmax(0, 1fr); } }
+.sheet { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.sheet-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.pill { font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill-read { background: var(--lane); color: var(--muted); }
+.pill-db { background: var(--tint-db); color: var(--db); }
+.pill-write { background: var(--tint-write); color: var(--write); }
+.pill-human { background: var(--tint-human); color: var(--human); }
+.sheet p { color: var(--muted); font-size: 14px; }
+dl { margin: 0; display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 6px 12px; font-size: 14px; }
+dt { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; padding-top: 2px; }
+dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+pre { margin: 0; overflow-x: auto; background: var(--lane); border-radius: 4px; padding: 10px 12px; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; }
+.steps { display: grid; gap: 14px; counter-reset: step; padding: 0; margin: 0; list-style: none; }
+.steps li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: start; counter-increment: step; }
+.steps li::before { content: counter(step); font-family: var(--display); font-weight: 700; font-size: 15px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--line); }
+.steps li > div { display: grid; gap: 6px; min-width: 0; }
+.steps .who { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.who-you { color: var(--human); }
+.who-tool { color: var(--muted); }
+.who-write { color: var(--write); }
+.who-db { color: var(--db); }
+.note { font-size: 14px; color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 820px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; display: grid; gap: 8px; }
+.card p { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main class="page">
+  <header>
+    <span class="eyebrow">karaoke-dashboard · workflows</span>
+    <h1>Genre editing</h1>
+    <p>Genres come from the <code>#GENRE</code> tag of the song files. A contributor corrects them on the Genres page, the <a href="https://github.com/Ueda-Ichitaka/USDX-Song-Factory">USDX Song Factory</a> writes them into the song files, and the library scan notices. Details: <a href="../features.md#edit">features.md</a>.</p>
+    <nav class="pages" aria-label="Workflow pages"><a href="index.html">Overview</a> <a href="reports-and-requests.html">Reports and requests</a> <a href="library-scan.html">Library scan and What&#x27;s new</a> <a href="genre-editing.html" aria-current="page">Genre editing</a> <a href="library-checks.html">Library checks and scripts</a></nav>
+  </header>
+  <div class="stats" aria-label="Current numbers"><div class="stat"><b>1643</b><span>songs with a genre</span></div><div class="stat"><b>275</b><span>different genres</span></div><div class="stat"><b>10</b><span>open edits</span></div><div class="stat"><b>294</b><span>Factory helper files skipped</span></div></div>
+  <figure>
+    <div class="scroll">
+<svg viewBox="0 0 1250 500" style="min-width:1000px" role="img" aria-label="Song files carry #GENRE; the library scan stores them in song_genres for the Genres page. A contributor changes a song&#x27;s genres on the Edit tab; the edit is stored in genre_edits and shown on every tab at once. Export N edits downloads genre-edits.tsv; saved into the Factory&#x27;s stack/input, pull-genres copies the song files and factory.sh genres writes the new #GENRE into output/genres. Copied back into the library, the next scan reads the same genres and ends the edit."><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker><marker id="arr-w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="ah-w" d="M0 0 L10 5 L0 10 z"/></marker><marker id="arr-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-o" d="M0 0 L10 5 L0 10 z"/></marker></defs>
+<rect class="lib-w" x="20" y="420" width="300" height="56" rx="5"/>
+<text class="t-write" x="170.0" y="445.0" text-anchor="middle">Song library</text>
+<text class="t-small" x="170.0" y="461.0" text-anchor="middle">song files with #GENRE</text>
+<rect class="tool" x="20" y="300" width="300" height="56" rx="5"/>
+<text class="t-tool" x="170.0" y="325.0" text-anchor="middle">Library scan</text>
+<text class="t-small" x="170.0" y="341.0" text-anchor="middle">reads #GENRE, ends edits the files agree with</text>
+<path class="flow" d="M170 420 L170 356" marker-end="url(#arr)"/>
+<rect class="lane" x="20" y="14" width="640" height="266" rx="6"/>
+<text class="t-lane" x="34" y="36">Dashboard</text>
+<text class="t-label" x="34" y="52">Genres page</text>
+<rect class="db" x="36" y="62" width="170" height="56" rx="5"/>
+<text class="t-db" x="121.0" y="87.0" text-anchor="middle">song_genres</text>
+<text class="t-small" x="121.0" y="103.0" text-anchor="middle">genres from the files</text>
+<rect class="human" x="36" y="160" width="170" height="66" rx="5"/>
+<text class="t-human" x="121.0" y="183.0" text-anchor="middle">Edit tab</text>
+<text class="t-small" x="121.0" y="199.0" text-anchor="middle">contributor or admin:</text>
+<text class="t-small" x="121.0" y="213.0" text-anchor="middle">Edit, Save, Reset</text>
+<rect class="tool" x="236" y="62" width="210" height="56" rx="5"/>
+<text class="t-file" x="341.0" y="87.0" text-anchor="middle">List, Map, Connections</text>
+<text class="t-small" x="341.0" y="103.0" text-anchor="middle">an open edit instead</text>
+<rect class="db" x="236" y="165" width="210" height="56" rx="5"/>
+<text class="t-db" x="341.0" y="190.0" text-anchor="middle">genre_edits</text>
+<text class="t-small" x="341.0" y="206.0" text-anchor="middle">one row per open edit</text>
+<rect class="tool" x="476" y="165" width="170" height="56" rx="5"/>
+<text class="t-tool" x="561.0" y="190.0" text-anchor="middle">Export N edits</text>
+<text class="t-small" x="561.0" y="206.0" text-anchor="middle">/genres/edit/export.tsv</text>
+<rect class="file" x="476" y="236" width="170" height="36" rx="3"/>
+<text class="t-file" x="561.0" y="258.0" text-anchor="middle">genre-edits.tsv</text>
+<path class="flow" d="M28 300 L28 90 L36 90" marker-end="url(#arr)"/>
+<path class="flow" d="M206 90 L236 90" marker-end="url(#arr)"/>
+<path class="flow" d="M121 118 L121 160" marker-end="url(#arr)"/>
+<text class="t-label" x="129" y="143" text-anchor="start">shown in the field</text>
+<path class="flow" d="M206 193 L236 193" marker-end="url(#arr)"/>
+<path class="flow" d="M341 165 L341 118" marker-end="url(#arr)"/>
+<path class="flow" d="M446 193 L476 193" marker-end="url(#arr)"/>
+<path class="flow" d="M561 221 L561 236" marker-end="url(#arr)"/>
+<rect class="lane" x="700" y="14" width="530" height="410" rx="6"/>
+<text class="t-lane" x="714" y="36">USDX Song Factory</text>
+<text class="t-label" x="714" y="52">stack/ - docs/genre-edits.md there</text>
+<rect class="human" x="716" y="62" width="498" height="44" rx="5"/>
+<text class="t-human" x="965.0" y="88.0" text-anchor="middle">Save as stack/input/genre-edits.tsv</text>
+<path class="flow" d="M646 254 L680 254 L680 84 L716 84" marker-end="url(#arr)"/>
+<rect class="online" x="716" y="130" width="240" height="70" rx="5"/>
+<text class="t-online" x="836.0" y="148.0" text-anchor="middle">pull-genres --apply</text>
+<text class="t-small" x="836.0" y="164.0" text-anchor="middle">copies the named song files</text>
+<text class="t-small" x="836.0" y="178.0" text-anchor="middle">(no media) from the library</text>
+<text class="t-small" x="836.0" y="192.0" text-anchor="middle">into input/genres/&lt;folder&gt;/</text>
+<rect class="online" x="974" y="130" width="240" height="70" rx="5"/>
+<text class="t-online" x="1094.0" y="148.0" text-anchor="middle">factory.sh genres</text>
+<text class="t-small" x="1094.0" y="164.0" text-anchor="middle">one job per line: the first #GENRE</text>
+<text class="t-small" x="1094.0" y="178.0" text-anchor="middle">replaced, encoding and</text>
+<text class="t-small" x="1094.0" y="192.0" text-anchor="middle">line endings kept</text>
+<path class="flow" d="M836 106 L836 130" marker-end="url(#arr)"/>
+<path class="flow" d="M956 165 L974 165" marker-end="url(#arr)"/>
+<rect class="file" x="716" y="224" width="498" height="40" rx="3"/>
+<text class="t-file" x="965.0" y="241.0" text-anchor="middle">output/genres/&lt;folder&gt;/&lt;song file&gt;</text>
+<text class="t-small" x="965.0" y="257.0" text-anchor="middle"></text>
+<path class="flow" d="M1094 200 L1094 224" marker-end="url(#arr)"/>
+<rect class="human" x="716" y="288" width="498" height="56" rx="5"/>
+<text class="t-human" x="965.0" y="313.0" text-anchor="middle">Copy each song file into its library folder</text>
+<text class="t-small" x="965.0" y="329.0" text-anchor="middle">only the song file changes - overwrite it</text>
+<path class="flow" d="M965 264 L965 288" marker-end="url(#arr)"/>
+<rect class="file" x="980" y="364" width="234" height="44" rx="3"/>
+<text class="t-file" x="1097.0" y="383.0" text-anchor="middle">output/report.md</text>
+<text class="t-small" x="1097.0" y="399.0" text-anchor="middle">&quot;Genres updated&quot;: before and now</text>
+<path class="flow-w" d="M760 344 L760 462 L320 462" marker-end="url(#arr-w)"/>
+<text class="t-write" x="540" y="455" text-anchor="middle">copies in</text>
+<path class="flow-d" d="M320 432 L690 432 L690 175 L716 175" marker-end="url(#arr)"/>
+<text class="t-label" x="505" y="426" text-anchor="middle">pull-genres reads the song files</text>
+</svg>
+    </div>
+    <div class="legend" aria-label="Legend">
+  <span><i class="sw sw-tool"></i>dashboard page or step</span>
+  <span><i class="sw sw-db"></i>database table</span>
+  <span><i class="sw sw-file"></i>file</span>
+  <span><i class="sw sw-human"></i>done by hand</span>
+  <span><i class="sw sw-online"></i>other program</span>
+  <span><i class="sw sw-write"></i>writes into the song library</span>
+</div>
+    <figcaption>Top left: the dashboard; right: the Factory; bottom: the library and the scan that closes the loop.</figcaption>
+  </figure>
+  <section>
+    <h2>Step by step</h2>
+    <ol class="steps"><li><div><span class="who who-tool">Library scan</span><p>Reads the <code>#GENRE</code> tag of every song file and stores the genres in <code>song_genres</code>; the Genres page's List, Map and Connections tabs show them.</p></div></li><li><div><span class="who who-you">Contributor or admin</span><p>On the <b>Edit</b> tab (<code>/genres/edit</code>) finds the song, presses <b>Edit</b>, types the genres - the field suggests the library's genres - and <b>Save</b>s. Saving the file's own genres, or <b>Reset</b>, drops the edit.</p></div></li><li><div><span class="who who-db">Dashboard</span><p>The edit is stored in <code>genre_edits</code> and shows on every Genres tab at once.</p></div></li><li><div><span class="who who-tool">Edit tab</span><p><b>Export N edits</b> downloads <code>genre-edits.tsv</code>: per song file of an edited folder its path and the genres. Every export has every open edit.</p></div></li><li><div><span class="who who-you">You</span><p>Save it as the Factory's <code>stack/input/genre-edits.tsv</code>, then <code>./factory.sh pull-genres --apply</code> and <code>./factory.sh genres</code> - seconds per song.</p></div></li><li><div><span class="who who-write">You</span><p>Copy each <code>stack/output/genres/&lt;folder&gt;/&lt;song file&gt;</code> into the library folder of the same name, overwriting the song file.</p></div></li><li><div><span class="who who-tool">Library scan</span><p>The next scan reads the new <code>#GENRE</code>; the files now name the edit's genres, so the edit ends and drops out of the export.</p></div></li></ol>
+  </section>
+  <section>
+    <h2>Files and tables</h2>
+    <div class="sheets">
+      <div class="sheet"><div class="sheet-head"><h3>genre-edits.tsv</h3><span class="pill pill-read">export</span></div><p><code>AC-DC - Hells Bells/HellsBells-638.txt&#9;Rock, Hard</code></p><dl><dt>Line</dt><dd>song file path relative to the library root, a TAB, the genres; no header, UTF-8</dd><dt>Files</dt><dd>only song files (a <code>.txt</code> with <code>#BPM</code>); never <code>language.txt</code>, <code>lyrics.txt</code>, <code>song_end.txt</code>, <code>anchors.txt</code></dd><dt>Goes to</dt><dd>the Factory's <code>stack/input/genre-edits.tsv</code></dd><dt>Format</dt><dd><a href="../csv.md#genre-editstsv">csv.md</a></dd></dl></div>
+      <div class="sheet"><div class="sheet-head"><h3>genre_edits</h3><span class="pill pill-db">database</span></div><dl><dt>Row</dt><dd>folder, genres ("Symphonic, Metal"), who edited it and when</dd><dt>Ends</dt><dd>Reset, saving the file's genres, or a scan that reads them from the files</dd><dt>Kept</dt><dd>for a folder that disappears - its export lines just stay empty</dd></dl></div>
+      <div class="sheet"><div class="sheet-head"><h3>What a genre text becomes</h3><span class="pill pill-read">rules</span></div><dl><dt>Split</dt><dd>at commas, trimmed, runs of white space made one space</dd><dt>Dropped</dt><dd>repeats (any case) and the placeholders Unknown, No idea, Other, None, Misc</dd><dt>Refused</dt><dd>an empty field: "Enter at least one genre."</dd></dl></div>
+      <div class="sheet"><div class="sheet-head"><h3>Who</h3><span class="pill pill-human">roles</span></div><dl><dt>See</dt><dd>List, Map and Connections: every logged-in user</dd><dt>Edit</dt><dd>the Edit tab and the export: contributors and admins</dd></dl></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

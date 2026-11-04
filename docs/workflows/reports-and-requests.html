@@ -1,0 +1,287 @@
+<!doctype html>
+<!--
+  About me: how a broken-song report or a song request travels - form, review, CSV export, the USDX Song Factory, the library and back - drawn as one figure, for opening in a browser.
+  Part of the karaoke-dashboard workflow pages (docs/workflows/, index.html
+  lists them all); the first figure is also reports-and-requests.svg next to this file.
+  The numbers are from the dev database of 2026-11-04.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports and requests</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root { --bg: #f3f4f1; --surface: #ffffff; --fg: #1d2421; --muted: #5c6862; --line: #36403b; --rule: #d5dad5; --lane: #e8ebe6; --file: #f7f8f5; --online: #2f62a8; --human: #a86412; --write: #b3361f; --db: #2c7a57; --tint-online: #e6eef9; --tint-human: #fbefdf; --tint-write: #fbe7e2; --tint-db: #e2f1e9; --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif; --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #151a18; --surface: #1d2421; --fg: #e4e9e5; --muted: #9aa69f; --line: #c3ccc6; --rule: #2f3834; --lane: #1a201d; --file: #222a26; --online: #7fa9e8; --human: #e2a457; --write: #f07a62; --db: #6cc79c; --tint-online: #1d2a3d; --tint-human: #33281a; --tint-write: #3a221d; --tint-db: #1a2e24; color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #151a18; --surface: #1d2421; --fg: #e4e9e5; --muted: #9aa69f; --line: #c3ccc6; --rule: #2f3834; --lane: #1a201d; --file: #222a26; --online: #7fa9e8; --human: #e2a457; --write: #f07a62; --db: #6cc79c; --tint-online: #1d2a3d; --tint-human: #33281a; --tint-write: #3a221d; --tint-db: #1a2e24; color-scheme: dark; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+.page { max-width: 1200px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.1; }
+h2 { font-size: 22px; }
+h3 { font-size: 16px; font-family: var(--mono); font-weight: 600; letter-spacing: 0; }
+p { margin: 0; max-width: 72ch; }
+a { color: var(--online); text-underline-offset: 2px; }
+code { font-family: var(--mono); font-size: 0.92em; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+header { display: grid; gap: 10px; }
+header p { color: var(--muted); }
+nav.pages { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+nav.pages a[aria-current] { color: var(--fg); font-weight: 600; text-decoration: none; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.stat { padding: 14px 16px 14px 0; display: grid; gap: 2px; min-width: 0; }
+.stat + .stat { padding-left: 16px; border-left: 1px solid var(--rule); }
+.stat b { font-family: var(--display); font-size: 28px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat span { color: var(--muted); font-size: 13px; }
+@media (max-width: 700px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat:nth-child(3) { padding-left: 0; border-left: 0; }
+  .stat:nth-child(n+3) { border-top: 1px solid var(--rule); }
+}
+figure { margin: 0; display: grid; gap: 12px; }
+.scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
+.scroll svg { display: block; width: 100%; height: auto; color: var(--line); }
+figcaption { color: var(--muted); font-size: 14px; max-width: 80ch; }
+
+svg text { font-family: var(--body); font-size: 12px; fill: var(--fg); }
+svg .t-tool { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+svg .t-file { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+svg .t-small { font-size: 11px; fill: var(--muted); }
+svg .t-lane { font-family: var(--display); font-size: 15px; font-weight: 700; }
+svg .t-label { font-size: 11px; fill: var(--muted); }
+svg .t-write { font-size: 11.5px; fill: var(--write); font-weight: 600; }
+svg .t-online { fill: var(--online); font-weight: 600; }
+svg .t-human { fill: var(--human); font-weight: 600; }
+svg .t-db { font-family: var(--mono); font-size: 12px; font-weight: 600; fill: var(--db); }
+svg .lane { fill: var(--lane); }
+svg .tool { fill: var(--surface); stroke: var(--line); stroke-width: 1.6; }
+svg .file { fill: var(--file); stroke: var(--line); stroke-width: 1; }
+svg .db { fill: var(--tint-db); stroke: var(--db); stroke-width: 1.4; }
+svg .online { fill: var(--tint-online); stroke: var(--online); stroke-width: 1.3; stroke-dasharray: 5 4; }
+svg .human { fill: var(--tint-human); stroke: var(--human); stroke-width: 1.3; stroke-dasharray: 5 4; }
+svg .lib { fill: var(--surface); stroke: var(--line); stroke-width: 1.6; }
+svg .lib-w { fill: var(--tint-write); stroke: var(--write); stroke-width: 1.6; }
+svg .flow { fill: none; stroke: var(--line); stroke-width: 1.4; }
+svg .flow-w { fill: none; stroke: var(--write); stroke-width: 2.2; }
+svg .flow-o { fill: none; stroke: var(--online); stroke-width: 1.4; }
+svg .flow-d { fill: none; stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 4 4; }
+svg .ah { fill: var(--line); }
+svg .ah-w { fill: var(--write); }
+svg .ah-o { fill: var(--online); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 26px; height: 14px; border-radius: 2px; display: inline-block; flex: none; }
+.sw-tool { background: var(--surface); border: 1.6px solid var(--line); }
+.sw-file { background: var(--file); border: 1px solid var(--line); }
+.sw-db { background: var(--tint-db); border: 1.4px solid var(--db); }
+.sw-online { background: var(--tint-online); border: 1.3px dashed var(--online); }
+.sw-human { background: var(--tint-human); border: 1.3px dashed var(--human); }
+.sw-write { height: 0; border-top: 2.2px solid var(--write); border-radius: 0; }
+section { display: grid; gap: 16px; }
+.sheets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 820px) { .sheets { grid-template-columns: minmax(0, 1fr); } }
+.sheet { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.sheet-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.pill { font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill-read { background: var(--lane); color: var(--muted); }
+.pill-db { background: var(--tint-db); color: var(--db); }
+.pill-write { background: var(--tint-write); color: var(--write); }
+.pill-human { background: var(--tint-human); color: var(--human); }
+.sheet p { color: var(--muted); font-size: 14px; }
+dl { margin: 0; display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 6px 12px; font-size: 14px; }
+dt { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; padding-top: 2px; }
+dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+pre { margin: 0; overflow-x: auto; background: var(--lane); border-radius: 4px; padding: 10px 12px; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; }
+.steps { display: grid; gap: 14px; counter-reset: step; padding: 0; margin: 0; list-style: none; }
+.steps li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: start; counter-increment: step; }
+.steps li::before { content: counter(step); font-family: var(--display); font-weight: 700; font-size: 15px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--line); }
+.steps li > div { display: grid; gap: 6px; min-width: 0; }
+.steps .who { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.who-you { color: var(--human); }
+.who-tool { color: var(--muted); }
+.who-write { color: var(--write); }
+.who-db { color: var(--db); }
+.note { font-size: 14px; color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 820px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; display: grid; gap: 8px; }
+.card p { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main class="page">
+  <header>
+    <span class="eyebrow">karaoke-dashboard · workflows</span>
+    <h1>Reports and requests</h1>
+    <p>How a report of a broken song or a request for a new one gets from a singer through review and the <a href="https://github.com/Ueda-Ichitaka/USDX-Song-Factory">USDX Song Factory</a> into the library, and how the dashboard notices the fix. Details: <a href="../features.md#reported-and-requested">features.md</a>, <a href="../csv.md">csv.md</a>.</p>
+    <nav class="pages" aria-label="Workflow pages"><a href="index.html">Overview</a> <a href="reports-and-requests.html" aria-current="page">Reports and requests</a> <a href="library-scan.html">Library scan and What&#x27;s new</a> <a href="genre-editing.html">Genre editing</a> <a href="library-checks.html">Library checks and scripts</a></nav>
+  </header>
+  <div class="stats" aria-label="Current numbers"><div class="stat"><b>269</b><span>reports in Needs review</span></div><div class="stat"><b>2</b><span>open reports in the list</span></div><div class="stat"><b>3</b><span>resolved reports</span></div><div class="stat"><b>1</b><span>request in Needs review</span></div></div>
+  <figure>
+    <div class="scroll">
+<svg viewBox="0 0 1250 652" style="min-width:1000px" role="img" aria-label="Singers report broken songs on /report and request songs on /request; both wait in Needs review until a contributor or admin admits them into the Reported or Requested list, which exports broken.csv and song-requests.csv. Saved into the USDX Song Factory&#x27;s stack/input, they become repaired and new songs; after a sing-test they are copied into the library. The next library scan marks the reports Updated since report and the contributor resolves them."><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker><marker id="arr-w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="ah-w" d="M0 0 L10 5 L0 10 z"/></marker><marker id="arr-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-o" d="M0 0 L10 5 L0 10 z"/></marker></defs>
+<rect class="file" x="20" y="60" width="160" height="56" rx="3"/>
+<text class="t-file" x="100.0" y="78.0" text-anchor="middle">broken.csv</text>
+<text class="t-small" x="100.0" y="94.0" text-anchor="middle">rows from repair_library.py</text>
+<text class="t-small" x="100.0" y="108.0" text-anchor="middle">or an older export</text>
+<rect class="human" x="20" y="236" width="160" height="66" rx="5"/>
+<text class="t-human" x="100.0" y="259.0" text-anchor="middle">Singer</text>
+<text class="t-small" x="100.0" y="275.0" text-anchor="middle">logged-in user</text>
+<text class="t-small" x="100.0" y="289.0" text-anchor="middle">form: karaoke night or strict</text>
+<rect class="file" x="20" y="462" width="160" height="56" rx="3"/>
+<text class="t-file" x="100.0" y="487.0" text-anchor="middle">song-requests.csv</text>
+<text class="t-small" x="100.0" y="503.0" text-anchor="middle">an older export</text>
+<rect class="lane" x="200" y="14" width="650" height="252" rx="6"/>
+<text class="t-lane" x="214" y="36">Reports</text>
+<text class="t-label" x="214" y="52">/report, then the Reported tab</text>
+<rect class="tool" x="214" y="60" width="130" height="56" rx="5"/>
+<text class="t-tool" x="279.0" y="78.0" text-anchor="middle">/report</text>
+<text class="t-small" x="279.0" y="94.0" text-anchor="middle">song, category,</text>
+<text class="t-small" x="279.0" y="108.0" text-anchor="middle">what&#x27;s broken</text>
+<rect class="db" x="380" y="60" width="130" height="56" rx="5"/>
+<text class="t-db" x="445.0" y="85.0" text-anchor="middle">Needs review</text>
+<text class="t-small" x="445.0" y="101.0" text-anchor="middle">pending_broken_reports</text>
+<rect class="human" x="546" y="54" width="130" height="68" rx="5"/>
+<text class="t-human" x="611.0" y="78.0" text-anchor="middle">Edit · Admit</text>
+<text class="t-small" x="611.0" y="94.0" text-anchor="middle">contributor or admin</text>
+<text class="t-small" x="611.0" y="108.0" text-anchor="middle">fixed admit rules</text>
+<rect class="db" x="704" y="60" width="140" height="56" rx="5"/>
+<text class="t-db" x="774.0" y="85.0" text-anchor="middle">Reported list</text>
+<text class="t-small" x="774.0" y="101.0" text-anchor="middle">broken_reports</text>
+<rect class="tool" x="704" y="146" width="140" height="44" rx="5"/>
+<text class="t-tool" x="774.0" y="165.0" text-anchor="middle">Export CSV</text>
+<text class="t-small" x="774.0" y="181.0" text-anchor="middle">open or all</text>
+<rect class="file" x="704" y="212" width="140" height="38" rx="3"/>
+<text class="t-file" x="774.0" y="235.0" text-anchor="middle">broken.csv</text>
+<path class="flow" d="M180 262 L194 262 L194 88 L214 88" marker-end="url(#arr)"/>
+<path class="flow" d="M344 88 L380 88" marker-end="url(#arr)"/>
+<path class="flow" d="M510 88 L546 88" marker-end="url(#arr)"/>
+<path class="flow" d="M676 88 L704 88" marker-end="url(#arr)"/>
+<path class="flow" d="M774 116 L774 146" marker-end="url(#arr)"/>
+<path class="flow" d="M774 190 L774 212" marker-end="url(#arr)"/>
+<text class="t-label" x="279" y="136" text-anchor="middle">a 2nd report for a song</text>
+<text class="t-label" x="279" y="150" text-anchor="middle">merges into its open one</text>
+<text class="t-label" x="611" y="140" text-anchor="middle">Discard: gone</text>
+<text class="t-label" x="611" y="154" text-anchor="middle">Resolved: into the list, resolved</text>
+<path class="flow" d="M100 116 L100 204 L445 204 L445 116" marker-end="url(#arr)"/>
+<text class="t-label" x="438" y="198" text-anchor="end">Import CSV: rows land in Needs review or merge</text>
+<rect class="lane" x="200" y="282" width="650" height="252" rx="6"/>
+<text class="t-lane" x="214" y="304">Requests</text>
+<text class="t-label" x="214" y="320">/request, then the Requested tab</text>
+<rect class="tool" x="214" y="328" width="130" height="56" rx="5"/>
+<text class="t-tool" x="279.0" y="346.0" text-anchor="middle">/request</text>
+<text class="t-small" x="279.0" y="362.0" text-anchor="middle">band, title,</text>
+<text class="t-small" x="279.0" y="376.0" text-anchor="middle">optional links</text>
+<rect class="db" x="380" y="328" width="130" height="56" rx="5"/>
+<text class="t-db" x="445.0" y="353.0" text-anchor="middle">Needs review</text>
+<text class="t-small" x="445.0" y="369.0" text-anchor="middle">pending_song_requests</text>
+<rect class="human" x="546" y="322" width="130" height="68" rx="5"/>
+<text class="t-human" x="611.0" y="346.0" text-anchor="middle">Edit · Admit</text>
+<text class="t-small" x="611.0" y="362.0" text-anchor="middle">contributor or admin</text>
+<text class="t-small" x="611.0" y="376.0" text-anchor="middle">fixed admit rules</text>
+<rect class="db" x="704" y="328" width="140" height="56" rx="5"/>
+<text class="t-db" x="774.0" y="353.0" text-anchor="middle">Requested list</text>
+<text class="t-small" x="774.0" y="369.0" text-anchor="middle">song_requests</text>
+<rect class="tool" x="704" y="414" width="140" height="44" rx="5"/>
+<text class="t-tool" x="774.0" y="433.0" text-anchor="middle">Export CSV</text>
+<text class="t-small" x="774.0" y="449.0" text-anchor="middle">open or all</text>
+<rect class="file" x="704" y="480" width="140" height="38" rx="3"/>
+<text class="t-file" x="774.0" y="503.0" text-anchor="middle">song-requests.csv</text>
+<path class="flow" d="M180 278 L194 278 L194 356 L214 356" marker-end="url(#arr)"/>
+<path class="flow" d="M344 356 L380 356" marker-end="url(#arr)"/>
+<path class="flow" d="M510 356 L546 356" marker-end="url(#arr)"/>
+<path class="flow" d="M676 356 L704 356" marker-end="url(#arr)"/>
+<path class="flow" d="M774 384 L774 414" marker-end="url(#arr)"/>
+<path class="flow" d="M774 458 L774 480" marker-end="url(#arr)"/>
+<text class="t-label" x="279" y="404" text-anchor="middle">refused if the song is in the</text>
+<text class="t-label" x="279" y="418" text-anchor="middle">library or already requested</text>
+<text class="t-label" x="611" y="408" text-anchor="middle">Discard: gone</text>
+<text class="t-label" x="611" y="422" text-anchor="middle">in production: not for a song</text>
+<text class="t-label" x="611" y="436" text-anchor="middle">already in the library</text>
+<path class="flow" d="M100 462 L100 452 L445 452 L445 384" marker-end="url(#arr)"/>
+<text class="t-label" x="438" y="446" text-anchor="end">Import CSV: rows land in Needs review or merge</text>
+<rect class="lane" x="870" y="14" width="360" height="314" rx="6"/>
+<text class="t-lane" x="884" y="36">USDX Song Factory</text>
+<text class="t-label" x="884" y="52">stack/ - see its own workflow page</text>
+<rect class="human" x="884" y="56" width="332" height="44" rx="5"/>
+<text class="t-human" x="1050.0" y="75.0" text-anchor="middle">Save into stack/input/</text>
+<text class="t-small" x="1050.0" y="91.0" text-anchor="middle">broken.csv, song-requests.csv</text>
+<path class="flow" d="M844 231 L856 231 L856 72 L884 72" marker-end="url(#arr)"/>
+<path class="flow" d="M844 499 L864 499 L864 88 L884 88" marker-end="url(#arr)"/>
+<rect class="online" x="884" y="120" width="160" height="56" rx="5"/>
+<text class="t-online" x="964.0" y="138.0" text-anchor="middle">pull-repairs --apply</text>
+<text class="t-small" x="964.0" y="154.0" text-anchor="middle">reported songs from the</text>
+<text class="t-small" x="964.0" y="168.0" text-anchor="middle">library -&gt; input/repairs/</text>
+<rect class="online" x="1056" y="120" width="160" height="56" rx="5"/>
+<text class="t-online" x="1136.0" y="145.0" text-anchor="middle">factory.sh up</text>
+<text class="t-small" x="1136.0" y="161.0" text-anchor="middle">new songs and repairs</text>
+<path class="flow" d="M964 100 L964 120" marker-end="url(#arr)"/>
+<path class="flow" d="M1136 100 L1136 120" marker-end="url(#arr)"/>
+<path class="flow" d="M1044 148 L1056 148" marker-end="url(#arr)"/>
+<rect class="file" x="884" y="196" width="332" height="40" rx="3"/>
+<text class="t-file" x="1050.0" y="220.0" text-anchor="middle">output/new/, output/repaired/&lt;repair&gt;/</text>
+<path class="flow" d="M1136 176 L1136 196" marker-end="url(#arr)"/>
+<rect class="human" x="884" y="256" width="332" height="56" rx="5"/>
+<text class="t-human" x="1050.0" y="281.0" text-anchor="middle">Sing-test in USDX</text>
+<text class="t-small" x="1050.0" y="297.0" text-anchor="middle">then copy the folders into the library</text>
+<path class="flow" d="M1050 236 L1050 256" marker-end="url(#arr)"/>
+<rect class="lib-w" x="884" y="362" width="332" height="50" rx="5"/>
+<text class="t-write" x="1050.0" y="384.0" text-anchor="middle">Song library</text>
+<text class="t-small" x="1050.0" y="400.0" text-anchor="middle">the NAS share - the dashboard only reads it</text>
+<path class="flow-w" d="M1050 312 L1050 362" marker-end="url(#arr-w)"/>
+<text class="t-write" x="1060" y="342" text-anchor="start">copies in</text>
+<rect class="tool" x="884" y="452" width="332" height="56" rx="5"/>
+<text class="t-tool" x="1050.0" y="470.0" text-anchor="middle">Library scan</text>
+<text class="t-small" x="1050.0" y="486.0" text-anchor="middle">daily (Settings) or Scan now:</text>
+<text class="t-small" x="1050.0" y="500.0" text-anchor="middle">reads the song files&#x27; write times</text>
+<path class="flow" d="M1050 412 L1050 452" marker-end="url(#arr)"/>
+<rect class="tool" x="546" y="572" width="290" height="56" rx="5"/>
+<text class="t-tool" x="691.0" y="590.0" text-anchor="middle">Updated since report</text>
+<text class="t-small" x="691.0" y="606.0" text-anchor="middle">mark on the Reported page,</text>
+<text class="t-small" x="691.0" y="620.0" text-anchor="middle">Needs review and the list</text>
+<path class="flow" d="M1050 508 L1050 600 L836 600" marker-end="url(#arr)"/>
+<rect class="human" x="214" y="572" width="296" height="56" rx="5"/>
+<text class="t-human" x="362.0" y="597.0" text-anchor="middle">Check, then Resolved / Done</text>
+<text class="t-small" x="362.0" y="613.0" text-anchor="middle">contributor or admin</text>
+<path class="flow" d="M546 600 L510 600" marker-end="url(#arr)"/>
+<rect class="tool" x="20" y="560" width="166" height="80" rx="5"/>
+<text class="t-tool" x="103.0" y="583.0" text-anchor="middle">Reported broken</text>
+<text class="t-small" x="103.0" y="599.0" text-anchor="middle">badge on Songs and</text>
+<text class="t-small" x="103.0" y="613.0" text-anchor="middle">What&#x27;s new (Settings:</text>
+<text class="t-small" x="103.0" y="627.0" text-anchor="middle">until resolved or updated)</text>
+<path class="flow" d="M214 600 L186 600" marker-end="url(#arr)"/>
+<text class="t-label" x="200" y="592" text-anchor="middle">ends</text>
+</svg>
+    </div>
+    <div class="legend" aria-label="Legend">
+  <span><i class="sw sw-tool"></i>dashboard page or step</span>
+  <span><i class="sw sw-db"></i>database table</span>
+  <span><i class="sw sw-file"></i>file</span>
+  <span><i class="sw sw-human"></i>done by hand</span>
+  <span><i class="sw sw-online"></i>other program</span>
+  <span><i class="sw sw-write"></i>writes into the song library</span>
+</div>
+    <figcaption>Left to right: a singer's submission, the review in the dashboard, the CSV export, the Factory and the library; the bottom row is the way back - the library scan marks the report, a contributor resolves it.</figcaption>
+  </figure>
+  <section>
+    <h2>Step by step</h2>
+    <ol class="steps"><li><div><span class="who who-you">Singer</span><p>Reports a broken song on <code>/report</code> or requests one on <code>/request</code>. The form's profile - <b>karaoke night</b> or <b>strict</b>, set on Settings - decides what's required. A second report for a song merges into its open one; a request for a song that's already in the library or already requested is refused.</p></div></li><li><div><span class="who who-db">Dashboard</span><p>The submission waits in <b>Needs review</b> (<code>pending_broken_reports</code>, <code>pending_song_requests</code>). From now on the song carries the <b>Reported broken</b> badge on Songs and What's new.</p></div></li><li><div><span class="who who-you">Contributor or admin</span><p>Completes it with <b>Edit</b> - language, lyrics link, genre and trait tags - and <b>Admit</b>s it into the list; the admit rules are fixed, whatever the form's profile. Or <b>Discard</b>s it; a report can also go straight into the list as <b>Resolved</b>.</p></div></li><li><div><span class="who who-tool">Reported and Requested tabs</span><p><b>Export open CSV</b> or <b>Export all CSV</b> downloads <code>broken.csv</code> and <code>song-requests.csv</code>. <b>Import CSV</b> takes the same formats back - every row lands in Needs review or merges into an existing entry.</p></div></li><li><div><span class="who who-you">You</span><p>Save both files into the Factory's <code>stack/input/</code>, then <code>./factory.sh pull-repairs --apply</code> (copies the reported songs from the library) and <code>./factory.sh up</code>. Rows already done are skipped, so full exports are fine.</p></div></li><li><div><span class="who who-write">You</span><p>Sing-test the results in USDX and copy the folders of <code>output/new/</code> and <code>output/repaired/&lt;repair&gt;/</code> into the library.</p></div></li><li><div><span class="who who-tool">Library scan</span><p>The next scan (daily, or <b>Scan now</b> on Settings) reads the new write times: the report gets <b>Updated since report</b>, the song shows on What's new, and in the "until updated" badge mode the badge goes.</p></div></li><li><div><span class="who who-you">Contributor or admin</span><p>Checks the song and sets the report <b>Resolved</b>, the request <b>Done</b> - the badge goes in any mode.</p></div></li></ol>
+  </section>
+  <section>
+    <h2>Files and tables</h2>
+    <div class="sheets">
+      <div class="sheet"><div class="sheet-head"><h3>broken.csv</h3><span class="pill pill-read">export · import</span></div><dl><dt>Columns</dt><dd>band, song name, category, description, language, lyrics_url, cover, genre, trait - see <a href="../csv.md#brokencsv">csv.md</a></dd><dt>Goes to</dt><dd>the Factory's <code>stack/input/broken.csv</code>: one repair job per row</dd><dt>Comes from</dt><dd>Reported tab: Export open CSV / Export all CSV</dd><dt>Back in</dt><dd>Import CSV on the Reported tab, e.g. rows written by <code>scripts/repair_library.py</code></dd></dl></div>
+      <div class="sheet"><div class="sheet-head"><h3>song-requests.csv</h3><span class="pill pill-read">export · import</span></div><dl><dt>Columns</dt><dd>band, title, youtube link, language, MusicBrainz ID, lyrics_url, cover, duet, genre, trait - see <a href="../csv.md#song-requestscsv">csv.md</a></dd><dt>Goes to</dt><dd>the Factory's <code>stack/input/song-requests.csv</code>: one new song per row</dd><dt>Comes from</dt><dd>Requested tab: Export open CSV / Export all CSV</dd><dt>Back in</dt><dd>Import CSV on the Requested tab</dd></dl></div>
+      <div class="sheet"><div class="sheet-head"><h3>Needs review</h3><span class="pill pill-db">database</span></div><dl><dt>Tables</dt><dd><code>pending_broken_reports</code>, <code>pending_song_requests</code></dd><dt>Filled by</dt><dd>the public forms and Import CSV</dd><dt>Left by</dt><dd>Admit (into the list), Discard, or for a report Resolved</dd><dt>Shows</dt><dd>the Reported broken badge for its reports</dd></dl></div>
+      <div class="sheet"><div class="sheet-head"><h3>Reported and Requested lists</h3><span class="pill pill-db">database</span></div><dl><dt>Tables</dt><dd><code>broken_reports</code> (open, resolved), <code>song_requests</code> (open, done)</dd><dt>Exports</dt><dd>the open entries or all of them</dd><dt>Marked</dt><dd>Updated since report, from the library scan's write times</dd><dt>Who</dt><dd>contributors and admins</dd></dl></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

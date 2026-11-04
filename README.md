@@ -2,8 +2,9 @@
 
 A small self-hosted web app for a home karaoke system built on
 [UltraStar Deluxe](https://usdx.eu/). Guests browse the song library, report
-songs that are broken and request new ones; admins review those submissions,
-export them as CSV for the song pipeline, and keep the library itself tidy.
+songs that are broken and request new ones; contributors and admins review
+those submissions, correct the songs' genres, export both for the song
+pipeline, and keep the library itself tidy.
 
 ## Motivation
 
@@ -19,12 +20,14 @@ twice. Karaoke Dashboard gives it one place:
 - **Guests** see what's in the library, which songs are already known to be
   broken and what was added recently.
 - **Logged-in users** report a broken song or request a new one in a short
-  form.
-- **Admins** review each submission, complete it, and export the lists as
-  CSV files that the song pipeline (UltraSinger batch processing and the
-  USDX Song Factory) picks up to repair or create songs.
-- **Library checks** find duplicates, files that break the UltraStar format,
-  and folders that don't follow the `Artist - Title` convention.
+  form, and explore the library by genre.
+- **Contributors** review each submission, complete it, and export the lists
+  as CSV files that the song pipeline (UltraSinger batch processing and the
+  USDX Song Factory) picks up to repair or create songs. They also correct
+  genres, exported for the Factory to write into the song files.
+- **Admins** can do all of that, and manage users, settings and the library
+  checks: duplicates, files that break the UltraStar format, and folders
+  that don't follow the `Artist - Title` convention.
 
 ## Features
 
@@ -36,6 +39,10 @@ badge - until the report is resolved, or optionally until the song is fixed.
 
 ![Song library](docs/screenshots/songs.png)
 
+Every page works on a phone too:
+
+<img src="docs/screenshots/songs-phone.png" alt="Song library on a phone" width="320">
+
 ### What's new
 
 **Recently added** and **Recently updated** side by side: the songs added to
@@ -43,6 +50,24 @@ the library and the songs whose files changed recently (2 months by default,
 adjustable in days, weeks or months), with a search on top that narrows both.
 
 ![What's new](docs/screenshots/whats-new.png)
+
+### Genres
+
+The library by genre, read from the songs' `#GENRE` tags, for logged-in
+users. **List** shows every genre with its song count and the songs of the
+picked one; **Map** draws each song as a dot in the circle of its main genre,
+related genres close together; **Connections** shows how genres share songs.
+
+![Genres list](docs/screenshots/genres.png)
+![Genre map](docs/screenshots/genres-map.png)
+![Genre connections](docs/screenshots/genres-connections.png)
+
+Contributors and admins get a fourth tab, **Edit**: change a song's genres
+in place, and export every open edit as `genre-edits.tsv` for the USDX Song
+Factory, which writes them into the song files. An edit shows everywhere at
+once and ends by itself once the library scan reads the new genres.
+
+![Edit genres](docs/screenshots/genres-edit.png)
 
 ### Report a broken song / request a song
 
@@ -54,9 +79,9 @@ so a song never shows up twice.
 ![Report a broken song](docs/screenshots/report.png)
 ![Request a song](docs/screenshots/request.png)
 
-### Review and export (admins)
+### Review and export (contributors and admins)
 
-New reports and requests wait in **Needs review**. An admin completes them -
+New reports and requests wait in **Needs review**. A contributor completes them -
 including genre and vocal/instrument tags - and admits them into the
 exportable list, which downloads as CSV. Existing CSV files can be imported
 back, merging with what's already there.
@@ -64,10 +89,11 @@ back, merging with what's already there.
 ![Reported songs](docs/screenshots/admin-reported.png)
 ![Requested songs](docs/screenshots/admin-requested.png)
 
-### Library checks (admins)
+### Library checks
 
-**Duplicates** finds songs that exist more than once and possible duplicate
-versions. **Integrity** checks every song file against the UltraStar format,
+**Duplicates** (contributors and admins) finds songs that exist more than
+once, possible duplicate versions and folders without a song file.
+**Integrity** (admins) checks every song file against the UltraStar format,
 flags folders that break the `Artist - Title` convention and songs sitting in
 the wrong folder, and exports playlists and move lists to fix them.
 
@@ -97,9 +123,13 @@ Details, and the order to run them in, are in
 
 ### Users and settings (admins)
 
-Accounts are created by an admin; there's no self-registration. Settings
-switch each public form between a relaxed **karaoke night** profile and a
-**strict** one, and the app between production and debug mode.
+Accounts are created by an admin; there's no self-registration. A user is a
+plain **user**, a **contributor** (Reported, Requested, Duplicates and genre
+editing) or an **admin** (everything). Settings switch each public form
+between a relaxed **karaoke night** profile and a **strict** one, the app
+between production and debug mode, and set how long the "Reported broken"
+badge stays, when the library scan runs, the What's new period and how many
+genres the map shows.
 
 ![Settings](docs/screenshots/settings.png)
 
@@ -159,10 +189,23 @@ The Docker-based dev stack, tests and the project layout are in
 
 ## Documentation
 
+How the dashboard fits between the singers, the song library and the
+[USDX Song Factory](https://github.com/Ueda-Ichitaka/USDX-Song-Factory):
+
+![How the dashboard fits together](docs/workflows/index.svg)
+
+One diagram per workflow - [reports and requests](docs/workflows/reports-and-requests.svg),
+[library scan and What's new](docs/workflows/library-scan.svg),
+[genre editing](docs/workflows/genre-editing.svg) and
+[library checks and scripts](docs/workflows/library-checks.svg). The matching
+pages in [docs/workflows/](docs/workflows/index.html) add the steps done by
+hand and the files and tables involved; open them in a browser.
+
 | Topic | What's in it |
 | --- | --- |
-| [Features](docs/features.md) | Every page in detail: forms and profiles, the review flow, duplicates, integrity checks, settings |
-| [CSV export and import](docs/csv.md) | Column formats, how duplicate reports merge, importing CSV files |
+| [Features](docs/features.md) | Every page in detail: forms and profiles, the review flow, genres, duplicates, integrity checks, user levels, settings |
+| [Workflows](docs/workflows/index.html) | Diagrams of how data and files flow: reports and requests, the library scan, genre editing, library checks and scripts |
+| [CSV export and import](docs/csv.md) | Column formats, how duplicate reports merge, importing CSV files, the genre edit export |
 | [Library scripts](docs/library-scripts.md) | Standalone scripts that move, rename and repair song files on disk |
 | [Deployment](docs/deploy.md) | Synology deploy in detail, versions, troubleshooting, configuration reference |
 | [Security](docs/security.md) | Login hardening, CSRF, headers, input limits, CSV injection |
